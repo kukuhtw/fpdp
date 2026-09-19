@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Core\Config;
+use App\Core\Exceptions\HttpException;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Router;
@@ -19,6 +20,8 @@ try {
     $router = require __DIR__ . '/../app/routes.php';
 
     $response = $router->dispatch(Request::fromGlobals());
+} catch (HttpException $e) {
+    $response = JsonEnvelope::error($e->getErrorCode(), $e->getMessage(), $e->getStatusCode(), $e->getDetails());
 } catch (\Throwable $e) {
     $message = $debug ? $e->getMessage() : 'An unexpected error occurred.';
     $response = JsonEnvelope::error('INTERNAL_ERROR', $message, 500);

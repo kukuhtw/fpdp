@@ -25,6 +25,11 @@ final class Router
         $this->add('POST', $path, $handler);
     }
 
+    public function patch(string $path, callable $handler): void
+    {
+        $this->add('PATCH', $path, $handler);
+    }
+
     private function add(string $method, string $path, callable $handler): void
     {
         $this->routes[] = ['method' => $method, 'path' => $path, 'handler' => $handler];
