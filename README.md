@@ -45,12 +45,13 @@ The intended product combines:
 | REST handlers | `GET /api/v1/health` and the identity/profile endpoints below; other routes not yet implemented |
 | Identity & authentication | Owner registration, login, logout, and `/me`; bcrypt password hashing, bearer tokens hashed at rest, node/user/profile creation on register; per-IP rate limiting on register/login (`429 RATE_LIMITED`) |
 | Profiles | Public profile read by handle and authenticated profile update (`PATCH /me/profile`), with visibility rules |
+| Visitor identity | Google OAuth 2.0 sign-in scoped per node/profile (`GET /profiles/{handle}/visitor-auth/google/redirect` and `.../callback`); node-scoped `visitor_accounts`, hashed-at-rest `visitor_tokens`, HMAC-signed OAuth `state` (no server-side session store) |
 | Payments | Interface, service, factory, and functional dummy gateway |
 | Payment lifecycle | Dummy create, status, cancel, refund, and webhook normalization |
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
 | Database layer | `Database` PDO connection manager and `MigrationRunner`; ordered migrations under `database/migrations/` with foreign keys and indexes, run via `database/migrate.php` |
-| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, a full auth/profile HTTP flow test, and rate limiter unit/endpoint tests |
+| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, a full auth/profile HTTP flow test, rate limiter unit/endpoint tests, an OAuth state signer test, and a full visitor-auth HTTP flow test (fake Google client) |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
@@ -99,17 +100,19 @@ Factories select adapters by provider code and reject unknown or not-yet-impleme
 
 ```text
 app/
-├── Contracts/          Shared payment and external-provider interfaces
-├── Controllers/        MVC controllers and REST handlers (Home, Health, Auth, Profile)
+├── Contracts/          Payment, external-provider, and Google OAuth client interfaces
+├── Controllers/        MVC controllers and REST handlers (Home, Health, Auth, Profile, VisitorAuth)
 ├── Core/
 │   ├── Http/            Request, Response, JsonEnvelope, ResourcePresenter
-│   ├── Exceptions/       HttpException and its 401/404/409/422 subtypes
+│   ├── Exceptions/       HttpException and its 401/404/409/422/429 subtypes
 │   ├── Router.php, Config.php, Database.php, MigrationRunner.php, Uuid.php
 │   └── View.php          Minimal view rendering
-├── Repositories/        Node, User, Profile, and AuthToken data access (PDO)
+├── Repositories/        Node, User, Profile, AuthToken, Visitor, VisitorToken, RateLimit data access (PDO)
 ├── Services/
 │   ├── Auth/            AuthService: register, login, logout, token verification
 │   ├── Profile/         ProfileService: public read and owner update
+│   ├── Visitor/         Google OAuth client, signed-state helper, VisitorAuthService
+│   ├── Security/        RateLimiter (fixed-window, per action/identifier)
 │   ├── External/        RSS, Atom, and Custom API adapters
 │   └── Payment/         Payment service, factory, and dummy adapter
 ├── Views/              PHP views
@@ -146,6 +149,8 @@ tests/
 ├── AuthEndpointsTest.php    Full HTTP flow: register, login, /me, profile read/update, logout
 ├── RateLimitTest.php        RateLimiter unit test: window counting and per-key isolation
 ├── RateLimitEndpointTest.php Login endpoint returns 429 once the configured limit is exceeded
+├── OAuthStateSignerTest.php Signed OAuth state: round trip, tamper/secret/expiry rejection
+├── VisitorAuthEndpointsTest.php Full visitor OAuth flow via a fake Google client: redirect, callback, reuse, 401s
 └── YouTubeEmbedResolverTest.php Video-ID extraction and RSS/Atom YouTube embed normalization
 ```
 
@@ -187,6 +192,8 @@ tests/
    php tests/AuthEndpointsTest.php
    php tests/RateLimitTest.php
    php tests/RateLimitEndpointTest.php
+   php tests/OAuthStateSignerTest.php
+   php tests/VisitorAuthEndpointsTest.php
    php tests/YouTubeEmbedResolverTest.php
    ```
 
@@ -348,12 +355,13 @@ Produk yang dituju menggabungkan:
 | REST handler | `GET /api/v1/health` dan endpoint identity/profile di bawah; rute lain belum diimplementasikan |
 | Identity & autentikasi | Registrasi owner, login, logout, dan `/me`; password hashing bcrypt, bearer token di-hash saat disimpan, pembuatan node/user/profile saat register; rate limiting per-IP di register/login (`429 RATE_LIMITED`) |
 | Profil | Baca profil publik berdasarkan handle dan update profil terautentikasi (`PATCH /me/profile`), dengan aturan visibility |
+| Identity visitor | Login Google OAuth 2.0 per-node/profile (`GET /profiles/{handle}/visitor-auth/google/redirect` dan `.../callback`); `visitor_accounts` yang node-scoped, `visitor_tokens` yang di-hash saat disimpan, OAuth `state` yang ditandatangani HMAC (tanpa server-side session store) |
 | Pembayaran | Interface, service, factory, dan dummy gateway yang berfungsi |
 | Siklus pembayaran | Dummy create, status, cancel, refund, dan normalisasi webhook |
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
 | Database layer | `Database` PDO connection manager dan `MigrationRunner`; migration terurut di `database/migrations/` dengan foreign key dan index, dijalankan lewat `database/migrate.php` |
-| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, test alur auth/profile HTTP lengkap, dan test unit/endpoint rate limiter |
+| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, test alur auth/profile HTTP lengkap, test unit/endpoint rate limiter, test OAuth state signer, dan test alur visitor-auth HTTP lengkap (fake Google client) |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
@@ -402,17 +410,19 @@ Factory memilih adapter berdasarkan kode provider dan menolak kode yang tidak di
 
 ```text
 app/
-├── Contracts/          Interface payment dan external provider
-├── Controllers/        Controller MVC dan REST handler (Home, Health, Auth, Profile)
+├── Contracts/          Interface payment, external provider, dan Google OAuth client
+├── Controllers/        Controller MVC dan REST handler (Home, Health, Auth, Profile, VisitorAuth)
 ├── Core/
 │   ├── Http/            Request, Response, JsonEnvelope, ResourcePresenter
-│   ├── Exceptions/       HttpException dan subtype 401/404/409/422-nya
+│   ├── Exceptions/       HttpException dan subtype 401/404/409/422/429-nya
 │   ├── Router.php, Config.php, Database.php, MigrationRunner.php, Uuid.php
 │   └── View.php          View renderer minimal
-├── Repositories/        Akses data (PDO) untuk Node, User, Profile, dan AuthToken
+├── Repositories/        Akses data (PDO) untuk Node, User, Profile, AuthToken, Visitor, VisitorToken, RateLimit
 ├── Services/
 │   ├── Auth/            AuthService: register, login, logout, verifikasi token
 │   ├── Profile/         ProfileService: baca publik dan update oleh owner
+│   ├── Visitor/         Google OAuth client, signed-state helper, VisitorAuthService
+│   ├── Security/        RateLimiter (fixed-window, per action/identifier)
 │   ├── External/        Adapter RSS, Atom, dan Custom API
 │   └── Payment/         Payment service, factory, dan dummy adapter
 ├── Views/              View PHP
@@ -449,6 +459,8 @@ tests/
 ├── AuthEndpointsTest.php    Alur HTTP lengkap: register, login, /me, baca/update profil, logout
 ├── RateLimitTest.php        Test unit RateLimiter: penghitungan window dan isolasi per-key
 ├── RateLimitEndpointTest.php Endpoint login mengembalikan 429 setelah limit terlampaui
+├── OAuthStateSignerTest.php Signed OAuth state: round trip, penolakan tamper/secret/expiry
+├── VisitorAuthEndpointsTest.php Alur OAuth visitor lengkap via fake Google client: redirect, callback, reuse, 401
 └── YouTubeEmbedResolverTest.php Ekstraksi video ID dan normalisasi embed YouTube dari RSS/Atom
 ```
 
@@ -490,6 +502,8 @@ tests/
    php tests/AuthEndpointsTest.php
    php tests/RateLimitTest.php
    php tests/RateLimitEndpointTest.php
+   php tests/OAuthStateSignerTest.php
+   php tests/VisitorAuthEndpointsTest.php
    php tests/YouTubeEmbedResolverTest.php
    ```
 
