@@ -9,7 +9,7 @@ use PDO;
 final class ProfileRepository
 {
     private const SELECT = '
-        SELECT profiles.*, nodes.domain AS node_domain
+        SELECT profiles.*, nodes.id AS node_id, nodes.domain AS node_domain
         FROM profiles
         INNER JOIN users ON users.id = profiles.user_id
         INNER JOIN nodes ON nodes.id = users.node_id

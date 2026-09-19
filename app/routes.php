@@ -6,6 +6,8 @@ use App\Controllers\AuthController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\ProfileController;
+use App\Controllers\VisitorAuthController;
+use App\Core\Config;
 use App\Core\Database;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
@@ -15,9 +17,14 @@ use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
+use App\Repositories\VisitorRepository;
+use App\Repositories\VisitorTokenRepository;
 use App\Services\Auth\AuthService;
 use App\Services\Profile\ProfileService;
 use App\Services\Security\RateLimiter;
+use App\Services\Visitor\GoogleOAuthClient;
+use App\Services\Visitor\OAuthStateSigner;
+use App\Services\Visitor\VisitorAuthService;
 
 $router = new Router();
 
@@ -40,6 +47,29 @@ $buildProfileService = static function (): ProfileService {
 
 $buildRateLimiter = static function (): RateLimiter {
     return new RateLimiter(new RateLimitRepository(Database::connection()));
+};
+
+$buildVisitorAuthController = static function (): VisitorAuthController {
+    $connection = Database::connection();
+
+    $googleClient = new GoogleOAuthClient(
+        Config::get('GOOGLE_CLIENT_ID', ''),
+        Config::get('GOOGLE_CLIENT_SECRET', ''),
+    );
+
+    $visitorAuth = new VisitorAuthService(
+        $googleClient,
+        new VisitorRepository($connection),
+        new VisitorTokenRepository($connection),
+    );
+
+    $stateSigner = new OAuthStateSigner(Config::get('APP_KEY', ''));
+
+    return new VisitorAuthController(
+        new ProfileService(new ProfileRepository($connection)),
+        $visitorAuth,
+        $stateSigner,
+    );
 };
 
 $router->get('/', function (Request $request, array $params): Response {
@@ -72,6 +102,14 @@ $router->get('/api/v1/profiles/{handle}', function (Request $request, array $par
 
 $router->patch('/api/v1/me/profile', function (Request $request, array $params) use ($buildAuthService, $buildProfileService): Response {
     return (new ProfileController($buildAuthService(), $buildProfileService()))->update($request);
+});
+
+$router->get('/api/v1/profiles/{handle}/visitor-auth/google/redirect', function (Request $request, array $params) use ($buildVisitorAuthController): Response {
+    return $buildVisitorAuthController()->redirect($request, $params);
+});
+
+$router->get('/api/v1/profiles/{handle}/visitor-auth/google/callback', function (Request $request, array $params) use ($buildVisitorAuthController): Response {
+    return $buildVisitorAuthController()->callback($request, $params);
 });
 
 return $router;
