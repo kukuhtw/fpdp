@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Config;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Response;
 
@@ -13,7 +14,7 @@ final class HealthController
     {
         return JsonEnvelope::success([
             'status' => 'OK',
-            'version' => '0.1.0',
+            'version' => Config::get('APP_VERSION', '0.1.0'),
             'dependencies' => [],
         ]);
     }

@@ -40,13 +40,14 @@ The intended product combines:
 |---|---|
 | PHP structure | Lightweight PHP 8.2+ modular structure with PSR-4 autoloading |
 | MVC example | `HomeController`, view renderer, and static landing view |
-| HTTP entry point | Public front controller (`public/index.php`), `Router` with static and `{param}` routes, JSON success/error envelopes |
+| HTTP entry point | Public front controller (`public/index.php`), `Router` with static and `{param}` routes, JSON success/error envelopes, sanitized exception mapping to a 500 envelope |
+| Configuration | `Config` loader with defaults, optional `.env` file, real environment override, and fail-fast validation (`.env.example` provided) |
 | REST handlers | `GET /api/v1/health` implemented against the documented envelope; other routes not yet implemented |
 | Payments | Interface, service, factory, and functional dummy gateway |
 | Payment lifecycle | Dummy create, status, cancel, refund, and webhook normalization |
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
-| Tests | MVP smoke test, MVC rendering test, router test, and front-controller route test |
+| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, and config loader/validation test |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
@@ -97,7 +98,7 @@ Factories currently select adapters by provider code. Only the dummy payment gat
 app/
 ├── Contracts/          Shared payment and external-provider interfaces
 ├── Controllers/        MVC controllers and REST handlers (HomeController, HealthController)
-├── Core/               Router, HTTP request/response/envelope, and view rendering
+├── Core/               Router, HTTP request/response/envelope, Config loader, and view rendering
 ├── Services/
 │   ├── External/       RSS, Atom, and Custom API adapters
 │   └── Payment/        Payment service, factory, and dummy adapter
@@ -106,6 +107,8 @@ app/
 
 public/
 └── index.php           HTTP front controller (serve this directory)
+
+.env.example             Safe example environment file (no secrets)
 
 database/
 └── schema.sql          Initial MySQL schema
@@ -123,7 +126,8 @@ tests/
 ├── MvpSmokeTest.php         Payment and connector smoke test
 ├── MvcHomeTest.php          Landing-view rendering test
 ├── RouterTest.php           Router matching and fallback behavior
-└── FrontControllerTest.php  Route wiring and health-envelope test
+├── FrontControllerTest.php  Route wiring and health-envelope test
+└── ConfigTest.php           Config defaults, .env override, and validation test
 ```
 
 ### Requirements
@@ -143,23 +147,30 @@ tests/
    composer dump-autoload
    ```
 
-2. Run the available tests:
+2. Copy the example environment file (optional; sane defaults apply without it):
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Run the available tests:
 
    ```bash
    php tests/MvpSmokeTest.php
    php tests/MvcHomeTest.php
    php tests/RouterTest.php
    php tests/FrontControllerTest.php
+   php tests/ConfigTest.php
    ```
 
-3. Serve the front controller and try it in a browser or with curl:
+4. Serve the front controller and try it in a browser or with curl:
 
    ```bash
    php -S localhost:8080 -t public
    curl http://localhost:8080/api/v1/health
    ```
 
-4. Optionally create a MySQL database and import the initial schema:
+5. Optionally create a MySQL database and import the initial schema:
 
    ```bash
    mysql -u root -p fpdp < database/schema.sql
@@ -254,6 +265,8 @@ Start with the [documentation index](documentation/README.md). Product requireme
 - [Entity Relationship Diagram — Bahasa Indonesia](documentation/ERD.id.md)
 - [Social and commerce integrations — English](documentation/SOCIAL-COMMERCE-INTEGRATIONS.en.md)
 - [Integrasi sosial dan commerce — Bahasa Indonesia](documentation/SOCIAL-COMMERCE-INTEGRATIONS.id.md)
+- [Federation concept — English](documentation/FEDERATION-CONCEPT.en.md)
+- [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
 
 ---
 
@@ -287,13 +300,14 @@ Produk yang dituju menggabungkan:
 |---|---|
 | Struktur PHP | Struktur modular ringan berbasis PHP 8.2+ dengan autoload PSR-4 |
 | Contoh MVC | `HomeController`, view renderer, dan landing view statis |
-| HTTP entry point | Front controller publik (`public/index.php`), `Router` dengan rute statis dan `{param}`, JSON envelope sukses/error |
+| HTTP entry point | Front controller publik (`public/index.php`), `Router` dengan rute statis dan `{param}`, JSON envelope sukses/error, exception mapping tersanitasi ke envelope 500 |
+| Konfigurasi | `Config` loader dengan default, file `.env` opsional, override dari environment asli, dan validasi fail-fast (`.env.example` tersedia) |
 | REST handler | `GET /api/v1/health` sudah sesuai envelope yang didokumentasikan; rute lain belum diimplementasikan |
 | Pembayaran | Interface, service, factory, dan dummy gateway yang berfungsi |
 | Siklus pembayaran | Dummy create, status, cancel, refund, dan normalisasi webhook |
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
-| Pengujian | MVP smoke test, test render MVC, test router, dan test rute front controller |
+| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, dan test config loader/validasi |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
@@ -344,7 +358,7 @@ Factory saat ini memilih adapter berdasarkan kode provider. Hanya dummy payment 
 app/
 ├── Contracts/          Interface payment dan external provider
 ├── Controllers/        Controller MVC dan REST handler (HomeController, HealthController)
-├── Core/               Router, HTTP request/response/envelope, dan view renderer
+├── Core/               Router, HTTP request/response/envelope, Config loader, dan view renderer
 ├── Services/
 │   ├── External/       Adapter RSS, Atom, dan Custom API
 │   └── Payment/        Payment service, factory, dan dummy adapter
@@ -353,6 +367,8 @@ app/
 
 public/
 └── index.php           Front controller HTTP (arahkan web server ke folder ini)
+
+.env.example             Contoh file environment yang aman (tanpa secret)
 
 database/
 └── schema.sql          Skema awal MySQL
@@ -370,7 +386,8 @@ tests/
 ├── MvpSmokeTest.php         Smoke test payment dan connector
 ├── MvcHomeTest.php          Test render landing view
 ├── RouterTest.php           Test pencocokan rute dan fallback
-└── FrontControllerTest.php  Test wiring rute dan envelope health
+├── FrontControllerTest.php  Test wiring rute dan envelope health
+└── ConfigTest.php           Test default config, override .env, dan validasi
 ```
 
 ### Kebutuhan sistem
@@ -390,23 +407,30 @@ tests/
    composer dump-autoload
    ```
 
-2. Jalankan test yang tersedia:
+2. Salin contoh file environment (opsional; default yang aman tetap berlaku tanpa file ini):
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Jalankan test yang tersedia:
 
    ```bash
    php tests/MvpSmokeTest.php
    php tests/MvcHomeTest.php
    php tests/RouterTest.php
    php tests/FrontControllerTest.php
+   php tests/ConfigTest.php
    ```
 
-3. Jalankan front controller dan coba lewat browser atau curl:
+4. Jalankan front controller dan coba lewat browser atau curl:
 
    ```bash
    php -S localhost:8080 -t public
    curl http://localhost:8080/api/v1/health
    ```
 
-4. Opsional: buat database MySQL dan impor skema awal:
+5. Opsional: buat database MySQL dan impor skema awal:
 
    ```bash
    mysql -u root -p fpdp < database/schema.sql
@@ -501,6 +525,8 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 - [Entity Relationship Diagram — Bahasa Indonesia](documentation/ERD.id.md)
 - [Social and commerce integrations — English](documentation/SOCIAL-COMMERCE-INTEGRATIONS.en.md)
 - [Integrasi sosial dan commerce — Bahasa Indonesia](documentation/SOCIAL-COMMERCE-INTEGRATIONS.id.md)
+- [Federation concept — English](documentation/FEDERATION-CONCEPT.en.md)
+- [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
 
 ---
 
