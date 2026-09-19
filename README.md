@@ -39,18 +39,19 @@ The intended product combines:
 | Area | Current state |
 |---|---|
 | PHP structure | Lightweight PHP 8.2+ modular structure with PSR-4 autoloading |
-| MVC example | `HomeController`, view renderer, and static landing view |
-| HTTP entry point | Public front controller (`public/index.php`), `Router` with static and `{param}` routes, JSON success/error envelopes, sanitized exception mapping to a 500 envelope |
+| Web UI | Landing page, local timeline (`/timeline`), public profile (`/@{handle}`), public post page, and authenticated post editor (`/dashboard/posts`) |
+| HTTP entry point | Public front controller (`public/index.php`), `Router` with static, `{param}`, and embedded `@{handle}` routes, JSON success/error envelopes, sanitized exception mapping to a 500 envelope |
 | Configuration | `Config` loader with defaults, optional `.env` file, real environment override, and fail-fast validation (`.env.example` provided) |
-| REST handlers | `GET /api/v1/health` and the identity/profile endpoints below; other routes not yet implemented |
+| REST handlers | Health, identity/profile, local post CRUD, public timeline, visitor authentication, and gated CV endpoints |
 | Identity & authentication | Owner registration, login, logout, and `/me`; bcrypt password hashing, bearer tokens hashed at rest, node/user/profile creation on register; per-IP rate limiting on register/login (`429 RATE_LIMITED`) |
 | Profiles | Public profile read by handle and authenticated profile update (`PATCH /me/profile`), with visibility rules |
+| Local content | Draft/publish/update/soft-delete post flow, visibility enforcement, canonical URLs, cursor-paginated public timeline, and media metadata schema |
 | Visitor identity | Google OAuth 2.0 sign-in scoped per node/profile (`GET /profiles/{handle}/visitor-auth/google/redirect` and `.../callback`); node-scoped `visitor_accounts`, hashed-at-rest `visitor_tokens`, HMAC-signed OAuth `state` (no server-side session store) |
 | Paid CV/resume access | Owner upload (`POST /me/cv`, JSON + base64 content, stored under `storage/` outside the webroot), public metadata read, visitor-paid unlock via the existing `PaymentGatewayInterface` (`POST /profiles/{handle}/cv/access`), and gated download (`GET .../cv/download`, `402 PAYMENT_REQUIRED` without a grant); replacing a CV invalidates prior grants |
 | Payments | Interface, service, factory, and functional dummy gateway |
 | Payment lifecycle | Dummy create, status, cancel, refund, and webhook normalization |
 | External content | RSS, Atom, and Custom API connector adapters |
-| Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
+| Data model | MySQL tables for identity, local posts/media, gateways, payments, external sources/posts, CV access, and integration queue |
 | Database layer | `Database` PDO connection manager and `MigrationRunner`; ordered migrations under `database/migrations/` with foreign keys and indexes, run via `database/migrate.php` |
 | Deployment | Web install wizard (`public/install.php`): requirements check, `.env` writer with tested DB credentials, migration runner, owner-account creation, and a self-lock (`storage/installed.lock`); `public/.htaccess` front-controller rewrite for Apache; see the [deployment guide](documentation/DEPLOYMENT-GUIDE.en.md) |
 | Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, a full auth/profile HTTP flow test, rate limiter unit/endpoint tests, an OAuth state signer test, a full visitor-auth HTTP flow test (fake Google client), a full CV upload/paywall/download HTTP flow test, and an installer test (requirements, `.env` round-trip, connection check, install-lock) |
@@ -58,10 +59,8 @@ The intended product combines:
 
 The following areas are **designed but not yet implemented end-to-end**:
 
-- remaining REST handlers beyond `/health` and the identity/profile endpoints;
+- remaining REST handlers for administration, commerce, external-source management, and federation;
 - admin role permissions, rate limiting, and audit-event writes (the `audit_events` table exists but nothing writes to it yet);
-- local-post persistence;
-- public profile and timeline user interfaces;
 - scheduler, workers, retries, and normalized feed persistence;
 - federation protocol, discovery processing, and remote actors;
 - products, orders, checkout, and buyer experience;
@@ -358,18 +357,19 @@ Produk yang dituju menggabungkan:
 | Area | Kondisi saat ini |
 |---|---|
 | Struktur PHP | Struktur modular ringan berbasis PHP 8.2+ dengan autoload PSR-4 |
-| Contoh MVC | `HomeController`, view renderer, dan landing view statis |
-| HTTP entry point | Front controller publik (`public/index.php`), `Router` dengan rute statis dan `{param}`, JSON envelope sukses/error, exception mapping tersanitasi ke envelope 500 |
+| Web UI | Landing page, timeline lokal (`/timeline`), profil publik (`/@{handle}`), halaman post publik, dan editor post terautentikasi (`/dashboard/posts`) |
+| HTTP entry point | Front controller publik (`public/index.php`), `Router` dengan rute statis, `{param}`, dan embedded `@{handle}`, JSON envelope sukses/error, exception mapping tersanitasi ke envelope 500 |
 | Konfigurasi | `Config` loader dengan default, file `.env` opsional, override dari environment asli, dan validasi fail-fast (`.env.example` tersedia) |
-| REST handler | `GET /api/v1/health` dan endpoint identity/profile di bawah; rute lain belum diimplementasikan |
+| REST handler | Endpoint health, identity/profile, CRUD post lokal, timeline publik, autentikasi visitor, dan CV berpagar akses |
 | Identity & autentikasi | Registrasi owner, login, logout, dan `/me`; password hashing bcrypt, bearer token di-hash saat disimpan, pembuatan node/user/profile saat register; rate limiting per-IP di register/login (`429 RATE_LIMITED`) |
 | Profil | Baca profil publik berdasarkan handle dan update profil terautentikasi (`PATCH /me/profile`), dengan aturan visibility |
+| Konten lokal | Alur draft/publish/update/soft-delete post, penegakan visibility, canonical URL, timeline publik dengan cursor pagination, dan skema metadata media |
 | Identity visitor | Login Google OAuth 2.0 per-node/profile (`GET /profiles/{handle}/visitor-auth/google/redirect` dan `.../callback`); `visitor_accounts` yang node-scoped, `visitor_tokens` yang di-hash saat disimpan, OAuth `state` yang ditandatangani HMAC (tanpa server-side session store) |
 | Akses CV/resume berbayar | Upload owner (`POST /me/cv`, JSON + konten base64, disimpan di `storage/` di luar webroot), baca metadata publik, unlock berbayar oleh visitor lewat `PaymentGatewayInterface` yang sudah ada (`POST /profiles/{handle}/cv/access`), dan download yang digerbang (`GET .../cv/download`, `402 PAYMENT_REQUIRED` tanpa grant); mengganti CV membatalkan grant lama |
 | Pembayaran | Interface, service, factory, dan dummy gateway yang berfungsi |
 | Siklus pembayaran | Dummy create, status, cancel, refund, dan normalisasi webhook |
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
-| Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
+| Model data | Tabel MySQL untuk identity, post/media lokal, gateway, payment, sumber/post eksternal, akses CV, dan integration queue |
 | Database layer | `Database` PDO connection manager dan `MigrationRunner`; migration terurut di `database/migrations/` dengan foreign key dan index, dijalankan lewat `database/migrate.php` |
 | Deployment | Web install wizard (`public/install.php`): cek requirement, penulis `.env` dengan kredensial DB yang sudah diuji, migration runner, pembuatan akun owner, dan self-lock (`storage/installed.lock`); rewrite front controller Apache `public/.htaccess`; lihat [panduan deployment](documentation/DEPLOYMENT-GUIDE.id.md) |
 | Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, test alur auth/profile HTTP lengkap, test unit/endpoint rate limiter, test OAuth state signer, test alur visitor-auth HTTP lengkap (fake Google client), test alur upload/paywall/download CV HTTP lengkap, dan test installer (requirement, round-trip `.env`, cek koneksi, install-lock) |
@@ -377,10 +377,8 @@ Produk yang dituju menggabungkan:
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
 
-- handler REST lain di luar `/health` dan endpoint identity/profile;
+- handler REST tersisa untuk administrasi, commerce, pengelolaan sumber eksternal, dan federasi;
 - permission role admin, rate limiting, dan penulisan audit event (tabel `audit_events` sudah ada tapi belum ada yang menulis ke situ);
-- persistence post lokal;
-- UI profil publik dan timeline;
 - scheduler, worker, retry, dan penyimpanan feed yang sudah dinormalisasi;
 - protokol federasi, pemrosesan discovery, dan remote actor;
 - produk, order, checkout, dan pengalaman buyer;

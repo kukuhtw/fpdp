@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Controllers\AuthController;
 use App\Controllers\CvController;
+use App\Controllers\ContentPageController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\ProfileController;
@@ -65,6 +66,15 @@ $buildPostController = static function () use ($buildAuthService): PostControlle
     );
 };
 
+$buildContentPageController = static function (): ContentPageController {
+    $connection = Database::connection();
+
+    return new ContentPageController(
+        new PostService(new PostRepository($connection)),
+        new ProfileService(new ProfileRepository($connection)),
+    );
+};
+
 $buildVisitorAuthService = static function (): VisitorAuthService {
     $connection = Database::connection();
 
@@ -112,6 +122,22 @@ $buildCvController = static function () use ($buildAuthService, $buildVisitorAut
 
 $router->get('/', function (Request $request, array $params): Response {
     return Response::html((new HomeController())->index());
+});
+
+$router->get('/timeline', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->timeline($request->query));
+});
+
+$router->get('/@{handle}', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->profile($params['handle'], $request->query));
+});
+
+$router->get('/posts/{postId}', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->post($params['postId']));
+});
+
+$router->get('/dashboard/posts', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->editor());
 });
 
 $router->get('/api/v1/health', function (Request $request, array $params): Response {

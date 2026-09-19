@@ -81,6 +81,21 @@ final class Router
                 continue;
             }
 
+            if (preg_match('/^(.*)\{([A-Za-z][A-Za-z0-9_]*)\}(.*)$/', $segment, $matches) === 1) {
+                $prefix = $matches[1];
+                $suffix = $matches[3];
+                $value = $pathSegments[$index];
+                if (!str_starts_with($value, $prefix) || !str_ends_with($value, $suffix)) {
+                    return null;
+                }
+                $length = strlen($value) - strlen($prefix) - strlen($suffix);
+                if ($length <= 0) {
+                    return null;
+                }
+                $params[$matches[2]] = substr($value, strlen($prefix), $length);
+                continue;
+            }
+
             if ($segment !== $pathSegments[$index]) {
                 return null;
             }

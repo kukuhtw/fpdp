@@ -18,6 +18,10 @@ $router->get('/profiles/{handle}', function (Request $request, array $params): R
     return Response::json(['data' => $params]);
 });
 
+$router->get('/@{handle}', function (Request $request, array $params): Response {
+    return Response::json(['data' => $params]);
+});
+
 $health = $router->dispatch(new Request('GET', '/api/v1/health'));
 if ($health->status !== 200 || !str_contains($health->body, '"OK"')) {
     fwrite(STDERR, "Static route dispatch failed\n");
@@ -28,6 +32,13 @@ $profile = $router->dispatch(new Request('GET', '/profiles/alice'));
 $decoded = json_decode($profile->body, true);
 if (($decoded['data']['handle'] ?? null) !== 'alice') {
     fwrite(STDERR, "Dynamic route param matching failed\n");
+    exit(1);
+}
+
+$atProfile = $router->dispatch(new Request('GET', '/@alice'));
+$decodedAtProfile = json_decode($atProfile->body, true);
+if (($decodedAtProfile['data']['handle'] ?? null) !== 'alice') {
+    fwrite(STDERR, "Embedded route param matching failed\n");
     exit(1);
 }
 
