@@ -257,3 +257,43 @@ CREATE TABLE IF NOT EXISTS order_items (
     KEY idx_order_items_order (order_id),
     KEY idx_order_items_product (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Federation identity & activity tables
+
+CREATE TABLE IF NOT EXISTS node_keys (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    node_id INT NOT NULL,
+    key_type VARCHAR(32) NOT NULL DEFAULT 'ed25519',
+    public_key TEXT NOT NULL,
+    private_key TEXT NOT NULL,
+    fingerprint VARCHAR(64) NOT NULL,
+    is_current TINYINT(1) NOT NULL DEFAULT 1,
+    rotated_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_node_key_fingerprint (fingerprint),
+    KEY idx_node_keys_current (node_id, is_current),
+    CONSTRAINT fk_node_keys_node FOREIGN KEY (node_id) REFERENCES nodes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS federation_activities (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(36) NOT NULL,
+    node_id INT NOT NULL,
+    direction VARCHAR(16) NOT NULL COMMENT 'OUTGOING or INCOMING',
+    activity_type VARCHAR(64) NOT NULL,
+    actor_uri VARCHAR(2048) NOT NULL,
+    object_uri VARCHAR(2048) NULL,
+    target_node_domain VARCHAR(255) NULL,
+    payload JSON NOT NULL,
+    signature TEXT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    retry_count INT NOT NULL DEFAULT 0,
+    last_error TEXT NULL,
+    delivered_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_fed_activity_public_id (public_id),
+    KEY idx_fed_activity_node (node_id, direction, status),
+    KEY idx_fed_activity_type (activity_type, status),
+    CONSTRAINT fk_fed_activity_node FOREIGN KEY (node_id) REFERENCES nodes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

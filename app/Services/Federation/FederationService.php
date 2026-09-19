@@ -10,6 +10,8 @@ use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
 use App\Repositories\FederatedConnectionRepository;
 use App\Repositories\FederatedPostRepository;
+use App\Repositories\FederationActivityRepository;
+use App\Repositories\NodeKeyRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\RemoteActorRepository;
 use App\Repositories\RemoteNodeRepository;
@@ -27,6 +29,9 @@ final class FederationService
         private readonly RemoteNodeRepository $nodes,
         private readonly FederatedPostRepository $posts,
         private readonly ProfileRepository $profiles,
+        private readonly ?NodeKeyRepository $nodeKeys = null,
+        private readonly ?FederationActivityRepository $activities = null,
+        private readonly ?NodeKeyService $keyService = null,
     ) {
     }
 
@@ -182,3 +187,67 @@ public function listOwnConnections(int $profileId): array
         return (int) $decoded;
     }
 }
+// ---- Federation Node Identity & Discovery ----
+
+    public function getCapabilityDocument(int $nodeId, string $domain): array
+    {
+        $ks = $this->getKeyService();
+        return [
+            'protocol' => 'FPDP-Federation/1.0',
+            'domain' => $domain,
+            'node_id' => $nodeId,
+            'capabilities' => ['follow', 'accept', 'reject', 'undo', 'block', 'create_post', 'update_post', 'delete_post'],
+            'endpoints' => [
+                'inbox' => "https://{$domain}/api/v1/federation/inbox",
+                'outbox' => "https://{$domain}/api/v1/federation/outbox",
+                'actor' => "https://{$domain}/api/v1/federation/actor",
+                'capability' => "https://{$domain}/api/v1/federation/capability",
+            ],
+            'public_key' => $ks->hasKey($nodeId) ? $ks->getPublicKeyPem($nodeId) : null,
+        ];
+    }
+
+    public function processIncomingActivity(int $nodeId, array $activity): array
+    {
+        $ar = $this->getActivityRepo();
+        $id = $activity['id'] ?? Uuid::v4();
+        $type = $activity['type'] ?? 'Unknown';
+        $actorUri = $activity['actor'] ?? '';
+        $objectUri = $activity['object'] ?? null;
+        $sig = $activity['signature'] ?? null;
+        if ($ar->existsByActivityId($id)) return ['status' => 'duplicate', 'message' => 'Already processed'];
+        $ar->create($id, $nodeId, 'INCOMING', $type, $actorUri, $objectUri, parse_url($actorUri, PHP_URL_HOST), $activity, $sig);
+        return ['status' => 'received', 'message' => "{$type} received"];
+    }
+
+    public function queueOutgoingActivity(int $nodeId, string $type, string $actorUri, string $targetDomain, ?string $objectUri = null, array $extra = []): array
+    {
+        $ar = $this->getActivityRepo();
+        $payload = array_merge(['@context' => 'https://fpdp.dev/ns/federation/v1', 'id' => Uuid::v4(), 'type' => $type, 'actor' => $actorUri, 'object' => $objectUri, 'published' => gmdate('c')], $extra);
+        $ar->create((string) $payload['id'], $nodeId, 'OUTGOING', $type, $actorUri, $objectUri, $targetDomain, $payload);
+        return $payload;
+    }
+
+    public function ensureNodeKey(int $nodeId): array
+    {
+        $ks = $this->getKeyService();
+        if ($ks->hasKey($nodeId)) return ['status' => 'exists'];
+        return $ks->generateKeypair($nodeId);
+    }
+
+    private function getKeyService(): NodeKeyService
+    {
+        if ($this->keyService === null) {
+            $kr = $this->nodeKeys ?? new NodeKeyRepository(\App\Core\Database::connection());
+            $this->keyService = new NodeKeyService($kr);
+        }
+        return $this->keyService;
+    }
+
+    private function getActivityRepo(): FederationActivityRepository
+    {
+        if ($this->activities === null) {
+            $this->activities = new FederationActivityRepository(\App\Core\Database::connection());
+        }
+        return $this->activities;
+    }

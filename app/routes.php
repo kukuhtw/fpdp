@@ -279,6 +279,22 @@ $router->get('/api/v1/me/federated-connections', function (Request $request, arr
 $router->patch('/api/v1/me/federated-connections/{connectionId}', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->updateConnection($request, $params);
 });
+
+$router->get('/api/v1/federation/capability', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->capability($request);
+});
+
+$router->post('/api/v1/federation/ensure-key', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->ensureKey($request);
+});
+
+$router->post('/api/v1/federation/inbox', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->inbox($request);
+});
+
+$router->post('/api/v1/federation/outbox', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->outbox($request);
+});
 $router->get('/api/v1/external/posts', function (Request $request, array $params) use ($buildExternalContentController): Response {
     return $buildExternalContentController()->listExternalPosts($request);
 });

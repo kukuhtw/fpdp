@@ -65,4 +65,35 @@ final class FederationController
 
         return JsonEnvelope::success($connection);
     }
+
+    // ---- Federation Node Identity ----
+
+    public function capability(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        return JsonEnvelope::success($this->federation->getCapabilityDocument((int) $context['node']['id'], (string) ($context['node']['domain'] ?? 'localhost')));
+    }
+
+    public function ensureKey(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        return JsonEnvelope::success($this->federation->ensureNodeKey((int) $context['node']['id']));
+    }
+
+    public function inbox(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        return JsonEnvelope::success($this->federation->processIncomingActivity((int) $context['node']['id'], $request->json() ?? []));
+    }
+
+    public function outbox(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $input = $request->json() ?? [];
+        return JsonEnvelope::success($this->federation->queueOutgoingActivity(
+            (int) $context['node']['id'], (string) ($input['type'] ?? 'Follow'),
+            (string) ($input['actor'] ?? ''), (string) ($input['target_domain'] ?? ''),
+            $input['object'] ?? null, $input,
+        ), 201);
+    }
 }
