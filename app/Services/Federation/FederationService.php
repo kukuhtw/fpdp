@@ -11,6 +11,7 @@ use App\Core\Uuid;
 use App\Repositories\FederatedConnectionRepository;
 use App\Repositories\FederatedPostRepository;
 use App\Repositories\FederationActivityRepository;
+use App\Repositories\FollowRepository;
 use App\Repositories\NodeKeyRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\RemoteActorRepository;
@@ -32,6 +33,7 @@ final class FederationService
         private readonly ?NodeKeyRepository $nodeKeys = null,
         private readonly ?FederationActivityRepository $activities = null,
         private readonly ?NodeKeyService $keyService = null,
+        private readonly ?FollowRepository $follows = null,
     ) {
     }
 
@@ -186,8 +188,8 @@ public function listOwnConnections(int $profileId): array
         }
         return (int) $decoded;
     }
-}
-// ---- Federation Node Identity & Discovery ----
+
+    // ---- Federation Node Identity & Discovery ----
 
     public function getCapabilityDocument(int $nodeId, string $domain): array
     {
@@ -251,3 +253,4 @@ public function listOwnConnections(int $profileId): array
         }
         return $this->activities;
     }
+}
