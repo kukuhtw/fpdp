@@ -8,6 +8,7 @@ use App\Core\Exceptions\ForbiddenException;
 use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
+use App\Core\Database;
 use App\Repositories\ExternalPostRepository;
 use App\Repositories\PostRepository;
 use DateTimeImmutable;
@@ -18,8 +19,18 @@ final class PostService
     private const TYPES = ['NOTE', 'ARTICLE', 'MEDIA'];
     private const VISIBILITIES = ['PUBLIC', 'UNLISTED', 'PRIVATE'];
 
-    public function __construct(private readonly PostRepository $posts)
+    public function __construct(
+        private readonly PostRepository $posts,
+        private readonly ?ExternalPostRepository $external = null,
+    ) {
+    }
+
+    private function getExternal(): ExternalPostRepository
     {
+        if ($this->external === null) {
+            $this->external = new ExternalPostRepository(Database::connection());
+        }
+        return $this->external;
     }
 
     public function create(array $context, array $input): array
@@ -67,9 +78,15 @@ final class PostService
             $beforeId = (int) $decoded;
         }
 
-        $rows = $sourceType === 'LOCAL'
-            ? $this->posts->listPublic((int) $limit, $beforeId, isset($query['author_handle']) ? (string) $query['author_handle'] : null)
-            : [];
+        $rows = match ($sourceType) {
+            'LOCAL' => $this->posts->listPublic(
+                (int) $limit,
+                $beforeId,
+                isset($query['author_handle']) ? (string) $query['author_handle'] : null,
+            ),
+            'EXTERNAL' => $this->getExternal()->listPublic((int) $limit, $beforeId),
+            default => [],
+        };
         $hasMore = count($rows) > $limit;
         if ($hasMore) {
             array_pop($rows);

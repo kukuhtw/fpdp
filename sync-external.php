@@ -11,8 +11,8 @@ declare(strict_types=1);
  *   php sync-external.php --max=5                # sync max 5 sources
  *   php sync-external.php --source-id=3          # sync a specific source by ID
  *
- * Add to crontab to run every 15 minutes:
- *   */15 * * * * /usr/bin/php /var/www/fpdp/sync-external.php
+ * Add to crontab to run every 15 minutes (remove the space between stars):
+ *   star/15 * * * * /usr/bin/php /var/www/fpdp/sync-external.php
  */
 
 require_once __DIR__ . '/vendor/autoload.php';

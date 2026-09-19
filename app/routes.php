@@ -9,6 +9,7 @@ use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
+use App\Controllers\ExternalContentController;
 use App\Controllers\PostController;
 use App\Controllers\VisitorAuthController;
 use App\Core\Config;
@@ -26,6 +27,8 @@ use App\Repositories\RemoteActorRepository;
 use App\Repositories\RemoteNodeRepository;
 use App\Repositories\FederatedConnectionRepository;
 use App\Repositories\FederatedPostRepository;
+use App\Repositories\ExternalFeedSourceRepository;
+use App\Repositories\ExternalPostRepository;
 use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
@@ -37,6 +40,7 @@ use App\Services\Cv\CvDocumentService;
 use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
 use App\Services\Content\PostService;
+use App\Services\External\SyncWorker;
 use App\Services\Security\RateLimiter;
 use App\Services\Visitor\GoogleOAuthClient;
 use App\Services\Visitor\OAuthStateSigner;
@@ -137,6 +141,18 @@ $buildFederationController = static function () use ($buildAuthService): Federat
             new FederatedPostRepository($connection),
             new ProfileRepository($connection),
         ),
+    );
+};
+$buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {
+    $connection = Database::connection();
+    return new ExternalContentController(
+        $buildAuthService(),
+        new SyncWorker(
+            new ExternalFeedSourceRepository($connection),
+            new ExternalPostRepository($connection),
+        ),
+        new ExternalFeedSourceRepository($connection),
+        new ExternalPostRepository($connection),
     );
 };
 
@@ -246,5 +262,24 @@ $router->get('/api/v1/me/federated-connections', function (Request $request, arr
 
 $router->patch('/api/v1/me/federated-connections/{connectionId}', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->updateConnection($request, $params);
+});
+$router->get('/api/v1/external/posts', function (Request $request, array $params) use ($buildExternalContentController): Response {
+    return $buildExternalContentController()->listExternalPosts($request);
+});
+
+$router->get('/api/v1/me/feed-sources', function (Request $request, array $params) use ($buildExternalContentController): Response {
+    return $buildExternalContentController()->listFeedSources($request);
+});
+
+$router->post('/api/v1/me/feed-sources', function (Request $request, array $params) use ($buildExternalContentController): Response {
+    return $buildExternalContentController()->addFeedSource($request);
+});
+
+$router->post('/api/v1/me/sync', function (Request $request, array $params) use ($buildExternalContentController): Response {
+    return $buildExternalContentController()->triggerSync($request);
+});
+
+$router->get('/api/v1/me/external/stats', function (Request $request, array $params) use ($buildExternalContentController): Response {
+    return $buildExternalContentController()->stats($request);
 });
 return $router;
