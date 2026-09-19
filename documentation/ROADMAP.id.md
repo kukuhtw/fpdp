@@ -4,7 +4,7 @@
 
 Dokumen ini mengubah visi produk FPDP menjadi rencana delivery yang dapat dieksekusi. Isinya menjelaskan apa yang harus dibangun lebih dahulu, alasan urutannya, hasil yang harus dibuktikan pada setiap milestone, dan quality gate sebelum masuk ke fase berikutnya.
 
-Roadmap ini didasarkan pada kondisi repository saat ini:
+Roadmap ini didasarkan pada kondisi repository saat Phase 0 dimulai, dan tetap disimpan di sini sebagai baseline perencanaan:
 
 - struktur modular ringan berbasis PHP 8.2 sudah tersedia;
 - landing view MVC statis dapat dirender;
@@ -13,6 +13,8 @@ Roadmap ini didasarkan pada kondisi repository saat ini:
 - adapter RSS, Atom, dan Custom API dapat menormalisasi record remote di memory;
 - skema awal payment dan integration tersedia;
 - sebagian besar HTTP, autentikasi, persistence, UI, queue, commerce, dan federasi belum diimplementasikan.
+
+Phase 0 dan sebagian besar Phase 1 kini sudah selesai. Lihat [laporan progres pengembangan](PROGRESS-REPORT.id.md) untuk kondisi terkini dan terverifikasi dari setiap phase dan workstream.
 
 ## 2. Hasil strategis
 
@@ -286,6 +288,29 @@ Kandidat pekerjaan:
 - search lanjutan, media processing, dan caching;
 - operational tooling multi-node;
 - accessibility, localization, import/export, dan data portability.
+
+### Fase 8 — Interaksi AI dan Monetisasi
+
+**Tujuan:** memungkinkan owner memonetisasi node-nya secara langsung lewat AI chat yang dikonfigurasi owner, konten berbayar, dan inventory iklan, digerbang oleh identity visitor yang wajib.
+
+Bergantung pada Fase 1 (identity) dan Fase 5 (payment); independen dari Fase 6 (federasi) dan Fase 7. Lihat [`AI-MONETIZATION-STRATEGY.id.md`](AI-MONETIZATION-STRATEGY.id.md) untuk desain lengkap, data model, dan rasionalnya — entri ini hanya mengurutkan pekerjaannya.
+
+Task secara berurutan (tiap langkah bernomor di bawah cocok dengan Bagian 12 dokumen strategi):
+
+1. Identity visitor lewat Google OAuth (`visitor_accounts`, `visitor_tokens`, endpoint redirect/callback).
+2. Abstraksi LLM provider (`LLMProviderInterface`, `LLMProviderFactory` untuk OpenAI/Anthropic, `llm_configs`).
+3. Akses CV/resume berbayar (`cv_documents`, `cv_access_grants`).
+4. Chatbot berbayar yang grounded pada profil/CV owner sendiri (`chat_sessions`, `chat_messages`).
+5. Analitik traffic harian dan unique-visitor (`page_views`, `analytics_daily`).
+6. Marketplace ad banner dengan pricing harian/mingguan/bulanan (`ad_slots`, `ad_bookings`).
+
+Exit criteria:
+
+- visitor dapat melihat profil publik tanpa login, tapi diminta login Google begitu mencoba aksi berbayar atau interaktif;
+- akses CV dan sesi chatbot ditagih lewat `PaymentGatewayInterface` yang sudah ada, tidak pernah provider yang di-hardcode;
+- penggunaan LLM dibatasi rate dan cost per node, dan fail closed (bukan ke default bersama) saat belum dikonfigurasi;
+- owner dapat melihat jumlah unique-visitor dan page-view kemarin;
+- booking advertiser hanya tayang setelah owner menyetujui creative-nya, dan expired otomatis di akhir periode yang dibayar.
 
 ## 6. Task yang harus dikerjakan lebih dahulu
 

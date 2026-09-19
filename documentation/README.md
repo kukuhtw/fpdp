@@ -18,8 +18,10 @@ FPDP adalah personal digital home yang tidak terikat pada provider tertentu. Dok
 | Social & Commerce Integrations | [English](SOCIAL-COMMERCE-INTEGRATIONS.en.md) | [Bahasa Indonesia](SOCIAL-COMMERCE-INTEGRATIONS.id.md) |
 | Social Content Publishing & Aggregation | [English](CONTENT-AGGREGATION-GUIDE.en.md) | [Bahasa Indonesia](CONTENT-AGGREGATION-GUIDE.id.md) |
 | Federation Concept | [English](FEDERATION-CONCEPT.en.md) | [Bahasa Indonesia](FEDERATION-CONCEPT.id.md) |
+| AI Interaction & Monetization Strategy | [English](AI-MONETIZATION-STRATEGY.en.md) | [Bahasa Indonesia](AI-MONETIZATION-STRATEGY.id.md) |
 | Interactive UI Mockup | [Dashboard](mockup/index.html) · [Public profile](mockup/public-profile.html) | [Petunjuk / Guide](mockup/README.md) |
 | Mockup Navigation Map | [English](mockup/NAVIGATION-MAP.en.md) | [Bahasa Indonesia](mockup/NAVIGATION-MAP.id.md) |
+| Development Progress Report | [English](PROGRESS-REPORT.en.md) | [Bahasa Indonesia](PROGRESS-REPORT.id.md) |
 | API Contract | [English](API-CONTRACT.en.md) | [Bahasa Indonesia](API-CONTRACT.id.md) |
 | OpenAPI 3.1 | [Machine-readable YAML](openapi.yaml) | [Machine-readable YAML](openapi.yaml) |
 

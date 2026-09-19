@@ -4,7 +4,7 @@
 
 This document turns the FPDP product vision into an executable delivery plan. It defines what should be built first, why that order matters, what each milestone must prove, and which quality gates must be passed before the next phase starts.
 
-This roadmap is based on the repository's current state:
+This roadmap is based on the repository's state when Phase 0 started, kept here as the planning baseline:
 
 - a lightweight PHP 8.2 modular structure exists;
 - a static MVC landing view can be rendered;
@@ -13,6 +13,8 @@ This roadmap is based on the repository's current state:
 - RSS, Atom, and Custom API adapters can normalize remote records in memory;
 - an initial payment and integration schema exists;
 - most HTTP, authentication, persistence, UI, queue, commerce, and federation capabilities are not implemented.
+
+Phase 0 and most of Phase 1 have since been completed. See the [development progress report](PROGRESS-REPORT.en.md) for the current, verified state of every phase and workstream.
 
 ## 2. Strategic outcome
 
@@ -286,6 +288,29 @@ Candidate work:
 - advanced search, media processing, and caching;
 - multi-node operational tooling;
 - accessibility, localization, import/export, and data portability improvements.
+
+### Phase 8 — AI interaction and monetization
+
+**Objective:** let an owner monetize their node directly through owner-configured AI chat, paid content, and ad inventory, gated behind mandatory visitor identity.
+
+Depends on Phase 1 (identity) and Phase 5 (payments); independent of Phase 6 (federation) and Phase 7. See [`AI-MONETIZATION-STRATEGY.en.md`](AI-MONETIZATION-STRATEGY.en.md) for the full design, data model, and rationale — this entry only sequences the work.
+
+Tasks, in order (each numbered step below matches the strategy document's Section 12):
+
+1. Visitor identity via Google OAuth (`visitor_accounts`, `visitor_tokens`, redirect/callback endpoints).
+2. LLM provider abstraction (`LLMProviderInterface`, `LLMProviderFactory` for OpenAI/Anthropic, `llm_configs`).
+3. Paid CV/resume access (`cv_documents`, `cv_access_grants`).
+4. Paid chatbot grounded in the owner's own profile/CV content (`chat_sessions`, `chat_messages`).
+5. Daily traffic and unique-visitor analytics (`page_views`, `analytics_daily`).
+6. Ad banner marketplace with daily/weekly/monthly pricing (`ad_slots`, `ad_bookings`).
+
+Exit criteria:
+
+- a visitor can view a public profile without signing in, but is prompted for Google sign-in the moment they attempt a paid or interactive action;
+- CV access and chatbot sessions are billed through the existing `PaymentGatewayInterface`, never a hard-coded provider;
+- LLM usage is rate-limited and cost-bounded per node, and fails closed (not to a shared default) when unconfigured;
+- an owner can see yesterday's unique-visitor and page-view counts;
+- an advertiser's booking only goes live after the owner approves the creative, and expires automatically at the end of its paid period.
 
 ## 6. Tasks to start first
 
