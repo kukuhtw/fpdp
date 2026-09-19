@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Services\External;
 
 use App\Contracts\ExternalContentProviderInterface;
+use App\Core\Http\HttpClient;
+use RuntimeException;
 
 final class RSSConnector implements ExternalContentProviderInterface
 {
     /**
      * @param array<string, mixed> $configuration
      */
-    public function __construct(private readonly array $configuration = [])
-    {
+    public function __construct(
+        private readonly array $configuration = [],
+        private readonly HttpClient $http = new HttpClient(),
+    ) {
     }
 
     public function getProviderCode(): string
@@ -42,14 +46,23 @@ final class RSSConnector implements ExternalContentProviderInterface
     public function fetchPosts(array $account, ?string $cursor = null): array
     {
         $sourceUrl = $account['source_url'] ?? ($this->configuration['source_url'] ?? '');
-
         if ($sourceUrl === '') {
             return ['items' => [], 'next_cursor' => null];
         }
 
-        $xml = @simplexml_load_file($sourceUrl);
+        try {
+            $response = $this->http->get($sourceUrl, ['Accept' => 'application/rss+xml, application/xml, text/xml'], 10);
+        } catch (RuntimeException $e) {
+            return ['items' => [], 'next_cursor' => null, 'error' => $e->getMessage()];
+        }
+
+        if ($response['status'] < 200 || $response['status'] >= 300) {
+            return ['items' => [], 'next_cursor' => null, 'error' => "HTTP {$response['status']}"];
+        }
+
+        $xml = simplexml_load_string($response['body']);
         if ($xml === false || $xml === null) {
-            return ['items' => [], 'next_cursor' => null];
+            return ['items' => [], 'next_cursor' => null, 'error' => 'Invalid XML'];
         }
 
         $items = [];
