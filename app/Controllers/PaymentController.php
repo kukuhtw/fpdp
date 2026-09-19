@@ -7,15 +7,64 @@ namespace App\Controllers;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
+use App\Services\Auth\AuthService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Payment\PaymentService;
 
 final class PaymentController
 {
     public function __construct(
+        private readonly AuthService $auth,
         private readonly PaymentService $payments,
         private readonly CvAccessService $cvAccess,
     ) {
+    }
+
+    /**
+     * GET /api/v1/me/dashboard/payments
+     *
+     * Owner-only Payments dashboard: balance/settlement approximation,
+     * transaction success rate, and recent transactions.
+     */
+    public function summary(Request $request): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->payments->getPaymentsSummary());
+    }
+
+    /**
+     * GET /api/v1/me/payment-gateways
+     *
+     * Owner-only list of supported gateways and which environment(s) have
+     * credentials configured. Never returns a decrypted secret.
+     */
+    public function listGateways(Request $request): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success(['gateways' => $this->payments->listGatewaySettings()]);
+    }
+
+    /**
+     * PATCH /api/v1/me/payment-gateways/{code}
+     *
+     * Owner-only: store (encrypted) credentials for one gateway/environment
+     * and make that environment active.
+     *
+     * @param array<string, string> $params
+     */
+    public function updateGateway(Request $request, array $params): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        $input = $request->json() ?? [];
+        $environment = (string) ($input['environment'] ?? 'SANDBOX');
+        $config = is_array($input['config'] ?? null) ? $input['config'] : [];
+
+        return JsonEnvelope::success(
+            $this->payments->updateGatewaySettings((string) ($params['code'] ?? ''), $environment, $config),
+        );
     }
 
     /**

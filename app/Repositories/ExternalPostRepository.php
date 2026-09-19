@@ -122,4 +122,14 @@ final class ExternalPostRepository
 
         return (int) $statement->fetchColumn();
     }
+
+    public function countByUserId(int $userId): int
+    {
+        $statement = $this->connection->prepare(
+            "SELECT COUNT(*) FROM external_posts WHERE user_id = :user_id AND status = 'ACTIVE'",
+        );
+        $statement->execute(['user_id' => $userId]);
+
+        return (int) $statement->fetchColumn();
+    }
 }

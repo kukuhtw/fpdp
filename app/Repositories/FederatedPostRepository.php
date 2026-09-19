@@ -121,6 +121,24 @@ final class FederatedPostRepository
         return $row === false ? null : $row;
     }
 
+    /**
+     * Counts visible federated posts from actors this profile is connected
+     * to (any relationship_status) — used for the Overview's timeline mix.
+     */
+    public function countForProfile(int $profileId): int
+    {
+        $statement = $this->connection->prepare(
+            "SELECT COUNT(*) FROM federated_posts fp
+             INNER JOIN federated_connections fc ON fc.remote_actor_id = fp.remote_actor_id
+             WHERE fc.profile_id = :profile_id
+               AND fp.visibility IN ('PUBLIC', 'UNLISTED')
+               AND fp.deleted_at IS NULL",
+        );
+        $statement->execute(['profile_id' => $profileId]);
+
+        return (int) $statement->fetchColumn();
+    }
+
     public function softDeleteByActorId(int $remoteActorId): void
     {
         $statement = $this->connection->prepare(

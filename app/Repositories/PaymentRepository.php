@@ -93,6 +93,69 @@ final class PaymentRepository
     }
 
     /**
+     * Dashboard summary. `payments` has no node/profile scope (FPDP is
+     * single-owner-per-deployment today, see the progress report), so this
+     * is a global aggregate across the whole install, not per-tenant.
+     * `available_balance` is the running sum of PAID amounts, not a real
+     * settlement ledger — no fees, payouts, or withdrawals are tracked.
+     *
+     * @return array{available_balance: float, pending_settlement: float, paid_count: int, failed_count: int, cancelled_count: int, success_rate: float, revenue_this_month: float, currency: string}
+     */
+    public function getSummary(): array
+    {
+        $paid = $this->sumAndCountByStatus('PAID');
+        $pending = $this->sumAndCountByStatus('PENDING');
+        $failed = $this->sumAndCountByStatus('FAILED');
+        $cancelled = $this->sumAndCountByStatus('CANCELLED');
+
+        $terminalCount = $paid['count'] + $failed['count'] + $cancelled['count'];
+        $successRate = $terminalCount > 0 ? round($paid['count'] / $terminalCount * 100, 2) : 0.0;
+
+        $statement = $this->connection->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'PAID' AND paid_at >= :month_start",
+        );
+        $statement->execute(['month_start' => gmdate('Y-m-01 00:00:00')]);
+        $revenueThisMonth = (float) $statement->fetchColumn();
+
+        return [
+            'available_balance' => $paid['amount'],
+            'pending_settlement' => $pending['amount'],
+            'paid_count' => $paid['count'],
+            'failed_count' => $failed['count'],
+            'cancelled_count' => $cancelled['count'],
+            'success_rate' => $successRate,
+            'revenue_this_month' => $revenueThisMonth,
+            'currency' => 'IDR',
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findRecent(int $limit = 20): array
+    {
+        $statement = $this->connection->prepare('SELECT * FROM payments ORDER BY id DESC LIMIT :limit');
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
+    /**
+     * @return array{count: int, amount: float}
+     */
+    private function sumAndCountByStatus(string $status): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS total FROM payments WHERE status = :status',
+        );
+        $statement->execute(['status' => $status]);
+        $row = $statement->fetch();
+
+        return ['count' => (int) $row['c'], 'amount' => (float) $row['total']];
+    }
+
+    /**
      * Records one webhook/status event for a payment. Returns false without
      * writing anything if this (provider, external_id) pair was already
      * recorded, so callers can treat retried webhook deliveries as a safe,

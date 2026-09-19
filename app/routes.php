@@ -10,6 +10,7 @@ use App\Controllers\HomeController;
 use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
 use App\Controllers\ExternalContentController;
+use App\Controllers\DashboardController;
 use App\Controllers\MarketplaceController;
 use App\Controllers\PaymentController;
 use App\Controllers\PostController;
@@ -19,6 +20,7 @@ use App\Core\Database;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Router;
+use App\Repositories\AuditEventRepository;
 use App\Repositories\AuthTokenRepository;
 use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
@@ -33,6 +35,7 @@ use App\Repositories\ExternalFeedSourceRepository;
 use App\Repositories\ExternalPostRepository;
 use App\Repositories\OrderItemRepository;
 use App\Repositories\OrderRepository;
+use App\Repositories\PaymentGatewayConfigRepository;
 use App\Repositories\PaymentRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\RateLimitRepository;
@@ -40,6 +43,7 @@ use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
 use App\Repositories\VisitorTokenRepository;
 use App\Services\Auth\AuthService;
+use App\Services\Dashboard\DashboardService;
 use App\Services\Federation\FederationService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Cv\CvDocumentService;
@@ -120,13 +124,22 @@ $buildVisitorAuthController = static function () use ($buildVisitorAuthService):
 
 $cvStorageDirectory = dirname(__DIR__) . '/storage/cv';
 
-$buildCvAccessService = static function () use ($cvStorageDirectory): CvAccessService {
+$buildPaymentService = static function (): PaymentService {
+    $connection = Database::connection();
+
+    return new PaymentService(
+        payments: new PaymentRepository($connection),
+        gatewayConfigs: new PaymentGatewayConfigRepository($connection),
+    );
+};
+
+$buildCvAccessService = static function () use ($cvStorageDirectory, $buildPaymentService): CvAccessService {
     $connection = Database::connection();
 
     return new CvAccessService(
         new CvDocumentRepository($connection),
         new CvAccessGrantRepository($connection),
-        new PaymentService(payments: new PaymentRepository($connection)),
+        $buildPaymentService(),
         $cvStorageDirectory,
     );
 };
@@ -143,25 +156,44 @@ $buildCvController = static function () use ($buildAuthService, $buildVisitorAut
     );
 };
 
-$buildPaymentController = static function () use ($buildCvAccessService): PaymentController {
-    $connection = Database::connection();
-
+$buildPaymentController = static function () use ($buildAuthService, $buildCvAccessService, $buildPaymentService): PaymentController {
     return new PaymentController(
-        new PaymentService(payments: new PaymentRepository($connection)),
+        $buildAuthService(),
+        $buildPaymentService(),
         $buildCvAccessService(),
     );
 };
-$buildFederationController = static function () use ($buildAuthService): FederationController {
+$buildFederationService = static function (): FederationService {
     $connection = Database::connection();
 
-    return new FederationController(
+    return new FederationService(
+        new FederatedConnectionRepository($connection),
+        new RemoteActorRepository($connection),
+        new RemoteNodeRepository($connection),
+        new FederatedPostRepository($connection),
+        new ProfileRepository($connection),
+    );
+};
+
+$buildFederationController = static function () use ($buildAuthService, $buildFederationService): FederationController {
+    return new FederationController($buildAuthService(), $buildFederationService());
+};
+
+$buildDashboardController = static function () use ($buildAuthService, $buildFederationService): DashboardController {
+    $connection = Database::connection();
+
+    return new DashboardController(
         $buildAuthService(),
-        new FederationService(
-            new FederatedConnectionRepository($connection),
-            new RemoteActorRepository($connection),
-            new RemoteNodeRepository($connection),
+        new DashboardService(
+            new NodeRepository($connection),
+            new PostRepository($connection),
+            new ExternalPostRepository($connection),
             new FederatedPostRepository($connection),
-            new ProfileRepository($connection),
+            new ProductRepository($connection),
+            new OrderRepository($connection),
+            new PaymentRepository($connection),
+            $buildFederationService(),
+            new AuditEventRepository($connection),
         ),
     );
 };
@@ -287,6 +319,22 @@ $router->get('/api/v1/profiles/{handle}/cv/download', function (Request $request
 
 $router->post('/api/v1/payments/webhook/{gateway}', function (Request $request, array $params) use ($buildPaymentController): Response {
     return $buildPaymentController()->webhook($request, $params);
+});
+
+$router->get('/api/v1/me/dashboard/overview', function (Request $request, array $params) use ($buildDashboardController): Response {
+    return $buildDashboardController()->overview($request);
+});
+
+$router->get('/api/v1/me/dashboard/payments', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->summary($request);
+});
+
+$router->get('/api/v1/me/payment-gateways', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->listGateways($request);
+});
+
+$router->patch('/api/v1/me/payment-gateways/{code}', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->updateGateway($request, $params);
 });
 
 $router->get('/api/v1/profiles/{handle}/federated-connections', function (Request $request, array $params) use ($buildFederationController): Response {

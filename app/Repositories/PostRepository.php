@@ -96,6 +96,28 @@ final class PostRepository
         return $rows;
     }
 
+    /**
+     * @return array{total: int, published: int, draft: int}
+     */
+    public function countByProfileId(int $profileId): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN visibility IN ('PUBLIC', 'UNLISTED') AND published_at IS NOT NULL THEN 1 ELSE 0 END) AS published,
+                SUM(CASE WHEN published_at IS NULL THEN 1 ELSE 0 END) AS draft
+             FROM posts WHERE profile_id = :profile_id AND deleted_at IS NULL",
+        );
+        $statement->execute(['profile_id' => $profileId]);
+        $row = $statement->fetch();
+
+        return [
+            'total' => (int) ($row['total'] ?? 0),
+            'published' => (int) ($row['published'] ?? 0),
+            'draft' => (int) ($row['draft'] ?? 0),
+        ];
+    }
+
     public function update(string $publicId, array $fields): array
     {
         $assignments = [];

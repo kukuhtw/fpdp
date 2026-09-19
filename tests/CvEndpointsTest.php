@@ -198,6 +198,28 @@ $connection->exec('
         UNIQUE (provider, external_id)
     )
 ');
+$connection->exec('
+    CREATE TABLE payment_gateways (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        adapter_class TEXT,
+        status TEXT DEFAULT "ACTIVE"
+    )
+');
+$connection->exec('
+    CREATE TABLE payment_gateway_configs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        gateway_id INTEGER NOT NULL,
+        config_key TEXT NOT NULL,
+        encrypted_value TEXT NOT NULL,
+        environment TEXT NOT NULL DEFAULT "SANDBOX",
+        is_active INTEGER NOT NULL DEFAULT 1,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (gateway_id, config_key, environment)
+    )
+');
+$connection->exec("INSERT INTO payment_gateways (code, name) VALUES ('DUMMY', 'Dummy'), ('PAYWUZ', 'Paywuz'), ('MIDTRANS', 'Midtrans')");
 
 // Register a real owner via the real AuthService (exercises Phase 1 code, not a shortcut).
 $authService = new AuthService(

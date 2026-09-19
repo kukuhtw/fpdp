@@ -74,6 +74,23 @@ final class OrderRepository
         return $statement->fetchAll();
     }
 
+    public function countByNodeId(int $nodeId, ?string $status = null): int
+    {
+        $where = ['node_id = :node_id'];
+        $parameters = ['node_id' => $nodeId];
+        if ($status !== null) {
+            $where[] = 'status = :status';
+            $parameters['status'] = $status;
+        }
+
+        $statement = $this->connection->prepare(
+            'SELECT COUNT(*) FROM orders WHERE ' . implode(' AND ', $where),
+        );
+        $statement->execute($parameters);
+
+        return (int) $statement->fetchColumn();
+    }
+
     public function updateStatus(string $publicId, string $status): array
     {
         $statement = $this->connection->prepare(
