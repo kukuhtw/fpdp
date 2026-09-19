@@ -1,150 +1,241 @@
-# Laporan Progres Pengembangan FPDP — Bahasa Indonesia
+# Laporan Progres Pengembangan FPDP
 
-## 1. Ringkasan
+## 1. Snapshot
 
-**Per tanggal:** 19 September 2026, diverifikasi langsung terhadap kode, migration, test, dan route pada repository ini (bukan hanya terhadap dokumen perencanaan). Bagian federasi pada laporan ini diperbarui setelah dua sesi lanjutan berturut-turut: (1) verifikasi signature, discovery node remote, dan wiring inbox→processor end-to-end, lalu (2) endpoint moderasi `trust_state` dan proteksi replay berbasis timestamp (lihat §3 dan §4).
+**Tanggal verifikasi:** 19 September 2026
+**Dasar verifikasi:** route, controller, service, repository, migration, UI, test, dan konfigurasi deployment pada repository—bukan hanya dokumen rencana.
 
-FPDP sudah memiliki **fondasi engineering** dan sebagian besar fase produk sudah diimplementasikan. Repository kini mencakup:
+FPDP sudah melewati tahap prototype dasar. Identity, local publishing, external aggregation, marketplace dasar, payment abstraction, analytics, dan sebagian besar fondasi federasi tersedia sebagai kode yang dapat diuji. Fokus berikutnya bukan lagi membuat kerangka, tetapi menghubungkan flow komersial end-to-end, membangun dashboard sungguhan, memvalidasi integrasi eksternal terhadap sandbox/server nyata, dan mengeraskan operasional production.
 
-- Alur **identitas/autentikasi** lengkap (Phase 1)
-- **CRUD post lokal** dengan media, timeline, visibilitas (Phase 2)
-- **Konektor konten eksternal** dengan HTTP client anti-SSRF dan sync worker (Phase 3)
-- **Audit trail** terhubung ke semua service dan **GitHub Actions CI** (Phase 4)
-- **Marketplace** dengan produk, order, dan order items (Phase 5)
-- **Federasi antar-node dengan signed activity** (Phase 6): node identity Ed25519, discovery capability document, verifikasi signature masuk, penolakan activity basi (timestamp window), follow/accept/reject/undo/block otomatis via inbox, endpoint moderasi `trust_state` untuk owner, dan delivery worker dengan retry+backoff
+Ringkasan repository saat laporan ini dibuat:
 
-Yang tersisa: marketplace lanjutan (checkout — belum tersambung ke gateway sungguhan manapun) dan Settings (appearance/language/node config/security) di dashboard administrasi. Federasi masih perlu diuji lintas-server sungguhan (baru diuji dalam satu proses/DB test) dan belum punya UI admin (baru API); begitu juga kedua gateway payment (Paywuz, Midtrans) — end-to-end HTTP terhadap sandbox sungguhan belum pernah dijalankan (test memakai HTTP requester palsu untuk `createPayment`/`getPaymentStatus`/dll, lihat §7).
+- **39 migration MySQL** (`0001`–`0039`);
+- **29 test script**;
+- REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, marketplace, analytics, dan federation;
+- UI nyata untuk landing page, timeline lokal, profil publik, halaman post, dan post editor;
+- Dockerfile serta Docker Compose khusus Dokploy;
+- dokumentasi produk dan teknis bilingual.
 
-Laporan ini mengacu pada [Work Breakdown Structure](WBS-TASK.md) dan [Roadmap](ROADMAP.id.md) agar progres dapat dibaca terhadap kedua rencana tersebut.
-
-## 2. Status singkat
+## 2. Status fase
 
 ```mermaid
 flowchart LR
-    P0["Phase 0<br/>Fondasi engineering"] --> P1["Phase 1<br/>Identitas & node personal"]
+    P0["Phase 0<br/>Fondasi engineering"] --> P1["Phase 1<br/>Identity & personal node"]
     P1 --> P2["Phase 2<br/>Konten lokal & timeline"]
-    P2 --> P3["Phase 3<br/>Agregasi feed eksternal"]
-    P3 --> P4["Phase 4<br/>Operasional & hardening MVP"]
-    P4 --> P5["Phase 5<br/>Marketplace & pembayaran"]
+    P2 --> P3["Phase 3<br/>Agregasi eksternal"]
+    P3 --> P4["Phase 4<br/>Hardening MVP"]
+    P4 --> P5["Phase 5<br/>Marketplace & payment"]
     P5 --> P6["Phase 6<br/>Federasi"]
-    P6 --> P7["Phase 7<br/>Ekosistem & skala"]
+    P6 --> P7["Phase 7+<br/>Ekosistem, AI, scale"]
 
     classDef done fill:#e3efe9,stroke:#185f48,color:#17211b;
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
-    classDef todo fill:#f1e3e1,stroke:#a13d37,color:#17211b;
-    class P0,P1,P2,P3,P5 done;
-    class P4,P6 partial;
+    classDef planned fill:#f1e3e1,stroke:#a13d37,color:#17211b;
+    class P0,P1,P2,P3 done;
+    class P4,P5,P6 partial;
+    class P7 planned;
 ```
 
-| Workstream (WBS) | Status | Bukti |
+| Workstream | Status | Ringkasan |
 |---|---|---|
-| 1.0 Project setup | **Selesai** | `composer.json` PSR-4 autoload, `.env.example`, `Config` loader |
-| 2.0 Core platform architecture | **Selesai** | `Router`, `Database`, `MigrationRunner`, `HttpClient` (anti-SSRF), JSON envelope, exception mapping, factory pattern |
-| 3.0 Autentikasi & manajemen user | **Selesai** | Register/login/logout/`/me`, bcrypt, bearer token di-hash, rate limiting; baca/update profil; Google OAuth visitor |
-| 4.0 Konten dan timeline | **Selesai** | CRUD post, draft/publish/soft-delete, metadata media, canonical URL, timeline publik cursor, UI post editor |
-| 5.0 Federation layer | **Sebagian besar selesai** | Node identity (Ed25519), discovery capability document, verifikasi signature masuk, penolakan activity basi (timestamp window), follow/accept/reject/undo/block via inbox publik, endpoint moderasi `trust_state`, **endpoint dashboard `GET /me/federation/summary` + `PATCH /me/federation/capabilities`** dengan hitung follower/following yang sudah benar (lihat §7), delivery worker retry+backoff (11 test); belum diuji lintas-server sungguhan, belum ada UI admin (baru API) |
-| 6.0 Payment layer | **Sebagian besar selesai** | Interface, factory, dummy gateway; **Paywuz** dan **Midtrans** sungguhan dengan persistensi `payments`/`payment_transactions` dan idempotency; **kredensial gateway kini bisa diatur lewat API** (`GET`/`PATCH /api/v1/me/payment-gateways/{code}`), terenkripsi AES-256-GCM di `payment_gateway_configs`, dengan fallback ke `.env` |
-| 7.0 Integrasi konten eksternal | **Selesai** | Konektor RSS/Atom/Custom API + HttpClient anti-SSRF, SyncWorker, CLI cron, dedup, merge timeline |
-| 8.0 Marketplace | **Selesai** | CRUD produk + Order snapshot immutable + alur status order (14 test) |
-| 9.0 Administration dashboard | **Sebagian dimulai (backend API, belum ada view)** | 4 dari 10 menu mockup punya endpoint nyata: Federation, Overview, Payments (lihat baris sebelumnya), dan **Analytics** (`GET /me/dashboard/analytics` — unique visitors, profile/content views, outbound clicks, shop conversions, traffic chart 7 hari, top content; privacy-conscious — tidak pernah menyimpan IP mentah, cuma HMAC-SHA256 harian). Mockup HTML statis di [documentation/mockup](mockup/README.md) belum disambungkan ke endpoint manapun. Sisa: Content/Timeline/Integrations/Products/Orders sudah punya endpoint domain masing-masing di luar namespace dashboard; Settings appearance/language/node-config/security belum ada sama sekali |
-| 10.0 Testing, security, deployment | **Sebagian selesai** | 28 test scripts; GitHub Actions CI; panduan Dokploy (EN & ID); audit trail di 3 service; catatan: migration nyata di `database/migrations/` belum pernah tervalidasi jalan di SQLite (semua test menulis skema minimal sendiri, lihat §4) |
+| Fondasi engineering | **Selesai** | PSR-4, router, PDO, migration runner, config, JSON envelope, exception mapping, CI |
+| Identity & profile | **Selesai untuk MVP** | Register/login/logout/`me`, token hash, rate limit, profile visibility, Google OAuth visitor |
+| Konten lokal | **Selesai untuk MVP** | CRUD, draft/publish, visibility, soft-delete, media, canonical URL, cursor timeline, UI |
+| External aggregation | **Selesai untuk MVP** | RSS/Atom/Custom API, anti-SSRF HTTP client, sync worker, dedup, persistence, timeline merge |
+| Operasional & hardening | **Sebagian** | CI, audit dasar, Dokploy config tersedia; staging recovery dan production validation belum selesai |
+| Marketplace | **Sebagian besar** | Product dan order tersedia; checkout visitor + payment belum tersambung end-to-end |
+| Payment | **Sebagian besar** | Dummy, Paywuz, Midtrans, encrypted config, webhook/idempotency; sandbox nyata dan reconciliation belum selesai |
+| Federasi | **Sebagian besar backend** | Keys, discovery, signed inbox/outbox, follow lifecycle, moderation, delivery retry; cross-server/UI belum selesai |
+| Dashboard | **Sebagian** | Overview, Payments, Analytics, Federation memiliki API; mockup belum menjadi dashboard live |
+| AI & ads | **Direncanakan** | Dokumen strategi tersedia; LLM chat dan ad marketplace belum diimplementasikan |
 
-## 3. Yang sudah selesai
+## 3. Yang sudah tersedia
 
-- **Fondasi HTTP:** front controller publik (`public/index.php`), `Router` dengan rute statis/`{param}`, JSON envelope sukses/error, pemetaan exception ke 500 yang tersanitasi.
-- **Konfigurasi:** `Config` loader dengan default, override `.env`, validasi fail-fast.
-- **Lapisan database:** connection manager PDO dan `MigrationRunner`; 15 migration terurut dan repeatable pada `database/migrations/` (payment gateways/configs/payments/transactions, external accounts/feed sources/posts, connector definitions, integration queue, nodes, users, profiles, auth tokens, audit events, rate limits).
-- **Fondasi HTTP:** front controller publik (`public/index.php`), `Router` dengan rute statis/`{param}`/`@{handle}`, JSON envelope sukses/error, pemetaan exception ke 500.
-- **Konfigurasi:** `Config` loader dengan default, override `.env`, validasi fail-fast.
-- **Lapisan database:** connection manager PDO dan `MigrationRunner`; **28** migration untuk payments, external content, nodes, users, profiles, auth, audit, rate limits, visitors, CV, posts, remote nodes/actors, federated connections/posts, products, orders, order_items.
-- **HTTP Client anti-SSRF:** blokir IP private, timeout, limit ukuran, max 5 redirect.
-- **Identitas & autentikasi:** Registrasi owner (node+user+profile sekali langkah), login/logout, bcrypt, bearer token di-hash, rate limiting.
-- **Profil:** Baca publik by handle, update terautentikasi, visibilitas (PUBLIC/UNLISTED/PRIVATE).
-- **Identitas visitor:** Google OAuth 2.0 per profil, state signer, callback.
-- **Konten lokal:** Draft/publish/update/soft-delete, validasi media (HTTPS-only, max 10), canonical URL, timeline cursor, UI editor.
-- **CV:** Upload, show gated, grant access, download, limit ukuran file.
-- **Sinkronisasi konten eksternal:** Konektor RSS/Atom/Custom API via HttpClient anti-SSRF. SyncWorker fetch → dedup → persist → update status. CLI `sync-external.php` untuk cron. Timeline dukung `source_type=EXTERNAL`.
-- **Audit trail:** AuditService terhubung ke AuthService, PostService, ProfileService. Null-safe.
-- **Federated connections:** 3 endpoint — daftar publik (filtered), daftar owner (all), PATCH untuk show_on_profile/mute/block. Pagination cursor. 13 test.
-- **Federasi signed activity (node identity, discovery, inbox otomatis):** `NodeKeyService` men-generate keypair Ed25519 per node dan menandatangani outgoing activity; `GET /api/v1/federation/capability` kini bisa diakses tanpa token oleh node remote (fallback ke node lokal tunggal) untuk keperluan discovery. `NodeDiscoveryService` baru melakukan fetch HTTP (anti-SSRF) ke capability document domain pengirim, meng-cache public key-nya di tabel `remote_node_keys`, dan auto-register remote actor yang belum dikenal. `POST /api/v1/federation/inbox` sekarang publik (bukan lagi butuh bearer token milik pemanggil) dan memverifikasi signature terhadap public key yang di-discover sebelum memproses; signature tidak valid → 403, domain yang di-`BLOCKED` di `remote_nodes` → 403 tanpa percobaan discovery. Aktivitas `Follow`/`Undo`/`Block` yang masuk di-resolve ke profil lokal dari URI aktor pada payload; `Accept`/`Reject` di-resolve balik ke `follows` yang kita kirim sendiri lalu meng-update status dan membuat `federated_connections`. `deliver-federation.php` (delivery worker cron) kini memakai backoff eksponensial yang benar-benar dihormati (`federation_activities.next_attempt_at`, migration `0033`). Activity masuk dengan field `published` di luar jendela ±5 menit dari waktu server ditolak (403) sebagai proteksi replay dasar (di atas dedup by activity id yang sudah ada). Owner kini juga bisa meninjau dan memoderasi node remote lewat `GET /api/v1/me/federation/remote-nodes` (daftar semua remote node yang pernah terlihat, dengan `trust_state`/`last_seen_at`) dan `PATCH /api/v1/me/federation/remote-nodes/{domain}/trust` (set `UNKNOWN`/`TRUSTED`/`BLOCKED`) — status `BLOCKED` langsung berlaku di inbox pada request berikutnya, sebelum discovery atau verifikasi signature dicoba. 9 test (`FederationInboxTest`): signature valid, signature dipalsukan, domain blocked, activity tanpa signature, round-trip send-follow → inbound Accept, duplicate activity id, activity basi (stale timestamp), daftar moderasi butuh auth, dan block-via-endpoint yang langsung menolak inbox berikutnya.
-- **Federation dashboard (Overview federasi):** `GET /api/v1/me/federation/summary` mengembalikan `follower_count`, `following_count`, dan `capabilities` node. Menemukan dan memperbaiki bug lama saat membangun ini: `FollowRepository::findFollowersByProfileId()` dan `findFollowingByProfileId()` ternyata punya **query yang identik persis** — tidak ada cara membedakan "yang saya follow" dari "yang follow saya". Diperbaiki dengan kolom `direction` baru (`OUTGOING`/`INCOMING`, migration `0036`) yang di-set benar oleh `sendFollow()`/`processFollow()`, plus method `countByDirection()` baru. `PATCH /api/v1/me/federation/capabilities` menyimpan daftar kapabilitas node (`PROFILE`/`CONTENT`/`PRODUCTS`/`PAYMENTS`, kolom JSON baru `nodes.capabilities`, migration `0037`, default `[PROFILE, CONTENT]` bila belum diatur) — murni pengaturan yang terlihat pemilik, **belum menegakkan** apa pun (mematikan `PRODUCTS` tidak memblokir endpoint marketplace), lihat §7. 2 test baru menyusul di `FederationInboxTest` (total 11): summary butuh auth + angka follower/following benar setelah skenario Follow/Accept sebelumnya, update capabilities + validasi nilai tidak dikenal → 422.
-- **Dashboard Overview:** `GET /api/v1/me/dashboard/overview` (`DashboardService` baru) mengagregasi metrik dari data yang **sudah ada** — jumlah post (total/published/draft, method baru `PostRepository::countByProfileId()`), timeline mix (local/external/federated, method baru `ExternalPostRepository::countByUserId()` dan `FederatedPostRepository::countForProfile()`), jumlah produk/order (`OrderRepository::countByNodeId()` baru), revenue bulan ini (dari `PaymentRepository::getSummary()`), follower/following (reuse federation summary), dan recent activity (reuse `AuditEventRepository::findByNodeId()` yang sudah ada). **Secara sengaja tidak melaporkan** profile views/content reach — field `analytics.available=false` dengan alasan eksplisit, karena FPDP belum punya tracking visitor sama sekali; jujur kosong, bukan angka karangan.
-- **Payments config (mengaktifkan `payment_gateway_configs`):** tabel ini ada sejak migration pertama tapi sejak awal proyek **tidak pernah dipakai kode apa pun** — sekarang diaktifkan lewat `PaymentGatewayConfigRepository` baru + helper enkripsi `App\Core\Crypto` (AES-256-GCM, key diturunkan dari `APP_KEY` via SHA-256). `GET /api/v1/me/payment-gateways` menampilkan gateway mana yang sudah dikonfigurasi dan environment aktifnya (SANDBOX/LIVE) **tanpa pernah mengembalikan secret asli**; `PATCH /api/v1/me/payment-gateways/{code}` menyimpan kredensial terenkripsi dan otomatis menonaktifkan environment lain untuk gateway itu (cuma satu environment aktif per gateway). `PaymentService::createPayment()`/`handleWebhook()` kini resolve config dari DB dulu (jika ada) sebelum fallback ke `.env` — jadi Paywuz/Midtrans bisa dikonfigurasi tanpa akses server. Migration `0038` men-seed 3 baris `payment_gateways` (DUMMY/PAYWUZ/MIDTRANS) — tabel itu juga sejak awal tidak pernah diisi. 12 test baru: `PaymentGatewaySettingsTest` (round-trip enkripsi, tamper terdeteksi, switch environment, validasi gateway/key/environment tidak dikenal, secret tidak pernah bocor di response) dan bagian dari `DashboardOverviewTest`.
-- **Analytics (subsistem baru sepenuhnya):** tabel `analytics_events` (migration `0039`) mencatat 4 jenis event — `PROFILE_VIEW`/`POST_VIEW` (direkam otomatis oleh server saat `GET /api/v1/profiles/{handle}` dan `GET /api/v1/posts/{postId}` diakses, tanpa perlu frontend), `OUTBOUND_CLICK` (dilaporkan eksplisit oleh client lewat `POST /api/v1/profiles/{handle}/track/outbound-click` karena klik keluar tidak bisa diamati server), dan `SHOP_CONVERSION` (direkam saat `MarketplaceController::createOrder()` — catatan: order saat ini masih dibuat lewat endpoint yang butuh bearer-token owner, bukan checkout publik, jadi belum benar-benar representasikan "konversi pengunjung anonim" sampai checkout flow sungguhan ada). **Desain privacy-conscious**: IP mentah **tidak pernah disimpan** — `App\Core\Crypto`-style HMAC-SHA256 atas `tanggal|ip|user-agent` dengan `APP_KEY` sebagai secret (bukan sha256 polos, karena ruang alamat IP kecil dan gampang di-brute-force tanpa key), hash berubah tiap hari sehingga pengunjung yang sama tidak bisa dilacak lintas hari — cuma dedup "unique visitor" dalam satu hari. `GET /api/v1/me/dashboard/analytics` mengembalikan ringkasan 7 hari (unique visitors, profile views, content views, outbound clicks, shop conversions, grafik harian, top content). `DashboardService::getOverview()` sekarang mengisi field `analytics` dengan data sungguhan (sebelumnya `available: false`). **Bug ditemukan & diperbaiki saat menulis test integrasi**: perhitungan tanggal awalnya mencampur `strtotime()` (zona waktu default PHP, mis. `Asia/Jakarta`) dengan `gmdate()` (selalu UTC) — menyebabkan grafik 7-hari bergeser satu hari ke belakang dan **tidak menyertakan hari ini** di server manapun yang zona waktunya bukan UTC (yaitu hampir semua server Indonesia). Diperbaiki dengan `DateTimeImmutable` UTC eksplisit di semua kalkulasi tanggal. 14 test baru: `AnalyticsServiceTest` (privasi hash, validasi URL termasuk penolakan skema `javascript:`, top content, tanpa `APP_KEY` → hash tidak disimpan sama sekali alih-alih hash tak ter-salt) dan perluasan `DashboardOverviewTest` (view profil/post sungguhan lewat HTTP lalu diverifikasi masuk ke `GET /me/dashboard/analytics`).
-- **Marketplace:** CRUD produk. Order dengan `product_snapshot` immutable, total auto, 6 status. Validasi kepemilikan. 14 test.
-- **Payment interfaces:** Interface, Factory, DummyGateway (create/status/cancel/refund/webhook). Factory hanya kenal `DUMMY`.
-- **Web UI:** Landing, timeline, profil publik (`@handle`), post publik, post editor.
-- **Install wizard:** `public/install.php` — cek env, tulis `.env`, migrasi, registrasi owner.
-- **Docker:** Dockerfile (PHP 8.3), dokploy-compose.yml, entrypoint.sh, panduan Dokploy (EN & ID).
-- **CI workflow:** GitHub Actions — syntax check PHP 8.2/8.3, full test suite.
-- **Tests (22, semua lulus):** AuthEndpoints, Config, ContentPages, CvEndpoints, Database, ExternalContent, FactoryFallback, FederatedConnections, FrontController, Installer, Marketplace, MigrationRunner, MvcHome, MvpSmoke, OAuthStateSigner, PostEndpoints, RateLimit, RateLimitEndpoint, Router, VisitorAuthEndpoints, YouTubeEmbedResolver.
-- **Dokumentasi:** BRD, PRD, WBS, Roadmap, ERD, API contract, OpenAPI, Federation concept, Content aggregation, Social/commerce, Problem statement, Value proposition, User journey, Deployment (VPS, shared hosting, Dokploy), AI monetization, Progress report — bilingual.
-- **Identitas & autentikasi:** registrasi owner, login, logout, `/api/v1/me`; password hashing bcrypt; bearer token yang di-hash saat disimpan; rate limiting per-IP pada register/login (`429 RATE_LIMITED`).
-- **Profil:** baca profil publik berdasarkan handle (`GET /api/v1/profiles/{handle}`) dan update terautentikasi (`PATCH /api/v1/me/profile`), lengkap dengan aturan visibilitas.
-- **Payment gateway sungguhan (Paywuz):** `PaywuzGateway` mengimplementasikan `PaymentGatewayInterface` sesuai kontrak resmi Paywuz Merchant API v1 — `createPayment()` (`POST {base}/transactions`, Bearer API key), `verifyWebhook()` (HMAC-SHA256 atas raw body, header `X-Paywuz-Signature: sha256=<hex>`), `handleWebhook()` (normalisasi event `transaction.paid`/`transaction.failed`/`transaction.cancelled`). `getPaymentStatus()`/`cancelPayment()`/`refundPayment()` sengaja throw eksplisit karena Paywuz tidak mendokumentasikan endpoint tersebut — bukan ditebak. `PaymentRepository` baru mem-persist ke tabel `payments`/`payment_transactions` (kolom `metadata` JSON baru, migration `0034`; unique constraint `(provider, external_id)` untuk idempotency webhook, migration `0035`). Endpoint publik `POST /api/v1/payments/webhook/{gateway}` (tanpa bearer auth, diautentikasi lewat signature) memverifikasi lalu men-transisi `payments.status` PENDING→PAID/FAILED/CANCELLED secara idempotent, dan memicu fulfillment berdasarkan `metadata.purpose`. `CvAccessService::grantAccess()` kini gateway-aware: `DUMMY` tetap grant sinkron (kompatibel dengan test lama), gateway async seperti `PAYWUZ` membuat payment PENDING dan baru grant lewat `confirmPayment()` saat webhook mengonfirmasi PAID — cara lama ("createPayment sukses = lunas") sekarang hanya berlaku untuk `DUMMY`. Gateway dipilih lewat `CV_PAYMENT_GATEWAY` (default `DUMMY`). 8 test baru (`PaywuzGatewayTest`: request/response shape, validasi order_id, verifikasi signature, normalisasi event, operasi tak terdokumentasi throw; `PaymentWebhookTest`: signature invalid→401, webhook valid→PAID+grant CV, retry delivery→duplicate no-op, order tak dikenal→diterima tanpa efek).
-- **Payment gateway sungguhan (Midtrans):** `MidtransGateway` menambah gateway sungguhan kedua di factory, berdasarkan Snap + Core API Midtrans yang terdokumentasi publik (docs.midtrans.com) — `createPayment()` (`POST {snap_url}/transactions`, HTTP Basic auth Server Key, response `{token, redirect_url}`); berbeda dari Paywuz, `getPaymentStatus()`/`cancelPayment()`/`refundPayment()` **diimplementasikan penuh** lewat Core API (`GET/POST {api_url}/{order_id}/status|cancel|refund`) karena Midtrans mendokumentasikannya. `verifyWebhook()` memverifikasi `signature_key` yang dikirim Midtrans **di dalam body notifikasi itu sendiri** (bukan header seperti Paywuz) dengan menghitung ulang `SHA512(order_id+status_code+gross_amount+ServerKey)`. `handleWebhook()` menormalisasi seluruh nilai `transaction_status` Midtrans (`capture`+`fraud_status=accept`/`settlement`→PAID, `pending`→PENDING, `deny`/`expire`→FAILED, `cancel`→CANCELLED, `refund`/`partial_refund`→REFUNDED — dicatat di `payment_transactions` tapi belum mengubah `payments.status` karena hanya berlaku transisi dari PENDING, lihat §7). Lingkungan sandbox/production dan URL API dipilih lewat `MIDTRANS_ENVIRONMENT`. 7 test baru (`MidtransGatewayTest`): request/auth Snap, validasi order_id, HTTP gagal, status/cancel/refund lewat Core API, verifikasi signature (valid/dipalsukan/tanpa signature), dan normalisasi seluruh nilai `transaction_status`. Test `FactoryFallbackTest` yang lama memakai `MIDTRANS` sebagai contoh "kode terdaftar tapi belum diimplementasikan" — sekarang diganti `STRIPE` karena Midtrans sudah sungguhan.
-- **Connector konten eksternal:** `ExternalContentProviderInterface`, `ExternalConnectorFactory`, dan adapter `RSSConnector`/`AtomConnector`/`CustomApiConnector` yang berfungsi. Adapter RSS/Atom sekarang juga mendeteksi tautan video YouTube (termasuk elemen `yt:videoId`/`media:group` pada official Atom feed sebuah channel) dan menormalisasinya menjadi descriptor embed (`YouTubeEmbedResolver`).
-- **Mockup UI interaktif:** prototipe HTML/CSS/JS tanpa dependency untuk owner dashboard dan public profile pada [documentation/mockup](mockup/README.md), termasuk bagian "Video" YouTube yang benar-benar bisa diputar pada public profile — berguna untuk review desain, belum terhubung ke backend.
-- **Test (12, semua lulus):** `MvpSmokeTest`, `MvcHomeTest`, `RouterTest`, `FrontControllerTest`, `ConfigTest`, `MigrationRunnerTest`, `DatabaseTest`, `FactoryFallbackTest`, `AuthEndpointsTest` (alur HTTP lengkap), `RateLimitTest`, `RateLimitEndpointTest`, `YouTubeEmbedResolverTest`.
-- **Dokumentasi:** BRD, PRD, WBS, Roadmap, ERD, kontrak API, OpenAPI 3.1, konsep federasi, panduan agregasi konten, panduan integrasi sosial/commerce, problem statement, user journey, dan peta navigasi mockup — semuanya bilingual (Inggris/Indonesia).
+### 3.1 Platform dan keamanan dasar
 
-## 4. Yang sebagian selesai
+- Front controller dan router mendukung route statis, parameter segment, dan canonical `/@handle`.
+- Config membaca default, `.env`, dan environment variable native container.
+- Password memakai hashing; bearer token di-hash saat disimpan dan dapat dicabut.
+- Register/login memiliki rate limiting.
+- HTTP client external memblokir target private/internal, membatasi redirect, timeout, dan ukuran response.
+- JSON response menggunakan success/error envelope yang konsisten.
+- GitHub Actions menjalankan syntax check dan test suite.
 
-| Area | Yang sudah ada | Yang belum ada |
-|---|---|---|
-| Autentikasi & otorisasi | Auth bearer-token, kepemilikan akun milik pemanggil sendiri | Model role/permission (admin vs owner), authorization middleware serbaguna |
-| Audit trail | Migration `audit_events` (tabel sudah ada) | Belum ada kode yang menulis ke tabel tersebut |
-| Payment lifecycle | Dummy create/status/cancel/refund/normalisasi webhook; **Paywuz** dan **Midtrans** sungguhan dengan idempotency dan persistensi `payments`/`payment_transactions`; **kredensial terenkripsi via API** (`payment_gateway_configs` kini terpakai) | `getPaymentStatus`/`cancelPayment`/`refundPayment` untuk Paywuz (tidak terdokumentasi di API mereka), penanganan refund pasca-PAID (tercatat tapi tidak mengubah status), rekonsiliasi, UI admin (baru API) |
-| Sinkronisasi konten eksternal | Connector dapat fetch dan menormalisasi record di memori (termasuk embed video) | Belum ada scheduler/worker yang memprosesnya; belum ada yang menyimpan hasil fetch ke `external_posts`; belum ada proteksi SSRF, timeout, atau retry/backoff pada fetch keluar |
-| Atribusi & tampilan timeline | Kontrak normalisasi sudah terdokumentasi (`source_type`, canonical URL, provenance) | Belum ada query timeline terpadu atau rendering pada aplikasi sungguhan (baru diilustrasikan pada mockup statis) |
-| Testing & CI | 12 test bergaya skrip lulus, dijalankan manual lewat `php tests/*.php` | Belum ada CI workflow (tidak ada `.github/workflows`), belum ada test khusus idempotency webhook atau keamanan connector |
+### 3.2 Identity, profile, dan visitor
 
-## 5. Yang belum dimulai
+- Registrasi membuat node, owner user, dan profile dalam satu flow.
+- Login, logout, `/api/v1/me`, baca profile publik, dan update profile tersedia.
+- Profile visibility: `PUBLIC`, `UNLISTED`, `PRIVATE`.
+- Google OAuth visitor memakai state bertanda tangan dan token visitor yang di-hash.
 
-- **Marketplace lanjutan:** checkout flow dengan payment (`PaymentService`/`PaymentRepository` yang baru dibangun untuk CV paywall belum disambungkan ke `MarketplaceService`/`OrderRepository`), external-product labels, federated order-request workflow.
-- **Rekonsiliasi refund pasca-PAID:** event webhook `refund`/`partial_refund` (Midtrans) tercatat di `payment_transactions` untuk audit, tapi `PaymentService::handleWebhook()` hanya mengizinkan transisi dari status `PENDING` — pembayaran yang sudah `PAID` tidak otomatis berubah jadi `REFUNDED` saat ini.
-- **Administration dashboard sungguhan:** 4 dari 10 menu mockup sudah punya endpoint (Federation, Overview, Payments, Analytics — lihat §3), tapi mockup HTML statisnya belum disambungkan ke endpoint sungguhan mana pun. Sisa yang belum digarap: Settings appearance/language/node-config/security (2FA, manajemen sesi).
-- **Monetisasi LLM/AI:** chatbot, paid CV gating, analytics, ad marketplace.
-- **OAuth social connectors:** Instagram, LinkedIn, X (Twitter).
-- **Deployment/operasional:** backup/restore/rollback, file lisensi, latihan recovery staging.
+### 3.3 Konten lokal dan media
 
-## 6. Rekomendasi langkah berikutnya
+- Create/read/update/soft-delete post.
+- Draft/publish/unpublish melalui `published_at`.
+- Visibility post dan ownership enforcement.
+- Canonical post/profile URL.
+- Cursor pagination untuk post dan timeline.
+- Maksimal 10 media berurutan per post (`IMAGE`, `VIDEO`, `AUDIO`, `FILE`).
+- URL media wajib HTTPS, tanpa embedded credential; alt text dibatasi.
+- UI nyata: timeline, profile, post page, post editor.
 
-Berdasarkan roadmap dan gap terkini, pekerjaan dengan dampak tertinggi secara berurutan:
+### 3.4 Konten eksternal
 
-1. **Uji Paywuz dan Midtrans terhadap sandbox sungguhan** — jalankan `createPayment()`/`getPaymentStatus()`/dll nyata dengan kredensial sandbox untuk memvalidasi bentuk response di luar dokumentasi (test saat ini hanya memvalidasi lewat HTTP requester palsu).
-2. **Checkout flow** — sambungkan `MarketplaceService`/order ke `PaymentService`/`PaymentRepository` yang baru dibangun (saat ini hanya dipakai CV paywall), supaya `SHOP_CONVERSION` di Analytics juga jadi representasi konversi pengunjung sungguhan, bukan aksi owner.
-3. **UI dashboard sungguhan** — sambungkan mockup HTML statis ke 4 endpoint yang sudah ada (Federation, Overview, Payments, Analytics), lalu lanjutkan Settings (appearance/language/node config/security).
-4. **Authorization middleware** — model role/permission (admin vs owner) untuk proteksi route (endpoint dashboard/moderasi saat ini hanya dilindungi bearer-token biasa, belum ada pembedaan peran admin).
-5. **Uji federasi lintas-server sungguhan** — jalankan dua instance FPDP nyata (mis. dua container Dokploy) yang saling follow lewat internet, untuk memvalidasi discovery/signature di luar test dalam satu proses.
+- Connector RSS, Atom, dan Custom API.
+- Normalisasi YouTube dari official feed dan privacy-enhanced embed support.
+- Feed-source management, sync trigger, sync worker, deduplication, persistence, dan statistik.
+- External items dapat digabungkan ke timeline dengan source attribution.
 
-## 7. Catatan operasional (temuan sesi lanjutan)
+### 3.5 CV dan visitor monetization foundation
 
-- **Dependensi `ext-sodium`:** `NodeKeyService` (generate/sign/verify Ed25519) mensyaratkan ekstensi PHP `sodium`. Di environment development lokal (XAMPP Windows), ekstensi ini **nonaktif secara default** di `php.ini` (`;extension=sodium`) — sudah diaktifkan untuk sesi ini agar test bisa jalan. `Dockerfile` produksi (`docker-php-ext-install pdo_mysql mbstring simplexml`) tidak secara eksplisit menginstal/mengaktifkan `sodium`; perlu diverifikasi pada image PHP target (biasanya sudah built-in sejak PHP 7.2, tapi jangan diasumsikan tanpa cek).
-- **Migration nyata belum tervalidasi di SQLite:** seluruh 33 file di `database/migrations/` (termasuk yang lama) gagal dijalankan langsung lewat `MigrationRunner` terhadap SQLite in-memory (`ALTER TABLE`, `KEY idx(...)`, `... ON UPDATE CURRENT_TIMESTAMP`, `COMMENT '...'` tidak didukung sintaks SQLite). Ini bukan regresi dari sesi ini — semua test yang ada (termasuk yang baru) menulis skema SQLite minimal sendiri secara manual, bukan menjalankan migration asli. Migration hanya tervalidasi terhadap MySQL/MariaDB di CI. Belum ada test yang menjalankan `database/migrations/*.sql` end-to-end terhadap MySQL nyata di repo ini.
-- **Asumsi satu node lokal per deployment:** endpoint publik `GET /api/v1/federation/capability` (dipakai node lain untuk discovery) memakai `NodeRepository::findFirst()` ketika dipanggil tanpa bearer token, karena skema DB mendukung banyak `nodes` per instalasi tapi tidak ada resolusi berbasis `Host` header. Cocok untuk model "satu owner per deployment" yang dijelaskan di §3, tapi perlu didesain ulang jika FPDP nanti benar-benar dipakai multi-tenant dalam satu instalasi.
-- **Proteksi replay masih sederhana:** penolakan activity dengan `published` di luar jendela ±5 menit (`FederationService::MAX_ACTIVITY_SKEW_SECONDS`) mengurangi jendela replay, tapi ini bukan nonce cache — activity dengan `id` unik yang di-replay ulang dalam 5 menit dan signature valid masih akan diproses sebagai activity baru (dedup hanya mencegah `id` yang sama persis diproses dua kali). Cukup untuk MVP, tapi belum setara proteksi anti-replay penuh.
-- **Endpoint moderasi belum tercatat di audit trail:** `PATCH /api/v1/me/federation/remote-nodes/{domain}/trust` tidak menulis ke tabel `audit_events` (berbeda dari AuthService/PostService/ProfileService yang sudah terhubung ke `AuditService`) — worth menyambungkannya saat backend admin dashboard dibangun.
-- **Gateway Paywuz dan Midtrans belum diuji terhadap API sungguhan:** kontrak `PaywuzGateway` (`createPayment`/`verifyWebhook`/`handleWebhook`) diambil dari dokumentasi dan kode referensi proyek lain (`kpp.botantrian`); kontrak `MidtransGateway` diambil dari dokumentasi publik Midtrans (docs.midtrans.com) — keduanya belum pernah dicoba langsung ke API sungguhan mereka, cuma diverifikasi lewat HTTP requester palsu di test. `getPaymentStatus()`/`cancelPayment()`/`refundPayment()` Paywuz sengaja throw karena endpoint-nya tidak terdokumentasi di referensi tersebut — kalau Paywuz sebenarnya punya endpoint itu, perlu dicek ke dukungan/dokumentasi resmi mereka langsung, jangan menebak dari kode ini.
-- **`payment_transactions` sekarang punya UNIQUE KEY (provider, external_id)** (migration `0035`) yang sebelumnya tidak ada — kalau ada data produksi lama dengan `(provider, external_id)` yang sudah duplikat, migration ini akan gagal saat dijalankan; belum ada test yang memverifikasi migration ini terhadap data lama.
-- **`CvAccessService` sekarang membaca `Config::get('CV_PAYMENT_GATEWAY')`** saat runtime — deployment yang sudah berjalan dengan asumsi lama (selalu DUMMY, selalu grant sinkron) tidak terpengaruh selama var-env ini tidak diisi (default tetap `DUMMY`), tapi perlu didokumentasikan ke operator saat mengaktifkan Paywuz agar mereka tahu alur grant berubah jadi asinkron (lihat `.env.example`).
-- **`nodes.capabilities` murni kosmetik saat ini:** `PATCH /api/v1/me/federation/capabilities` menyimpan preferensi pemilik, dan nilainya ikut dikembalikan di `GET /me/federation/summary`, tapi tidak ada kode di mana pun yang benar-benar memeriksa nilai ini untuk memblokir/mengizinkan akses (mis. menonaktifkan `PAYMENTS` tidak menutup endpoint marketplace/CV paywall). Perlu diputuskan sebelum dipakai sebagai kontrol akses sungguhan di UI admin dashboard nanti.
-- **Bug follower/following yang diperbaiki:** sebelum sesi ini, `FollowRepository::findFollowersByProfileId()` dan `findFollowingByProfileId()` memakai query SQL yang identik persis (tidak ada cara membedakan arah follow) — sudah ada sejak commit federasi awal (`f545ede`), bukan regresi dari pekerjaan sebelumnya di sesi ini. Diperbaiki dengan kolom `direction` (migration `0036`); kalau ada data produksi lama dari sebelum kolom ini ada, semuanya akan default ke `OUTGOING`, yang berarti follower lama (dari `processFollow()`) akan salah terhitung sebagai "following" sampai dikoreksi manual — belum ada script migrasi data untuk kasus itu.
-- **`APP_KEY` sekarang dipakai untuk dua hal:** signing state OAuth (lama) DAN sebagai sumber key enkripsi AES-256-GCM untuk kredensial gateway di `payment_gateway_configs` (baru, `App\Core\Crypto`). Merotasi `APP_KEY` akan membuat kredensial gateway yang sudah tersimpan **tidak bisa didekripsi lagi** — kode menangani ini dengan skip-per-baris (tidak fatal, lihat `PaymentGatewayConfigRepository::getActiveConfig()`), tapi operator perlu memasukkan ulang kredensial setelah rotasi. Belum ada mekanisme re-encrypt otomatis.
-- **`available_balance` di Payments dashboard adalah aproksimasi, bukan ledger sungguhan:** dihitung sebagai jumlah seluruh `payments.amount` berstatus `PAID`, tanpa memperhitungkan fee gateway, payout/withdrawal, atau rekonsiliasi bank — sama seperti `payments` sendiri, ini juga scope global satu-install (bukan per-tenant), konsisten dengan asumsi "satu owner per deployment" yang sudah dicatat berulang di laporan ini.
-- **Endpoint Overview/Payments dashboard belum tercatat di audit trail** — sama seperti endpoint moderasi federasi, `PATCH /api/v1/me/payment-gateways/{code}` (yang menyentuh kredensial sensitif!) tidak menulis ke `audit_events`. Ini prioritas lebih tinggi untuk disambungkan dibanding endpoint moderasi, karena mengubah kredensial pembayaran adalah aksi yang lebih sensitif untuk diaudit.
-- **Bug timezone yang diperbaiki saat membangun Analytics:** `AnalyticsService::getSummary()`/`fillDailyTraffic()` awalnya mencampur `strtotime()` (memakai zona waktu default PHP — di environment development lokal ini `Asia/Jakarta`) dengan `gmdate()` (selalu UTC) untuk menghitung rentang tanggal grafik 7-hari. Karena `analytics_events.occurred_on` disimpan dalam UTC (`gmdate('Y-m-d')` saat pencatatan), pencampuran ini membuat grafik bergeser satu hari ke belakang dan **tidak menyertakan hari ini** — baru ketahuan karena test integrasi (`DashboardOverviewTest`) benar-benar memverifikasi angka, bukan cuma cek struktur response. Ini kelas bug yang gampang lolos review manual tapi mudah tertangkap test dengan assertion nilai konkret — dampaknya akan terasa di **hampir semua server production Indonesia** (zona waktu bukan UTC) begitu fitur ini dipakai, bukan cuma di test. Diperbaiki dengan `DateTimeImmutable` UTC eksplisit di seluruh kalkulasi tanggal Analytics.
-- **`SHOP_CONVERSION` belum benar-benar representasikan konversi pengunjung:** dicatat saat `MarketplaceController::createOrder()` dipanggil, tapi endpoint itu masih butuh bearer-token owner (bukan checkout publik) — jadi setiap order yang di-input manual oleh owner ikut terhitung sebagai "konversi", bukan cuma pembelian oleh pengunjung anonim. Akan otomatis jadi akurat begitu checkout flow sungguhan (item #2 rekomendasi) dibangun, tanpa perlu perubahan kode Analytics.
-- **Tidak ada rate limiting di endpoint tracking publik:** `POST /api/v1/profiles/{handle}/track/outbound-click` bisa dipanggil siapa saja tanpa batas, berpotensi disalahgunakan untuk mengotori data analytics (flood event palsu). `RateLimiter` sudah ada di codebase (dipakai di login/register) tapi belum dipasang di endpoint ini — sengaja tidak ditambahkan di sesi ini untuk menjaga scope, dicatat sebagai gap yang diketahui, bukan disembunyikan.
-- **`analytics_events` tidak dibatasi retensi:** tabel ini akan terus bertambah tanpa batas (satu baris per view/click/conversion) — belum ada job pembersihan data lama (mis. hapus event yang lebih tua dari N bulan). Untuk node personal dengan traffic rendah ini belum jadi masalah praktis, tapi perlu diperhatikan sebelum production jangka panjang.
+- Owner upload CV ke `storage/` di luar webroot.
+- Public metadata, access request, payment-aware grant, dan gated download.
+- Mengganti dokumen membatalkan grant lama.
+- Google OAuth membedakan visitor dari owner.
 
-## 8. Referensi
+### 3.6 Marketplace dan payment
 
-- [Work Breakdown Structure](WBS-TASK.md)
-- [Roadmap dan strategi pengembangan](ROADMAP.id.md)
-- [Entity Relationship Diagram](ERD.id.md)
-- [Kontrak API](API-CONTRACT.id.md) · [OpenAPI 3.1](openapi.yaml)
-- [Mockup interaktif](mockup/README.md) · [Peta navigasi mockup](mockup/NAVIGATION-MAP.id.md)
-- [Panduan deployment (Dokploy)](DOKPLOY-DEPLOYMENT.id.md)
-- [Panduan deployment (VPS & shared hosting)](DEPLOYMENT-GUIDE.id.md)
-- [README repository](../README.md) — tabel "Current implementation"
+- Product CRUD dan order dengan immutable product snapshot.
+- Order status lifecycle dan ownership validation.
+- `PaymentGatewayInterface`, factory, Dummy, Paywuz, dan Midtrans adapters.
+- Payment dan transaction persistence.
+- Webhook verification serta duplicate-event handling.
+- Gateway credentials dapat disimpan terenkripsi AES-256-GCM melalui API dan tidak dikembalikan ke client.
+- Dashboard payment summary tersedia sebagai API.
+
+### 3.7 Federasi
+
+- Ed25519 node identity dan signing key.
+- Public capability discovery.
+- Remote-node key discovery dan cache.
+- Signed public inbox dan authenticated outbox.
+- Follow, Accept, Reject, Undo, dan Block processing.
+- Incoming/outgoing follow direction.
+- Federated connections dan latest-post preview pada public profile API.
+- Remote-node trust state (`UNKNOWN`, `TRUSTED`, `BLOCKED`).
+- Delivery queue, retry, exponential backoff, deduplication, dan timestamp-window replay reduction.
+- Federation summary serta capability settings API.
+
+### 3.8 Analytics dan dashboard API
+
+- Privacy-conscious daily visitor hashing menggunakan HMAC dan `APP_KEY`; IP mentah tidak disimpan.
+- Profile view, post view, outbound click, dan shop-conversion events.
+- Ringkasan 7 hari, unique visitors, traffic chart, dan top content.
+- Dashboard overview mengagregasi post, timeline mix, products, orders, revenue, federation, analytics, dan recent activity.
+
+### 3.9 Deployment
+
+- Web installer untuk VPS/shared hosting.
+- Docker image PHP 8.3 + Apache.
+- Dokploy Compose: app + MySQL 8.4, health check, persistent volumes, migration otomatis, dan bootstrap owner.
+- Production secret validation dan web-installer lock.
+- Panduan Dokploy, VPS, serta shared hosting tersedia dalam English dan Bahasa Indonesia.
+
+## 4. Yang masih sebagian selesai
+
+### 4.1 Production validation
+
+- Docker image belum dibangun pada workspace ini karena Docker CLI tidak tersedia.
+- Dokploy staging deployment belum dijalankan.
+- Seluruh migration belum diuji end-to-end pada MySQL 8 disposable dalam test suite repository.
+- Backup/restore/rollback baru terdokumentasi, belum diuji lewat recovery exercise.
+- Availability extension `sodium` pada image hasil build perlu diverifikasi eksplisit.
+
+### 4.2 Checkout dan marketplace
+
+- Order belum membuat payment melalui gateway dalam checkout visitor publik.
+- Belum ada checkout UI, receipt, payment-status polling, cancellation, dan refund experience.
+- `SHOP_CONVERSION` saat ini mengikuti pembuatan order owner, belum merepresentasikan checkout visitor secara akurat.
+- External product labels dan federated order request belum tersedia.
+
+### 4.3 Payment production
+
+- Paywuz dan Midtrans diuji dengan fake HTTP requester, belum terhadap sandbox provider nyata.
+- Refund/partial refund Midtrans setelah `PAID` tercatat sebagai transaction event tetapi belum selalu merekonsiliasi status payment menjadi `REFUNDED`.
+- Belum ada settlement/payout ledger, gateway-fee accounting, dan reconciliation job.
+- Rotasi `APP_KEY` belum dapat melakukan re-encryption credential gateway otomatis.
+
+### 4.4 Dashboard dan settings
+
+- Mockup dashboard belum terhubung ke API live.
+- Content, Timeline, Integrations, Products, dan Orders memiliki domain endpoint, tetapi belum menjadi panel dashboard terintegrasi.
+- Node settings belum tersedia: theme, layout, custom CSS, default/enabled languages, dan node config.
+- Security settings belum tersedia: 2FA dan session management.
+
+### 4.5 Federasi production
+
+- Belum ada test dua instance FPDP pada host/domain berbeda.
+- Belum ada dashboard federation live untuk follow, trust, block, moderation, dan capability.
+- Replay protection belum memakai nonce cache; timestamp window dan activity-id dedup masih menjadi proteksi utama.
+- Capability yang disimpan belum menegakkan akses fitur.
+- Data follow lama mungkin memerlukan backfill arah `INCOMING`/`OUTGOING`.
+
+### 4.6 Authorization, audit, dan analytics hardening
+
+- Belum ada middleware role/permission terpusat untuk membedakan owner/admin.
+- Perubahan payment credential dan remote-node trust belum semuanya masuk audit trail.
+- Endpoint public outbound-click belum mempunyai rate limiting khusus.
+- `analytics_events` belum memiliki retention/cleanup job.
+- Audit coverage belum mencakup seluruh aksi administratif sensitif.
+
+## 5. Belum dimulai
+
+- OAuth connector production untuk Instagram/Meta, LinkedIn, X, Threads, TikTok, dan Shopee.
+- LLM provider configuration, profile/CV-grounded chatbot, paid chat session, serta AI usage/cost controls.
+- Advertising marketplace: ad slot, pricing, booking, approval, dan delivery window.
+- Production plugin/adapter marketplace.
+- Federated commerce end-to-end.
+- Multi-node administration, shared/object storage, dan horizontal scaling.
+- License file dan formal contribution policy.
+
+## 6. Prioritas berikutnya
+
+```mermaid
+flowchart LR
+    A["1. Dokploy staging<br/>+ MySQL migration test"] --> B["2. Payment sandbox<br/>+ checkout publik"]
+    B --> C["3. Dashboard live<br/>+ node settings"]
+    C --> D["4. Federation<br/>cross-server test"]
+    D --> E["5. Authorization,<br/>audit, retention"]
+    E --> F["6. OAuth, AI,<br/>ads & ecosystem"]
+```
+
+Urutan rekomendasi:
+
+1. Deploy satu staging node melalui Dokploy dan validasi build, health check, volume, bootstrap, serta seluruh migration pada MySQL 8.
+2. Uji Paywuz dan Midtrans terhadap sandbox sungguhan.
+3. Sambungkan public checkout → order → payment → webhook → fulfillment/refund.
+4. Ubah dashboard mockup menjadi UI live, dimulai dari Overview, Payments, Analytics, dan Federation yang API-nya sudah ada.
+5. Implementasikan node appearance/language settings dan security settings.
+6. Jalankan dua node nyata untuk interoperability federation.
+7. Tambahkan RBAC middleware, audit sensitif, analytics rate limiting, dan retention job.
+8. Baru lanjutkan social OAuth, AI chatbot, advertising, dan ecosystem work.
+
+## 7. Risiko dan keputusan operasional
+
+- Deployment saat ini diasumsikan **satu owner dan satu app replica per node**.
+- Jangan scale app sebelum migration locking serta shared/object storage tersedia.
+- MySQL dan `storage/` harus dipulihkan dari recovery point yang konsisten.
+- Code rollback tidak otomatis membalikkan forward migration.
+- `APP_KEY` melindungi OAuth state, analytics HMAC, dan encrypted gateway credential; rotasinya memerlukan prosedur khusus.
+- Registration publik dapat membuat node tambahan; production policy perlu menentukan apakah registration dibuka atau dibatasi.
+- Payment dan federation wajib diuji dengan sistem remote nyata sebelum diklaim production-ready.
+
+## 8. Validasi terakhir
+
+- **29/29 test script lulus** pada environment pengembangan terakhir.
+- PHP syntax untuk konfigurasi dan owner bootstrap lulus.
+- Bootstrap owner tervalidasi terhadap database SQLite test.
+- `git diff --check` lulus.
+- Docker build/Compose rendering belum dijalankan karena Docker CLI tidak tersedia pada workspace; ini menjadi acceptance step pertama pada staging.
+- `ExternalContentTest` lulus tetapi Windows sempat memberi warning cleanup file SQLite yang masih terbuka; bukan kegagalan fungsi, tetapi test cleanup dapat diperbaiki.
+
+## 9. Referensi
+
+- [Roadmap](ROADMAP.id.md)
+- [WBS](WBS-TASK.md)
+- [PRD](PRD.md)
+- [ERD](ERD.id.md)
+- [API Contract](API-CONTRACT.id.md) dan [OpenAPI](openapi.yaml)
+- [Konsep Federasi](FEDERATION-CONCEPT.id.md)
+- [Panduan Dokploy](DOKPLOY-DEPLOYMENT.id.md)
+- [Mockup](mockup/README.md)
