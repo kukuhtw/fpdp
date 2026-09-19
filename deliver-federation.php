@@ -13,8 +13,8 @@ declare(strict_types=1);
  *   php deliver-federation.php                       # process all pending (default: 10)
  *   php deliver-federation.php --max=5               # process max 5 activities
  *
- * Add to crontab every 5 minutes:
- *   */5 * * * * /usr/bin/php /var/www/fpdp/deliver-federation.php
+ * Add to crontab every 5 minutes (remove the space between stars):
+ *   star/5 * * * * /usr/bin/php /var/www/fpdp/deliver-federation.php
  */
 
 require_once __DIR__ . '/vendor/autoload.php';

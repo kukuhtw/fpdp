@@ -345,4 +345,23 @@ $router->get('/api/v1/orders/{orderId}', function (Request $request, array $para
 $router->patch('/api/v1/orders/{orderId}/status', function (Request $request, array $params) use ($buildMarketplaceController): Response {
     return $buildMarketplaceController()->updateOrderStatus($request, $params);
 });
+$router->post('/api/v1/federation/send-follow', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->sendFollow($request);
+});
+
+$router->post('/api/v1/federation/send-undo', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->sendUndo($request);
+});
+
+$router->post('/api/v1/federation/send-block', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->sendBlock($request);
+});
+
+$router->post('/api/v1/federation/process-follow', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->processFollow($request);
+});
+
+$router->post('/api/v1/federation/process-undo', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->processUndo($request);
+});
 return $router;
