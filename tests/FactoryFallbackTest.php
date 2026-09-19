@@ -20,9 +20,13 @@ if (!$connector instanceof \App\Contracts\ExternalContentProviderInterface) {
     exit(1);
 }
 
+// MIDTRANS and PAYWUZ are real, implemented gateways now (see
+// MidtransGatewayTest/PaywuzGatewayTest); STRIPE stands in here as a
+// realistic-but-not-yet-implemented code to prove the factory still
+// rejects it explicitly instead of silently falling back to another adapter.
 $rejectedReservedGateway = false;
 try {
-    PaymentGatewayFactory::create('MIDTRANS');
+    PaymentGatewayFactory::create('STRIPE');
 } catch (UnsupportedProviderException $e) {
     $rejectedReservedGateway = true;
 }
