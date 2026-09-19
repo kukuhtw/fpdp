@@ -114,6 +114,13 @@ flowchart LR
 
 ## 5. Referensi
 
+## Addendum — Navigasi Jaringan Federasi
+
+- Navigasi publik kini memiliki menu **Jaringan** (`#network`) di antara Tulisan dan Proyek.
+- Kartu jaringan menampilkan user remote yang disetujui owner, status hubungan, domain asal, kesehatan cache, dan satu preview post terbaru beratribusi.
+- Dashboard Federasi memiliki toggle visibility profil publik; koneksi yang diblokir tidak dapat diaktifkan.
+- Mockup sengaja memperlihatkan kondisi cache sehat serta remote-offline/stale-cache.
+
 - [Petunjuk menjalankan mockup](README.md)
 - Dashboard: [index.html](index.html)
 - Halaman publik: [public-profile.html](public-profile.html)

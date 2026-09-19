@@ -114,6 +114,13 @@ flowchart LR
 
 ## 5. References
 
+## Addendum — Federated Network Navigation
+
+- The public navigation now includes **Network** (`#network`) between Writing and Projects.
+- Network cards show owner-approved remote users, relationship state, origin domain, cache health, and one attributed latest-post preview.
+- The Federation dashboard includes public-profile visibility toggles; blocked connections cannot be enabled.
+- The mockup intentionally shows both a healthy cache and a remote-offline/stale-cache state.
+
 - [How to run the mockup](README.md)
 - Dashboard: [index.html](index.html)
 - Public profile: [public-profile.html](public-profile.html)
