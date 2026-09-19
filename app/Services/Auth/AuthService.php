@@ -13,6 +13,7 @@ use App\Repositories\AuthTokenRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\UserRepository;
+use App\Services\Security\AuditService;
 use DateTimeImmutable;
 use PDOException;
 
@@ -23,6 +24,7 @@ final class AuthService
         private readonly UserRepository $users,
         private readonly ProfileRepository $profiles,
         private readonly AuthTokenRepository $tokens,
+        private readonly ?AuditService $audit = null,
     ) {
     }
 
@@ -95,12 +97,19 @@ final class AuthService
             throw $e;
         }
 
-        return [
+        $result = [
             'user' => $this->users->findById($userId),
             'node' => $this->nodes->findById($nodeId),
             'profile' => $this->profiles->findByUserId($userId),
             'token' => $this->issueToken($userId),
         ];
+
+        $this->audit?->record($result, 'user.registered', 'user', $result['user']['public_id'], [
+            'handle' => $handle,
+            'node_domain' => $domain,
+        ]);
+
+        return $result;
     }
 
     /**
@@ -128,11 +137,15 @@ final class AuthService
             throw new UnauthorizedException('Invalid email or password.');
         }
 
-        return [
+        $result = [
             'user' => $user,
             'node' => $this->nodes->findById((int) $user['node_id']),
             'token' => $this->issueToken((int) $user['id']),
         ];
+
+        $this->audit?->record($result, 'user.login', 'user', $user['public_id']);
+
+        return $result;
     }
 
     /**
@@ -171,7 +184,20 @@ final class AuthService
 
     public function logout(string $rawToken): void
     {
+        $tokenRow = $this->tokens->findByHash(hash('sha256', $rawToken));
         $this->tokens->revokeByHash(hash('sha256', $rawToken), (new DateTimeImmutable())->format('Y-m-d H:i:s'));
+
+        if ($tokenRow !== null) {
+            $user = $this->users->findById((int) $tokenRow['user_id']);
+            if ($user !== null) {
+                $this->audit?->record(
+                    ['user' => $user, 'node' => $this->nodes->findById((int) $user['node_id'])],
+                    'user.logout',
+                    'user',
+                    $user['public_id'],
+                );
+            }
+        }
     }
 
     /**

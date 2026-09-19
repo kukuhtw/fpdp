@@ -7,14 +7,17 @@ namespace App\Services\Profile;
 use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\ValidationException;
 use App\Repositories\ProfileRepository;
+use App\Services\Security\AuditService;
 
 final class ProfileService
 {
     private const UPDATABLE_FIELDS = ['display_name', 'bio', 'avatar_url', 'visibility'];
     private const VISIBILITIES = ['PUBLIC', 'UNLISTED', 'PRIVATE'];
 
-    public function __construct(private readonly ProfileRepository $profiles)
-    {
+    public function __construct(
+        private readonly ProfileRepository $profiles,
+        private readonly ?AuditService $audit = null,
+    ) {
     }
 
     /**
@@ -73,6 +76,16 @@ final class ProfileService
             throw new ValidationException($errors);
         }
 
-        return $this->profiles->update($userId, $input);
+        $profile = $this->profiles->update($userId, $input);
+
+        $this->audit?->record(
+            ['user' => ['id' => $userId], 'node' => ['id' => $profile['node_id'] ?? 0]],
+            'profile.updated',
+            'profile',
+            $profile['public_id'],
+            array_intersect_key($input, array_flip(self::UPDATABLE_FIELDS)),
+        );
+
+        return $profile;
     }
 }

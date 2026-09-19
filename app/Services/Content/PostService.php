@@ -11,6 +11,7 @@ use App\Core\Uuid;
 use App\Core\Database;
 use App\Repositories\ExternalPostRepository;
 use App\Repositories\PostRepository;
+use App\Services\Security\AuditService;
 use DateTimeImmutable;
 
 final class PostService
@@ -22,6 +23,7 @@ final class PostService
     public function __construct(
         private readonly PostRepository $posts,
         private readonly ?ExternalPostRepository $external = null,
+        private readonly ?AuditService $audit = null,
     ) {
     }
 
@@ -37,12 +39,19 @@ final class PostService
     {
         $fields = $this->validate($input, false);
 
-        return $this->posts->create(
+        $post = $this->posts->create(
             Uuid::v4(),
             (int) $context['user']['id'],
             (int) $context['profile']['id'],
             $fields,
         );
+
+        $this->audit?->record($context, 'post.created', 'post', $post['public_id'], [
+            'post_type' => $post['post_type'],
+            'visibility' => $post['visibility'],
+        ]);
+
+        return $post;
     }
 
     public function get(string $publicId): array
@@ -110,8 +119,12 @@ final class PostService
 
     public function delete(array $context, string $publicId): void
     {
-        $this->owned($context, $publicId);
+        $post = $this->owned($context, $publicId);
         $this->posts->softDelete($publicId);
+
+        $this->audit?->record($context, 'post.deleted', 'post', $publicId, [
+            'previous_visibility' => $post['visibility'],
+        ]);
     }
 
     private function owned(array $context, string $publicId): array
