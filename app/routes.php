@@ -148,8 +148,6 @@ $buildFederationController = static function () use ($buildAuthService): Federat
         ),
     );
 };
-$buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {
-    $connection = Database::connection();
 $buildMarketplaceController = static function () use ($buildAuthService): MarketplaceController {
     $connection = Database::connection();
     return new MarketplaceController(
@@ -161,6 +159,8 @@ $buildMarketplaceController = static function () use ($buildAuthService): Market
         ),
     );
 };
+$buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {
+    $connection = Database::connection();
     return new ExternalContentController(
         $buildAuthService(),
         new SyncWorker(
