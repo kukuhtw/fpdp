@@ -323,6 +323,8 @@ Start with the [documentation index](documentation/README.md). Product requireme
 - [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
 - [Problem definition — English](documentation/PROBLEM-STATEMENT.en.md)
 - [Definisi masalah — Bahasa Indonesia](documentation/PROBLEM-STATEMENT.id.md)
+- [Value proposition and professional copywriting — English](documentation/VALUE-PROPOSITION.en.md)
+- [Narasi manfaat dan copywriting profesional — Bahasa Indonesia](documentation/VALUE-PROPOSITION.id.md)
 - [Deployment guide (VPS & shared hosting, install wizard) — English](documentation/DEPLOYMENT-GUIDE.en.md)
 - [Panduan deployment (VPS & shared hosting, install wizard) — Bahasa Indonesia](documentation/DEPLOYMENT-GUIDE.id.md)
 
@@ -641,6 +643,8 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 - [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
 - [Problem definition — English](documentation/PROBLEM-STATEMENT.en.md)
 - [Definisi masalah — Bahasa Indonesia](documentation/PROBLEM-STATEMENT.id.md)
+- [Value proposition and professional copywriting — English](documentation/VALUE-PROPOSITION.en.md)
+- [Narasi manfaat dan copywriting profesional — Bahasa Indonesia](documentation/VALUE-PROPOSITION.id.md)
 - [Deployment guide (VPS & shared hosting, install wizard) — English](documentation/DEPLOYMENT-GUIDE.en.md)
 - [Panduan deployment (VPS & shared hosting, install wizard) — Bahasa Indonesia](documentation/DEPLOYMENT-GUIDE.id.md)
 
