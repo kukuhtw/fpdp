@@ -48,7 +48,7 @@ The intended product combines:
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
 | Database layer | `Database` PDO connection manager and `MigrationRunner`; ordered migrations under `database/migrations/` with foreign keys and indexes, run via `database/migrate.php` |
-| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, and database connection test |
+| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, and factory fallback-rejection test |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
@@ -91,7 +91,7 @@ The two main extension points are:
 - `PaymentGatewayInterface`, which prevents checkout logic from depending on one gateway;
 - `ExternalContentProviderInterface`, which normalizes authentication, profiles, posts, and disconnect behavior across content providers.
 
-Factories currently select adapters by provider code. Only the dummy payment gateway is implemented in this repository; several production gateway names are reserved by the factory for future adapters.
+Factories select adapters by provider code and reject unknown or not-yet-implemented codes with an explicit `UnsupportedProviderException` rather than silently falling back to another adapter. Only the dummy payment gateway and the RSS/Atom/Custom API connectors are implemented in this repository; production gateways are added to the factory's supported-code list only once their adapter class exists.
 
 ### Repository structure
 
@@ -132,7 +132,8 @@ tests/
 ├── FrontControllerTest.php  Route wiring and health-envelope test
 ├── ConfigTest.php           Config defaults, .env override, and validation test
 ├── MigrationRunnerTest.php  Migration ordering, tracking, and idempotency test
-└── DatabaseTest.php         Database connection wiring test
+├── DatabaseTest.php         Database connection wiring test
+└── FactoryFallbackTest.php  Payment/connector factories reject unsupported codes
 ```
 
 ### Requirements
@@ -169,6 +170,7 @@ tests/
    php tests/ConfigTest.php
    php tests/MigrationRunnerTest.php
    php tests/DatabaseTest.php
+   php tests/FactoryFallbackTest.php
    ```
 
 4. Serve the front controller and try it in a browser or with curl:
@@ -276,6 +278,8 @@ Start with the [documentation index](documentation/README.md). Product requireme
 - [Entity Relationship Diagram — Bahasa Indonesia](documentation/ERD.id.md)
 - [Social and commerce integrations — English](documentation/SOCIAL-COMMERCE-INTEGRATIONS.en.md)
 - [Integrasi sosial dan commerce — Bahasa Indonesia](documentation/SOCIAL-COMMERCE-INTEGRATIONS.id.md)
+- [Social content publishing and aggregation — English](documentation/CONTENT-AGGREGATION-GUIDE.en.md)
+- [Publikasi dan agregasi konten sosial — Bahasa Indonesia](documentation/CONTENT-AGGREGATION-GUIDE.id.md)
 - [Federation concept — English](documentation/FEDERATION-CONCEPT.en.md)
 - [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
 - [Problem definition — English](documentation/PROBLEM-STATEMENT.en.md)
@@ -321,7 +325,7 @@ Produk yang dituju menggabungkan:
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
 | Database layer | `Database` PDO connection manager dan `MigrationRunner`; migration terurut di `database/migrations/` dengan foreign key dan index, dijalankan lewat `database/migrate.php` |
-| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, dan test koneksi database |
+| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, dan test penolakan fallback factory |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
@@ -364,7 +368,7 @@ Dua extension point utamanya adalah:
 - `PaymentGatewayInterface`, agar logika checkout tidak bergantung pada satu gateway;
 - `ExternalContentProviderInterface`, untuk menormalisasi autentikasi, profil, post, dan proses disconnect antar-provider konten.
 
-Factory saat ini memilih adapter berdasarkan kode provider. Hanya dummy payment gateway yang tersedia dalam repository ini; beberapa nama gateway production sudah dicadangkan oleh factory untuk adapter mendatang.
+Factory memilih adapter berdasarkan kode provider dan menolak kode yang tidak dikenal atau belum diimplementasikan dengan `UnsupportedProviderException` yang eksplisit, bukan diam-diam fallback ke adapter lain. Hanya dummy payment gateway dan connector RSS/Atom/Custom API yang tersedia dalam repository ini; gateway production baru ditambahkan ke daftar kode yang didukung factory setelah adapter class-nya benar-benar ada.
 
 ### Struktur repository
 
@@ -405,7 +409,8 @@ tests/
 ├── FrontControllerTest.php  Test wiring rute dan envelope health
 ├── ConfigTest.php           Test default config, override .env, dan validasi
 ├── MigrationRunnerTest.php  Test urutan, tracking, dan idempotency migration
-└── DatabaseTest.php         Test wiring koneksi database
+├── DatabaseTest.php         Test wiring koneksi database
+└── FactoryFallbackTest.php  Factory payment/connector menolak kode yang tidak didukung
 ```
 
 ### Kebutuhan sistem
@@ -442,6 +447,7 @@ tests/
    php tests/ConfigTest.php
    php tests/MigrationRunnerTest.php
    php tests/DatabaseTest.php
+   php tests/FactoryFallbackTest.php
    ```
 
 4. Jalankan front controller dan coba lewat browser atau curl:
@@ -549,6 +555,8 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 - [Entity Relationship Diagram — Bahasa Indonesia](documentation/ERD.id.md)
 - [Social and commerce integrations — English](documentation/SOCIAL-COMMERCE-INTEGRATIONS.en.md)
 - [Integrasi sosial dan commerce — Bahasa Indonesia](documentation/SOCIAL-COMMERCE-INTEGRATIONS.id.md)
+- [Social content publishing and aggregation — English](documentation/CONTENT-AGGREGATION-GUIDE.en.md)
+- [Publikasi dan agregasi konten sosial — Bahasa Indonesia](documentation/CONTENT-AGGREGATION-GUIDE.id.md)
 - [Federation concept — English](documentation/FEDERATION-CONCEPT.en.md)
 - [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
 - [Problem definition — English](documentation/PROBLEM-STATEMENT.en.md)

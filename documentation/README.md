@@ -16,6 +16,7 @@ FPDP adalah personal digital home yang tidak terikat pada provider tertentu. Dok
 | Development Roadmap & Strategy | [English](ROADMAP.en.md) | [Bahasa Indonesia](ROADMAP.id.md) |
 | Entity Relationship Diagram | [English](ERD.en.md) | [Bahasa Indonesia](ERD.id.md) |
 | Social & Commerce Integrations | [English](SOCIAL-COMMERCE-INTEGRATIONS.en.md) | [Bahasa Indonesia](SOCIAL-COMMERCE-INTEGRATIONS.id.md) |
+| Social Content Publishing & Aggregation | [English](CONTENT-AGGREGATION-GUIDE.en.md) | [Bahasa Indonesia](CONTENT-AGGREGATION-GUIDE.id.md) |
 | Federation Concept | [English](FEDERATION-CONCEPT.en.md) | [Bahasa Indonesia](FEDERATION-CONCEPT.id.md) |
 | Interactive UI Mockup | [Dashboard](mockup/index.html) · [Public profile](mockup/public-profile.html) | [Petunjuk / Guide](mockup/README.md) |
 | API Contract | [English](API-CONTRACT.en.md) | [Bahasa Indonesia](API-CONTRACT.id.md) |

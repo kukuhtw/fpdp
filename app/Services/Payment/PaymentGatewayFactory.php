@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Payment;
 
 use App\Contracts\PaymentGatewayInterface;
+use App\Core\Exceptions\UnsupportedProviderException;
 
 final class PaymentGatewayFactory
 {
+    private const SUPPORTED_CODES = ['DUMMY'];
+
     /**
      * @param array<string, mixed> $configuration
      */
@@ -16,17 +19,12 @@ final class PaymentGatewayFactory
         $normalizedCode = strtoupper(trim($gatewayCode));
 
         return match ($normalizedCode) {
-            'MIDTRANS' => new MidtransPaymentGateway($configuration),
-            'XENDIT' => new XenditPaymentGateway($configuration),
-            'DOKU' => new DokuPaymentGateway($configuration),
-            'IPAYMU' => new IPaymuPaymentGateway($configuration),
-            'NICEPAY' => new NicepayPaymentGateway($configuration),
-            'PAYWUZ' => new PaywuzPaymentGateway($configuration),
-            'STRIPE' => new StripePaymentGateway($configuration),
-            'PAYPAL' => new PaypalPaymentGateway($configuration),
-            'CUSTOM' => new CustomPaymentGateway($configuration),
             'DUMMY' => new DummyPaymentGateway($configuration),
-            default => new DummyPaymentGateway($configuration),
+            default => throw UnsupportedProviderException::forCode(
+                'payment gateway',
+                $normalizedCode,
+                self::SUPPORTED_CODES,
+            ),
         };
     }
 }

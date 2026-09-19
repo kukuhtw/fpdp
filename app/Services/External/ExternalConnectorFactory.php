@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Services\External;
 
 use App\Contracts\ExternalContentProviderInterface;
+use App\Core\Exceptions\UnsupportedProviderException;
 
 final class ExternalConnectorFactory
 {
+    private const SUPPORTED_CODES = ['RSS', 'ATOM', 'CUSTOM_API'];
+
     /**
      * @param array<string, mixed> $configuration
      */
@@ -19,7 +22,11 @@ final class ExternalConnectorFactory
             'RSS' => new RSSConnector($configuration),
             'ATOM' => new AtomConnector($configuration),
             'CUSTOM_API' => new CustomApiConnector($configuration),
-            default => new RSSConnector($configuration),
+            default => throw UnsupportedProviderException::forCode(
+                'external content provider',
+                $normalized,
+                self::SUPPORTED_CODES,
+            ),
         };
     }
 }
