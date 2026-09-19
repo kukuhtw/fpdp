@@ -301,6 +301,14 @@ $router->patch('/api/v1/me/federated-connections/{connectionId}', function (Requ
     return $buildFederationController()->updateConnection($request, $params);
 });
 
+$router->get('/api/v1/me/federation/summary', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->summary($request);
+});
+
+$router->patch('/api/v1/me/federation/capabilities', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->updateCapabilities($request);
+});
+
 $router->get('/api/v1/me/federation/remote-nodes', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->listRemoteNodes($request);
 });

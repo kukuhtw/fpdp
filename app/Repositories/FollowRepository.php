@@ -12,11 +12,17 @@ final class FollowRepository
     {
     }
 
-    public function create(string $publicId, int $profileId, string $targetActorUri, ?string $targetFedAddress = null, ?int $remoteActorId = null, ?string $activityPublicId = null): int
+    /**
+     * @param string $direction 'OUTGOING' (a follow we sent — someone we
+     *        follow) or 'INCOMING' (a follow we received — one of our
+     *        followers). Required so followers and following can be told
+     *        apart; both directions share this one table.
+     */
+    public function create(string $publicId, int $profileId, string $targetActorUri, ?string $targetFedAddress = null, ?int $remoteActorId = null, ?string $activityPublicId = null, string $direction = 'OUTGOING'): int
     {
         $statement = $this->connection->prepare(
-            'INSERT INTO follows (public_id, profile_id, remote_actor_id, target_actor_uri, target_federated_address, activity_public_id, status)
-             VALUES (:public_id, :profile_id, :remote_actor_id, :target_actor_uri, :target_federated_address, :activity_public_id, :status)',
+            'INSERT INTO follows (public_id, profile_id, remote_actor_id, target_actor_uri, target_federated_address, activity_public_id, status, direction)
+             VALUES (:public_id, :profile_id, :remote_actor_id, :target_actor_uri, :target_federated_address, :activity_public_id, :status, :direction)',
         );
         $statement->execute([
             'public_id' => $publicId,
@@ -26,6 +32,7 @@ final class FollowRepository
             'target_federated_address' => $targetFedAddress,
             'activity_public_id' => $activityPublicId,
             'status' => 'PENDING',
+            'direction' => $direction,
         ]);
 
         return (int) $this->connection->lastInsertId();
@@ -46,6 +53,8 @@ final class FollowRepository
     }
 
     /**
+     * Followers: remote actors who sent us a Follow (direction = INCOMING).
+     *
      * @return array<int, array<string, mixed>>
      */
     public function findFollowersByProfileId(int $profileId): array
@@ -55,7 +64,7 @@ final class FollowRepository
              FROM follows f
              LEFT JOIN remote_actors ra ON ra.id = f.remote_actor_id
              LEFT JOIN remote_nodes rn ON rn.id = ra.remote_node_id
-             WHERE f.profile_id = :profile_id AND f.status = 'ACCEPTED'
+             WHERE f.profile_id = :profile_id AND f.status = 'ACCEPTED' AND f.direction = 'INCOMING'
              ORDER BY f.created_at DESC",
         );
         $statement->execute(['profile_id' => $profileId]);
@@ -64,6 +73,8 @@ final class FollowRepository
     }
 
     /**
+     * Following: remote actors we sent a Follow to (direction = OUTGOING).
+     *
      * @return array<int, array<string, mixed>>
      */
     public function findFollowingByProfileId(int $profileId): array
@@ -73,12 +84,22 @@ final class FollowRepository
              FROM follows f
              LEFT JOIN remote_actors ra ON ra.id = f.remote_actor_id
              LEFT JOIN remote_nodes rn ON rn.id = ra.remote_node_id
-             WHERE f.profile_id = :profile_id AND f.status = 'ACCEPTED'
+             WHERE f.profile_id = :profile_id AND f.status = 'ACCEPTED' AND f.direction = 'OUTGOING'
              ORDER BY f.created_at DESC",
         );
         $statement->execute(['profile_id' => $profileId]);
 
         return $statement->fetchAll();
+    }
+
+    public function countByDirection(int $profileId, string $direction): int
+    {
+        $statement = $this->connection->prepare(
+            "SELECT COUNT(*) FROM follows WHERE profile_id = :profile_id AND status = 'ACCEPTED' AND direction = :direction",
+        );
+        $statement->execute(['profile_id' => $profileId, 'direction' => $direction]);
+
+        return (int) $statement->fetchColumn();
     }
 
     public function updateStatus(string $publicId, string $status, ?string $activityPublicId = null): void

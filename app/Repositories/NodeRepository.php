@@ -58,6 +58,17 @@ final class NodeRepository
     }
 
     /**
+     * @param array<int, string> $capabilities
+     */
+    public function updateCapabilities(int $id, array $capabilities): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE nodes SET capabilities = :capabilities WHERE id = :id',
+        );
+        $statement->execute(['capabilities' => json_encode(array_values($capabilities)), 'id' => $id]);
+    }
+
+    /**
      * Returns the first locally-hosted node. FPDP deployments currently host
      * a single owner node, so this is used to resolve "our own node" for
      * endpoints (like federation capability discovery) that a remote server

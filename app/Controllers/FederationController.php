@@ -68,6 +68,41 @@ final class FederationController
         return JsonEnvelope::success($connection);
     }
 
+    // ---- Federation dashboard ----
+
+    /**
+     * GET /api/v1/me/federation/summary
+     *
+     * Owner-only dashboard summary: accepted follower/following counts and
+     * the node's advertised feature capabilities.
+     */
+    public function summary(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->federation->getFederationSummary(
+            (int) $context['profile']['id'],
+            (int) $context['node']['id'],
+        ));
+    }
+
+    /**
+     * PATCH /api/v1/me/federation/capabilities
+     *
+     * Sets which feature capabilities (PROFILE/CONTENT/PRODUCTS/PAYMENTS)
+     * the owner wants this node to advertise.
+     */
+    public function updateCapabilities(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $input = $request->json() ?? [];
+        $capabilities = is_array($input['capabilities'] ?? null) ? $input['capabilities'] : [];
+
+        return JsonEnvelope::success([
+            'capabilities' => $this->federation->updateNodeCapabilities((int) $context['node']['id'], $capabilities),
+        ]);
+    }
+
     // ---- Remote node moderation ----
 
     /**

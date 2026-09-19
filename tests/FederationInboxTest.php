@@ -25,7 +25,7 @@ Database::reset();
 $db = Database::connection();
 
 foreach ([
-    'CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, domain TEXT UNIQUE, name TEXT, default_locale TEXT, timezone TEXT, status TEXT DEFAULT "ACTIVE", created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, domain TEXT UNIQUE, name TEXT, default_locale TEXT, timezone TEXT, status TEXT DEFAULT "ACTIVE", capabilities TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, email TEXT UNIQUE, password_hash TEXT, role TEXT DEFAULT "OWNER", status TEXT DEFAULT "ACTIVE", created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, user_id INTEGER UNIQUE, handle TEXT UNIQUE, display_name TEXT, bio TEXT, avatar_url TEXT, visibility TEXT DEFAULT "PUBLIC", links TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, token_hash TEXT UNIQUE, token_type TEXT DEFAULT "ACCESS", scopes TEXT, expires_at TIMESTAMP, revoked_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
@@ -36,7 +36,7 @@ foreach ([
     'CREATE TABLE federated_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, relationship_status TEXT DEFAULT "PENDING", show_on_profile INTEGER DEFAULT 1, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (profile_id, remote_actor_id))',
     'CREATE TABLE federated_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_actor_id INTEGER, object_uri TEXT, canonical_url TEXT, title TEXT, content TEXT, visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP)',
     'CREATE TABLE node_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER, key_type TEXT DEFAULT "ed25519", public_key TEXT, private_key TEXT, fingerprint TEXT UNIQUE, is_current INTEGER DEFAULT 1, rotated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-    'CREATE TABLE follows (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, target_actor_uri TEXT, target_federated_address TEXT, status TEXT DEFAULT "PENDING", activity_public_id TEXT, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE follows (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, target_actor_uri TEXT, target_federated_address TEXT, status TEXT DEFAULT "PENDING", direction TEXT DEFAULT "OUTGOING", activity_public_id TEXT, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE federation_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, direction TEXT, activity_type TEXT, actor_uri TEXT, object_uri TEXT, target_node_domain TEXT, payload TEXT, signature TEXT, status TEXT DEFAULT "PENDING", retry_count INTEGER DEFAULT 0, last_error TEXT, next_attempt_at TIMESTAMP, delivered_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
 ] as $sql) {
     $db->exec($sql);
@@ -220,6 +220,35 @@ finbox_assert($invalidTrust['status'] === 422, 'Invalid trust_state should 422')
 
 $unknownDomainTrust = $dispatch('PATCH', '/api/v1/me/federation/remote-nodes/never-seen.example/trust', ['trust_state' => 'TRUSTED'], $ownerToken);
 finbox_assert($unknownDomainTrust['status'] === 404, 'Unknown remote-node domain should 404');
+
+// ---- Test 10: federation summary reports accepted followers/following separately ----
+// By this point: alice (test 1) and dave (test 4) are accepted INCOMING follows
+// (followers), and bob (test 5) is an accepted OUTGOING follow (following) —
+// this is exactly the case findFollowersByProfileId/findFollowingByProfileId
+// used to be unable to tell apart (identical queries prior to the `direction`
+// column), so a wrong count here would mean that regressed.
+$unauthSummary = $dispatch('GET', '/api/v1/me/federation/summary');
+finbox_assert($unauthSummary['status'] === 401, 'Federation summary should require auth');
+
+$summary = $dispatch('GET', '/api/v1/me/federation/summary', null, $ownerToken);
+finbox_assert($summary['status'] === 200, 'Federation summary should succeed for an authenticated owner: ' . json_encode($summary));
+finbox_assert($summary['body']['data']['follower_count'] === 2, 'Expected 2 followers (alice, dave), got ' . json_encode($summary['body']['data']));
+finbox_assert($summary['body']['data']['following_count'] === 1, 'Expected 1 following (bob), got ' . json_encode($summary['body']['data']));
+finbox_assert($summary['body']['data']['capabilities'] === ['PROFILE', 'CONTENT'], 'A node with no capabilities set yet should default to [PROFILE, CONTENT]');
+
+// ---- Test 11: owner can update node capabilities; invalid values are rejected ----
+$updateCaps = $dispatch('PATCH', '/api/v1/me/federation/capabilities', ['capabilities' => ['profile', 'products']], $ownerToken);
+finbox_assert($updateCaps['status'] === 200, 'Updating capabilities should succeed: ' . json_encode($updateCaps));
+finbox_assert($updateCaps['body']['data']['capabilities'] === ['PROFILE', 'PRODUCTS'], 'Capabilities should be stored normalized to uppercase');
+
+$summaryAfterUpdate = $dispatch('GET', '/api/v1/me/federation/summary', null, $ownerToken);
+finbox_assert($summaryAfterUpdate['body']['data']['capabilities'] === ['PROFILE', 'PRODUCTS'], 'Summary should reflect the updated capabilities');
+
+$invalidCaps = $dispatch('PATCH', '/api/v1/me/federation/capabilities', ['capabilities' => ['PROFILE', 'NOT_A_REAL_CAPABILITY']], $ownerToken);
+finbox_assert($invalidCaps['status'] === 422, 'An unknown capability should 422: ' . json_encode($invalidCaps));
+
+$unauthCaps = $dispatch('PATCH', '/api/v1/me/federation/capabilities', ['capabilities' => ['PROFILE']]);
+finbox_assert($unauthCaps['status'] === 401, 'Updating capabilities should require auth');
 
 // Cleanup
 Database::reset();

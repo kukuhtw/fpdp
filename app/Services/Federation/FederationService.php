@@ -27,6 +27,8 @@ final class FederationService
     private const MAX_LIMIT = 50;
     private const ALLOWED_TRUST_STATES = ['UNKNOWN', 'TRUSTED', 'BLOCKED'];
     private const MAX_ACTIVITY_SKEW_SECONDS = 300;
+    private const ALLOWED_CAPABILITIES = ['PROFILE', 'CONTENT', 'PRODUCTS', 'PAYMENTS'];
+    private const DEFAULT_CAPABILITIES = ['PROFILE', 'CONTENT'];
 
     public function __construct(
         private readonly FederatedConnectionRepository $connections,
@@ -168,6 +170,63 @@ final class FederationService
     public function getLocalNode(): ?array
     {
         return $this->getLocalNodeRepo()->findFirst();
+    }
+
+    /**
+     * Dashboard summary for the owner's Federation page: accepted follower/
+     * following counts and the node's advertised feature capabilities.
+     *
+     * @return array{follower_count: int, following_count: int, capabilities: array<int, string>}
+     */
+    public function getFederationSummary(int $profileId, int $nodeId): array
+    {
+        $fr = $this->getFollowRepo();
+
+        return [
+            'follower_count' => $fr->countByDirection($profileId, 'INCOMING'),
+            'following_count' => $fr->countByDirection($profileId, 'OUTGOING'),
+            'capabilities' => $this->readNodeCapabilities($nodeId),
+        ];
+    }
+
+    /**
+     * Sets which feature capabilities (PROFILE/CONTENT/PRODUCTS/PAYMENTS)
+     * the owner wants this node to advertise. This is a visible, owner-
+     * controlled setting only — it does not currently gate access to the
+     * underlying features (e.g. disabling PRODUCTS does not block the
+     * marketplace endpoints), so treat it as informational until an
+     * enforcement layer is built.
+     *
+     * @param array<int, string> $capabilities
+     * @return array<int, string>
+     */
+    public function updateNodeCapabilities(int $nodeId, array $capabilities): array
+    {
+        $normalized = array_values(array_unique(array_map('strtoupper', $capabilities)));
+        $invalid = array_diff($normalized, self::ALLOWED_CAPABILITIES);
+        if ($invalid !== []) {
+            throw new ValidationException([['field' => 'capabilities', 'reason' => 'invalid_value']]);
+        }
+
+        $this->getLocalNodeRepo()->updateCapabilities($nodeId, $normalized);
+
+        return $normalized;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function readNodeCapabilities(int $nodeId): array
+    {
+        $node = $this->getLocalNodeRepo()->findById($nodeId);
+        $raw = $node['capabilities'] ?? null;
+        if (!is_string($raw) || $raw === '') {
+            return self::DEFAULT_CAPABILITIES;
+        }
+
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) && $decoded !== [] ? array_values($decoded) : self::DEFAULT_CAPABILITIES;
     }
 
     /**
@@ -347,7 +406,7 @@ final class FederationService
         }
         $followPublicId = $existing['public_id'] ?? Uuid::v4();
         if ($existing === null) {
-            $fr->create($followPublicId, $localProfileId, $actorUri, $remoteActor['federated_address'] ?? null, (int) $remoteActor['id'], $activity['id'] ?? null);
+            $fr->create($followPublicId, $localProfileId, $actorUri, $remoteActor['federated_address'] ?? null, (int) $remoteActor['id'], $activity['id'] ?? null, 'INCOMING');
         }
         $fr->updateStatus($followPublicId, 'ACCEPTED', $activity['id'] ?? null);
 
