@@ -267,6 +267,8 @@ Start with the [documentation index](documentation/README.md). Product requireme
 - [Integrasi sosial dan commerce — Bahasa Indonesia](documentation/SOCIAL-COMMERCE-INTEGRATIONS.id.md)
 - [Federation concept — English](documentation/FEDERATION-CONCEPT.en.md)
 - [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
+- [Problem definition — English](documentation/PROBLEM-STATEMENT.en.md)
+- [Definisi masalah — Bahasa Indonesia](documentation/PROBLEM-STATEMENT.id.md)
 
 ---
 
@@ -527,6 +529,8 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 - [Integrasi sosial dan commerce — Bahasa Indonesia](documentation/SOCIAL-COMMERCE-INTEGRATIONS.id.md)
 - [Federation concept — English](documentation/FEDERATION-CONCEPT.en.md)
 - [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
+- [Problem definition — English](documentation/PROBLEM-STATEMENT.en.md)
+- [Definisi masalah — Bahasa Indonesia](documentation/PROBLEM-STATEMENT.id.md)
 
 ---
 

@@ -10,6 +10,7 @@ FPDP adalah personal digital home yang tidak terikat pada provider tertentu. Dok
 |---|---|---|
 | Business Requirements | [BRD](BRD.en.md) | [BRD](BRD.md) |
 | Product Requirements | [PRD](PRD.en.md) | [PRD](PRD.md) |
+| Problem Definition | [English](PROBLEM-STATEMENT.en.md) | [Bahasa Indonesia](PROBLEM-STATEMENT.id.md) |
 | Work Breakdown Structure | [WBS](WBS-TASK.en.md) | [WBS](WBS-TASK.md) |
 | User Journey | [English](USER-JOURNEY.en.md) | [Bahasa Indonesia](USER-JOURNEY.md) |
 | Development Roadmap & Strategy | [English](ROADMAP.en.md) | [Bahasa Indonesia](ROADMAP.id.md) |
