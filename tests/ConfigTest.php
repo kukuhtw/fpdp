@@ -23,6 +23,14 @@ if (Config::get('APP_NAME') !== 'TestApp' || Config::getBool('APP_DEBUG') !== tr
 }
 unlink($envPath);
 
+putenv('FPDP_CONTAINER_ONLY=from-environment');
+if (Config::get('FPDP_CONTAINER_ONLY') !== 'from-environment') {
+    putenv('FPDP_CONTAINER_ONLY');
+    fwrite(STDERR, "Process environment lookup failed\n");
+    exit(1);
+}
+putenv('FPDP_CONTAINER_ONLY');
+
 $badEnvPath = sys_get_temp_dir() . '/fpdp-config-test-bad-' . uniqid() . '.env';
 file_put_contents($badEnvPath, "APP_NAME=FPDP\nAPP_ENV=not-a-real-env\n");
 

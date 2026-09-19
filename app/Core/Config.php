@@ -43,6 +43,14 @@ final class Config
             self::load();
         }
 
+        // Container platforms commonly inject variables without creating a
+        // physical .env file. Always let a real process environment value
+        // override file/default configuration, including keys not in defaults.
+        $fromEnv = getenv($key);
+        if ($fromEnv !== false) {
+            return $fromEnv;
+        }
+
         return self::$values[$key] ?? $default;
     }
 

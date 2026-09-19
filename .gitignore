@@ -12,6 +12,7 @@
 /.env.*
 !/.env.example
 !/.env.testing.example
+!/.env.dokploy.example
 
 # Runtime data
 /storage/cache/
