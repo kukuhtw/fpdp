@@ -32,29 +32,48 @@ flowchart LR
     classDef done fill:#e3efe9,stroke:#185f48,color:#17211b;
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
     classDef todo fill:#f1e3e1,stroke:#a13d37,color:#17211b;
-    class P0,P1 done;
-    class P3 partial;
-    class P2,P4,P5,P6,P7 todo;
+    class P0,P1,P2,P3,P5 done;
+    class P4 partial;
 ```
 
 | Workstream (WBS) | Status | Bukti |
 |---|---|---|
 | 1.0 Project setup | **Selesai** | `composer.json` PSR-4 autoload, `.env.example`, `Config` loader |
-| 2.0 Core platform architecture | **Selesai** | `Router`, `Database`, `MigrationRunner`, JSON envelope, exception mapping, factory pattern untuk payment/connector |
-| 3.0 Autentikasi & manajemen user | **Sebagian besar selesai** | Register/login/logout/`/me`, bcrypt, bearer token yang di-hash, rate limiting; baca/update profil; role admin dan UI profile-editor minimal belum ada |
-| 4.0 Konten dan timeline | **Belum dimulai** | Belum ada tabel `posts`, belum ada controller/service post, belum ada query timeline |
-| 5.0 Federation layer | **Belum dimulai** | Konsep sudah terdokumentasi ([FEDERATION-CONCEPT.id.md](FEDERATION-CONCEPT.id.md)); belum ada kode implementasi sama sekali |
+| 2.0 Core platform architecture | **Selesai** | `Router`, `Database`, `MigrationRunner`, `HttpClient` (anti-SSRF), JSON envelope, exception mapping, factory pattern |
+| 3.0 Autentikasi & manajemen user | **Selesai** | Register/login/logout/`/me`, bcrypt, bearer token di-hash, rate limiting; baca/update profil; Google OAuth visitor |
+| 4.0 Konten dan timeline | **Selesai** | CRUD post, draft/publish/soft-delete, metadata media, canonical URL, timeline publik cursor, UI post editor |
+| 5.0 Federation layer | **Sebagian selesai** | 3 endpoint federated connections, tabel remote; node discovery & activity relay belum |
 | 6.0 Payment layer | **Sebagian selesai** | Interface, factory, dummy gateway, dan tabel sudah selesai; gateway sungguhan, idempotency, dan pengaturan admin belum ada |
-| 7.0 External content integration | **Sebagian selesai** | Adapter RSS/Atom/Custom API (termasuk normalisasi embed video YouTube) sudah selesai; scheduler, persistence, UI atribusi, dan hardening SSRF belum ada |
-| 8.0 Marketplace | **Belum dimulai** | Belum ada tabel atau kode produk/order |
+| 7.0 Integrasi konten eksternal | **Selesai** | Konektor RSS/Atom/Custom API + HttpClient anti-SSRF, SyncWorker, CLI cron, dedup, merge timeline |
+| 8.0 Marketplace | **Selesai** | CRUD produk + Order snapshot immutable + alur status order (14 test) |
 | 9.0 Administration dashboard | **Belum dimulai (baru mockup)** | Diprototipekan sebagai HTML statis pada [documentation/mockup](mockup/README.md); belum ada endpoint atau view sungguhan |
-| 10.0 Testing, security, deployment | **Sebagian selesai** | 12 skrip test lulus; belum ada CI workflow, belum ada audit keamanan yang dijalankan, belum ada deployment checklist yang dieksekusi |
+| 10.0 Testing, security, deployment | **Sebagian selesai** | 22 test scripts; GitHub Actions CI; panduan Dokploy (EN & ID); audit trail di 3 service |
 
 ## 3. Yang sudah selesai
 
 - **Fondasi HTTP:** front controller publik (`public/index.php`), `Router` dengan rute statis/`{param}`, JSON envelope sukses/error, pemetaan exception ke 500 yang tersanitasi.
 - **Konfigurasi:** `Config` loader dengan default, override `.env`, validasi fail-fast.
 - **Lapisan database:** connection manager PDO dan `MigrationRunner`; 15 migration terurut dan repeatable pada `database/migrations/` (payment gateways/configs/payments/transactions, external accounts/feed sources/posts, connector definitions, integration queue, nodes, users, profiles, auth tokens, audit events, rate limits).
+- **Fondasi HTTP:** front controller publik (`public/index.php`), `Router` dengan rute statis/`{param}`/`@{handle}`, JSON envelope sukses/error, pemetaan exception ke 500.
+- **Konfigurasi:** `Config` loader dengan default, override `.env`, validasi fail-fast.
+- **Lapisan database:** connection manager PDO dan `MigrationRunner`; **28** migration untuk payments, external content, nodes, users, profiles, auth, audit, rate limits, visitors, CV, posts, remote nodes/actors, federated connections/posts, products, orders, order_items.
+- **HTTP Client anti-SSRF:** blokir IP private, timeout, limit ukuran, max 5 redirect.
+- **Identitas & autentikasi:** Registrasi owner (node+user+profile sekali langkah), login/logout, bcrypt, bearer token di-hash, rate limiting.
+- **Profil:** Baca publik by handle, update terautentikasi, visibilitas (PUBLIC/UNLISTED/PRIVATE).
+- **Identitas visitor:** Google OAuth 2.0 per profil, state signer, callback.
+- **Konten lokal:** Draft/publish/update/soft-delete, validasi media (HTTPS-only, max 10), canonical URL, timeline cursor, UI editor.
+- **CV:** Upload, show gated, grant access, download, limit ukuran file.
+- **Sinkronisasi konten eksternal:** Konektor RSS/Atom/Custom API via HttpClient anti-SSRF. SyncWorker fetch → dedup → persist → update status. CLI `sync-external.php` untuk cron. Timeline dukung `source_type=EXTERNAL`.
+- **Audit trail:** AuditService terhubung ke AuthService, PostService, ProfileService. Null-safe.
+- **Federated connections:** 3 endpoint — daftar publik (filtered), daftar owner (all), PATCH untuk show_on_profile/mute/block. Pagination cursor. 13 test.
+- **Marketplace:** CRUD produk. Order dengan `product_snapshot` immutable, total auto, 6 status. Validasi kepemilikan. 14 test.
+- **Payment interfaces:** Interface, Factory, DummyGateway (create/status/cancel/refund/webhook). Factory hanya kenal `DUMMY`.
+- **Web UI:** Landing, timeline, profil publik (`@handle`), post publik, post editor.
+- **Install wizard:** `public/install.php` — cek env, tulis `.env`, migrasi, registrasi owner.
+- **Docker:** Dockerfile (PHP 8.3), dokploy-compose.yml, entrypoint.sh, panduan Dokploy (EN & ID).
+- **CI workflow:** GitHub Actions — syntax check PHP 8.2/8.3, full test suite.
+- **Tests (22, semua lulus):** AuthEndpoints, Config, ContentPages, CvEndpoints, Database, ExternalContent, FactoryFallback, FederatedConnections, FrontController, Installer, Marketplace, MigrationRunner, MvcHome, MvpSmoke, OAuthStateSigner, PostEndpoints, RateLimit, RateLimitEndpoint, Router, VisitorAuthEndpoints, YouTubeEmbedResolver.
+- **Dokumentasi:** BRD, PRD, WBS, Roadmap, ERD, API contract, OpenAPI, Federation concept, Content aggregation, Social/commerce, Problem statement, Value proposition, User journey, Deployment (VPS, shared hosting, Dokploy), AI monetization, Progress report — bilingual.
 - **Identitas & autentikasi:** registrasi owner, login, logout, `/api/v1/me`; password hashing bcrypt; bearer token yang di-hash saat disimpan; rate limiting per-IP pada register/login (`429 RATE_LIMITED`).
 - **Profil:** baca profil publik berdasarkan handle (`GET /api/v1/profiles/{handle}`) dan update terautentikasi (`PATCH /api/v1/me/profile`), lengkap dengan aturan visibilitas.
 - **Payment (scaffolding):** `PaymentGatewayInterface`, `PaymentGatewayFactory`, `PaymentService`, dan `DummyPaymentGateway` yang fungsional (create/status/cancel/refund/normalisasi webhook). Factory hanya mengenali kode `DUMMY` dan menolak eksplisit kode lain.
@@ -76,27 +95,31 @@ flowchart LR
 
 ## 5. Yang belum dimulai
 
-- **Konten lokal (post):** belum ada tabel `posts`/`post_media`, belum ada create/read/update/delete, draft, penegakan visibilitas, canonical URL, atau timeline.
-- **Federasi:** belum ada node discovery, remote actor, pengiriman activity yang ditandatangani, atau moderasi — baru desain ([FEDERATION-CONCEPT.id.md](FEDERATION-CONCEPT.id.md)).
-- **Marketplace:** belum ada model produk, inventory, order, order-line, atau checkout — baru infrastruktur payment gateway yang kelak dipakai checkout.
-- **Administration dashboard (sungguhan):** dashboard baru berupa mockup statis; belum ada endpoint backend, view, atau layar berpagar-auth untuk pengaturan, integrasi, produk, order, pembayaran, federasi, atau analitik.
-- **Adapter payment production** beserta pekerjaan keamanan yang wajib menyertainya (idempotency key, verifikasi signed webhook, rekonsiliasi).
-- **Deployment/operasional:** belum ada pipeline CI, belum ada eksekusi runbook backup/restore/rollback, belum ada file lisensi, belum ada latihan recovery di staging.
+- **Adapter payment sungguhan** (Midtrans, Stripe, dll) — verifikasi signed webhook, idempotency, rekonsiliasi.
+- **Federasi penuh:** node discovery, remote actor model, signed activity delivery, inbox/outbox relay, moderasi.
+- **Marketplace lanjutan:** checkout flow dengan payment, external-product labels, federated order-request workflow.
+- **Administration dashboard sungguhan:** endpoint backend untuk settings, integrasi, produk, order, payment, analitik.
+- **Monetisasi LLM/AI:** chatbot, paid CV gating, analytics, ad marketplace.
+- **OAuth social connectors:** Instagram, LinkedIn, X (Twitter).
+- **Deployment/operasional:** backup/restore/rollback, file lisensi, latihan recovery staging.
 
 ## 6. Rekomendasi langkah berikutnya
 
-Mengacu pada tabel ["tugas yang harus dimulai lebih dahulu"](ROADMAP.id.md) pada roadmap, pekerjaan tersisa dengan dampak terbesar secara berurutan adalah:
+Berdasarkan roadmap dan gap terkini, pekerjaan dengan dampak tertinggi secara berurutan:
 
-1. Selesaikan Phase 1: tambahkan UI profile-editor/public-profile minimal dan authorization middleware role admin/owner.
-2. Mulai Phase 2: tambahkan migration `posts`/`post_media` serta slice CRUD post lokal + timeline — ini adalah gap terbesar saat ini, karena menghambat adanya public profile sungguhan (bukan sekadar mockup).
-3. Perkuat Phase 3: tambahkan HTTP client keluar yang aman dari SSRF, lalu hubungkan scheduler/worker yang benar-benar menyimpan hasil connector ke `external_posts` dan menggabungkannya ke timeline.
-4. Baru setelah 1–3 stabil: mulai Phase 5 (marketplace/payment) dan Phase 6 (federasi), sesuai dependency map pada roadmap.
+1. **Adapter payment sungguhan** — integrasi Midtrans/Stripe dengan signed-webhook dan idempotency.
+2. **Checkout flow** — hubungkan order marketplace dengan payment gateway.
+3. **Federasi penuh** — node key management, remote actor discovery, signed activity delivery, inbox/outbox, moderasi.
+4. **Administration dashboard backend** — endpoint untuk settings, produk, order, payment, analitik.
+5. **Authorization middleware** — model role/permission (admin vs owner) untuk proteksi route.
 
 ## 7. Referensi
 
-- [Work Breakdown Structure](WBS-TASK.en.md)
+- [Work Breakdown Structure](WBS-TASK.md)
 - [Roadmap dan strategi pengembangan](ROADMAP.id.md)
 - [Entity Relationship Diagram](ERD.id.md)
 - [Kontrak API](API-CONTRACT.id.md) · [OpenAPI 3.1](openapi.yaml)
 - [Mockup interaktif](mockup/README.md) · [Peta navigasi mockup](mockup/NAVIGATION-MAP.id.md)
-- [README repository](../README.md) — tabel "Current implementation", dijaga selaras dengan laporan ini
+- [Panduan deployment (Dokploy)](DOKPLOY-DEPLOYMENT.id.md)
+- [Panduan deployment (VPS & shared hosting)](DEPLOYMENT-GUIDE.id.md)
+- [README repository](../README.md) — tabel "Current implementation"
