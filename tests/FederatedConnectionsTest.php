@@ -102,3 +102,77 @@ $db->exec("INSERT INTO federated_connections (public_id, profile_id, remote_acto
 // Seed federated_connections for other user
 $db->exec("INSERT INTO federated_connections (public_id, profile_id, remote_actor_id, relationship_status, show_on_profile)
            VALUES ('conn-5', {$otherProfileId}, 1, 'CONNECTED', 1)");
+// ---- Test 1: Public endpoint returns only visible, non-blocked connections ----
+$publicList = $dispatch('GET', '/api/v1/profiles/owner/federated-connections');
+fed_assert($publicList['status'] === 200, 'Public list endpoint failed');
+fed_assert(isset($publicList['body']['data']), 'Public list missing data key');
+$count = count($publicList['body']['data']);
+fed_assert($count === 2, "Expected exactly 2 public connections, got {$count}");
+
+// ---- Test 2: Public endpoint for non-existent handle returns 404 ----
+$notFound = $dispatch('GET', '/api/v1/profiles/nobody/federated-connections');
+fed_assert($notFound['status'] === 404, 'Non-existent handle should 404');
+
+// ---- Test 3: Public endpoint pagination with limit ----
+$limitResult = $dispatch('GET', '/api/v1/profiles/owner/federated-connections', null, null, ['limit' => 1]);
+fed_assert($limitResult['status'] === 200, 'Public list with limit failed');
+fed_assert(count($limitResult['body']['data']) === 1, 'Limit=1 should return 1 item');
+fed_assert($limitResult['body']['meta']['has_more'] === true, 'Should have more items');
+
+// ---- Test 4: Owner endpoint returns all connections including hidden/blocked ----
+$ownList = $dispatch('GET', '/api/v1/me/federated-connections', null, $token);
+fed_assert($ownList['status'] === 200, 'Owner list endpoint failed');
+fed_assert(isset($ownList['body']['data']['connections']), 'Owner list missing connections key');
+fed_assert(count($ownList['body']['data']['connections']) === 4, 'Expected 4 connections for owner');
+
+$hiddenConn = array_filter($ownList['body']['data']['connections'], fn ($c) => $c['id'] === 'conn-3');
+fed_assert(count($hiddenConn) === 1, 'Hidden connection should appear in owner view');
+fed_assert(current($hiddenConn)['show_on_profile'] === false, 'Hidden connection should have show_on_profile=false');
+
+// ---- Test 5: Owner endpoint requires authentication ----
+$unauthList = $dispatch('GET', '/api/v1/me/federated-connections');
+fed_assert($unauthList['status'] === 401, 'Unauthenticated owner list should 401');
+
+// ---- Test 6: Update connection - show_on_profile ----
+$updateShow = $dispatch('PATCH', '/api/v1/me/federated-connections/conn-3', ['show_on_profile' => true], $token);
+fed_assert($updateShow['status'] === 200, 'Update show_on_profile failed');
+
+// ---- Test 7: Update connection - block ----
+$updateBlock = $dispatch('PATCH', '/api/v1/me/federated-connections/conn-2', ['relationship_status' => 'BLOCKED'], $token);
+fed_assert($updateBlock['status'] === 200, 'Block connection failed');
+
+$checkBlocked = $dispatch('GET', '/api/v1/me/federated-connections', null, $token);
+$blockedConn = current(array_filter($checkBlocked['body']['data']['connections'], fn ($c) => $c['id'] === 'conn-2'));
+fed_assert($blockedConn['relationship_status'] === 'BLOCKED', 'Connection should be BLOCKED');
+
+// ---- Test 8: Update connection - mute ----
+$updateMute = $dispatch('PATCH', '/api/v1/me/federated-connections/conn-3', ['relationship_status' => 'MUTED'], $token);
+fed_assert($updateMute['status'] === 200, 'Mute connection failed');
+
+// ---- Test 9: Update connection from another owner fails ----
+$updateOther = $dispatch('PATCH', '/api/v1/me/federated-connections/conn-1', ['show_on_profile' => false], $token2);
+fed_assert($updateOther['status'] === 403, 'Other owner should not update another connection');
+
+// ---- Test 10: Invalid relationship_status rejected ----
+$invalidStatus = $dispatch('PATCH', '/api/v1/me/federated-connections/conn-1', ['relationship_status' => 'INVALID'], $token);
+fed_assert($invalidStatus['status'] === 422, 'Invalid relationship_status should 422');
+
+// ---- Test 11: Unknown field rejected ----
+$unknownField = $dispatch('PATCH', '/api/v1/me/federated-connections/conn-1', ['foo' => 'bar'], $token);
+fed_assert($unknownField['status'] === 422, 'Unknown field should 422');
+
+// ---- Test 12: Non-existent connection returns 404 ----
+$nonexistent = $dispatch('PATCH', '/api/v1/me/federated-connections/conn-nonexistent', ['show_on_profile' => false], $token);
+fed_assert($nonexistent['status'] === 404, 'Non-existent connection should 404');
+
+// ---- Test 13: Private profile hides federated connections ----
+$db->exec("UPDATE profiles SET visibility = 'PRIVATE' WHERE handle = 'owner'");
+$privateProfile = $dispatch('GET', '/api/v1/profiles/owner/federated-connections');
+fed_assert($privateProfile['status'] === 404, 'Private profile should 404 on public connections');
+
+// Cleanup
+Database::reset();
+unset($db);
+unlink($envPath);
+unlink($dbPath);
+fwrite(STDOUT, "Federated connections test passed\n");
