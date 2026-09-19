@@ -24,6 +24,10 @@
             <input name="post_id" type="hidden">
             <label>Title <span class="muted">optional</span><input name="title" maxlength="255"></label>
             <label>Content<textarea name="content" rows="12" maxlength="100000" required></textarea></label>
+            <fieldset class="media-fields"><legend>Media attachment <span class="muted">optional</span></legend>
+                <div class="field-row"><label>Type<select name="media_type"><option>IMAGE</option><option>VIDEO</option><option>AUDIO</option><option>FILE</option></select></label><label>HTTPS URL<input name="media_url" type="url" inputmode="url" placeholder="https://cdn.example.com/media.jpg"></label></div>
+                <label>Alternative text<input name="media_alt_text" maxlength="500" placeholder="Describe the media for accessibility"></label>
+            </fieldset>
             <div class="field-row">
                 <label>Type<select name="post_type"><option>NOTE</option><option>ARTICLE</option><option>MEDIA</option></select></label>
                 <label>Visibility<select name="visibility"><option>PUBLIC</option><option>UNLISTED</option><option>PRIVATE</option></select></label>

@@ -76,7 +76,14 @@ final class ResourcePresenter
                 'profile_url' => sprintf('https://%s/@%s', $post['node_domain'], $post['handle']),
                 'avatar_url' => $post['avatar_url'],
             ],
-            'media' => [],
+            'media' => array_map(
+                static fn (array $media): array => [
+                    'type' => $media['media_type'],
+                    'url' => $media['url'],
+                    'alt_text' => $media['alt_text'],
+                ],
+                $post['media'] ?? [],
+            ),
             'visibility' => $post['visibility'],
             'published_at' => $post['published_at'] === null ? null : self::timestamp((string) $post['published_at']),
             'updated_at' => self::timestamp((string) $post['updated_at']),

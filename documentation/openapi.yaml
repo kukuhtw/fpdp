@@ -1149,14 +1149,21 @@ components:
             - type: 'null'
     Media:
       type: object
+      additionalProperties: false
       required: [type, url]
       properties:
         type:
           type: string
           enum: [IMAGE, VIDEO, AUDIO, FILE]
-        url: { $ref: '#/components/schemas/Uri' }
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          pattern: '^https://'
+          description: HTTPS URL without embedded user credentials.
         alt_text:
           type: [string, 'null']
+          maxLength: 500
     Post:
       type: object
       required:
@@ -1206,6 +1213,10 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Timestamp'
             - type: 'null'
+        media:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/Media' }
     PostPatch:
       type: object
       additionalProperties: false
@@ -1225,6 +1236,11 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Timestamp'
             - type: 'null'
+        media:
+          description: Replaces the complete ordered media list when provided.
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/Media' }
     PostResponse:
       type: object
       required: [data, meta]

@@ -31,6 +31,7 @@ foreach ([
     'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, token_hash TEXT UNIQUE, token_type TEXT DEFAULT "ACCESS", scopes TEXT, expires_at TIMESTAMP, revoked_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE rate_limits (id INTEGER PRIMARY KEY AUTOINCREMENT, rate_key TEXT UNIQUE, attempts INTEGER DEFAULT 1, window_started_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, user_id INTEGER, profile_id INTEGER, title TEXT, content TEXT, post_type TEXT DEFAULT "NOTE", visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, deleted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE post_media (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER, media_type TEXT, url TEXT, alt_text TEXT, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
 ] as $sql) {
     $db->exec($sql);
 }
@@ -54,8 +55,14 @@ $token = $registration['body']['data']['token']['access_token'];
 
 $draft = $dispatch('POST', '/api/v1/posts', [
     'title' => 'Draft', 'content' => 'Not public yet', 'post_type' => 'ARTICLE', 'visibility' => 'PUBLIC',
+    'media' => [
+        ['type' => 'IMAGE', 'url' => 'https://cdn.example.com/cover.jpg', 'alt_text' => 'Article cover'],
+        ['type' => 'VIDEO', 'url' => 'https://video.example.com/intro.mp4'],
+    ],
 ], $token);
 post_assert($draft['status'] === 201, 'Draft creation failed');
+post_assert(count($draft['body']['data']['media']) === 2, 'Media metadata was not returned');
+post_assert($draft['body']['data']['media'][0]['alt_text'] === 'Article cover', 'Media order or alt text was not preserved');
 $postId = $draft['body']['data']['id'];
 
 $hiddenDraft = $dispatch('GET', '/api/v1/posts/' . $postId);
@@ -67,6 +74,28 @@ post_assert($published['body']['data']['canonical_url'] === 'https://writer.test
 
 $publicPost = $dispatch('GET', '/api/v1/posts/' . $postId);
 post_assert($publicPost['status'] === 200, 'Published post was not readable');
+post_assert(count($publicPost['body']['data']['media']) === 2, 'Published post omitted media metadata');
+
+$replacedMedia = $dispatch('PATCH', '/api/v1/posts/' . $postId, ['media' => [
+    ['type' => 'AUDIO', 'url' => 'https://media.example.com/audio.mp3', 'alt_text' => null],
+]], $token);
+post_assert($replacedMedia['status'] === 200 && count($replacedMedia['body']['data']['media']) === 1, 'Media replacement failed');
+post_assert($replacedMedia['body']['data']['media'][0]['type'] === 'AUDIO', 'Replacement media type is incorrect');
+
+$unsafeMedia = $dispatch('PATCH', '/api/v1/posts/' . $postId, ['media' => [
+    ['type' => 'IMAGE', 'url' => 'javascript:alert(1)'],
+]], $token);
+post_assert($unsafeMedia['status'] === 422, 'Unsafe media URL was not rejected');
+
+$insecureMedia = $dispatch('PATCH', '/api/v1/posts/' . $postId, ['media' => [
+    ['type' => 'IMAGE', 'url' => 'http://cdn.example.com/image.jpg'],
+]], $token);
+post_assert($insecureMedia['status'] === 422, 'Non-HTTPS media URL was not rejected');
+
+$tooManyMedia = $dispatch('PATCH', '/api/v1/posts/' . $postId, ['media' => array_fill(0, 11, [
+    'type' => 'FILE', 'url' => 'https://cdn.example.com/file.pdf',
+])], $token);
+post_assert($tooManyMedia['status'] === 422, 'Media count above the limit was not rejected');
 
 $timeline = $dispatch('GET', '/api/v1/timeline', null, null, ['limit' => 1]);
 post_assert($timeline['status'] === 200 && count($timeline['body']['data']) === 1, 'Timeline did not return the published post');

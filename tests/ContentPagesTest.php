@@ -26,6 +26,7 @@ foreach ([
     'CREATE TABLE profiles (id INTEGER PRIMARY KEY, public_id TEXT, user_id INTEGER, handle TEXT, display_name TEXT, bio TEXT, avatar_url TEXT, visibility TEXT, links TEXT, created_at TIMESTAMP, updated_at TIMESTAMP)',
     'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY, user_id INTEGER, token_hash TEXT, token_type TEXT, scopes TEXT, expires_at TIMESTAMP, revoked_at TIMESTAMP, created_at TIMESTAMP)',
     'CREATE TABLE posts (id INTEGER PRIMARY KEY, public_id TEXT, user_id INTEGER, profile_id INTEGER, title TEXT, content TEXT, post_type TEXT, visibility TEXT, published_at TIMESTAMP, deleted_at TIMESTAMP, created_at TIMESTAMP, updated_at TIMESTAMP)',
+    'CREATE TABLE post_media (id INTEGER PRIMARY KEY, post_id INTEGER, media_type TEXT, url TEXT, alt_text TEXT, sort_order INTEGER, created_at TIMESTAMP)',
 ] as $sql) { $db->exec($sql); }
 $db->exec("INSERT INTO nodes VALUES (1, 'node-1', 'writer.test.local', 'Writer Node', 'en', 'UTC', 'ACTIVE', CURRENT_TIMESTAMP)");
 $db->exec("INSERT INTO users VALUES (1, 'user-1', 1, 'writer@example.com', 'hash', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP)");

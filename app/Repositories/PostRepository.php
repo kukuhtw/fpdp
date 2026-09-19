@@ -23,20 +23,28 @@ final class PostRepository
 
     public function create(string $publicId, int $userId, int $profileId, array $fields): array
     {
-        $statement = $this->connection->prepare(
-            'INSERT INTO posts (public_id, user_id, profile_id, title, content, post_type, visibility, published_at)
-             VALUES (:public_id, :user_id, :profile_id, :title, :content, :post_type, :visibility, :published_at)',
-        );
-        $statement->execute([
-            'public_id' => $publicId,
-            'user_id' => $userId,
-            'profile_id' => $profileId,
-            'title' => $fields['title'],
-            'content' => $fields['content'],
-            'post_type' => $fields['post_type'],
-            'visibility' => $fields['visibility'],
-            'published_at' => $fields['published_at'],
-        ]);
+        $this->connection->beginTransaction();
+        try {
+            $statement = $this->connection->prepare(
+                'INSERT INTO posts (public_id, user_id, profile_id, title, content, post_type, visibility, published_at)
+                 VALUES (:public_id, :user_id, :profile_id, :title, :content, :post_type, :visibility, :published_at)',
+            );
+            $statement->execute([
+                'public_id' => $publicId,
+                'user_id' => $userId,
+                'profile_id' => $profileId,
+                'title' => $fields['title'],
+                'content' => $fields['content'],
+                'post_type' => $fields['post_type'],
+                'visibility' => $fields['visibility'],
+                'published_at' => $fields['published_at'],
+            ]);
+            $this->replaceMedia((int) $this->connection->lastInsertId(), $fields['media']);
+            $this->connection->commit();
+        } catch (\Throwable $e) {
+            $this->connection->rollBack();
+            throw $e;
+        }
 
         return $this->findByPublicId($publicId, true);
     }
@@ -52,7 +60,12 @@ final class PostRepository
         $statement->execute(['public_id' => $publicId]);
         $row = $statement->fetch();
 
-        return $row === false ? null : $row;
+        if ($row === false) {
+            return null;
+        }
+
+        $row['media'] = $this->mediaForPostIds([(int) $row['id']])[(int) $row['id']] ?? [];
+        return $row;
     }
 
     public function listPublic(int $limit, ?int $beforeId = null, ?string $authorHandle = null): array
@@ -73,7 +86,14 @@ final class PostRepository
         );
         $statement->execute($parameters);
 
-        return $statement->fetchAll();
+        $rows = $statement->fetchAll();
+        $media = $this->mediaForPostIds(array_map(static fn (array $row): int => (int) $row['id'], $rows));
+        foreach ($rows as &$row) {
+            $row['media'] = $media[(int) $row['id']] ?? [];
+        }
+        unset($row);
+
+        return $rows;
     }
 
     public function update(string $publicId, array $fields): array
@@ -86,10 +106,23 @@ final class PostRepository
                 $parameters[$column] = $fields[$column];
             }
         }
-        $statement = $this->connection->prepare(
-            'UPDATE posts SET ' . implode(', ', $assignments) . ' WHERE public_id = :public_id AND deleted_at IS NULL',
-        );
-        $statement->execute($parameters);
+        $this->connection->beginTransaction();
+        try {
+            if ($assignments !== []) {
+                $statement = $this->connection->prepare(
+                    'UPDATE posts SET ' . implode(', ', $assignments) . ' WHERE public_id = :public_id AND deleted_at IS NULL',
+                );
+                $statement->execute($parameters);
+            }
+            if (array_key_exists('media', $fields)) {
+                $post = $this->findByPublicId($publicId, true);
+                $this->replaceMedia((int) $post['id'], $fields['media']);
+            }
+            $this->connection->commit();
+        } catch (\Throwable $e) {
+            $this->connection->rollBack();
+            throw $e;
+        }
 
         return $this->findByPublicId($publicId, true);
     }
@@ -100,5 +133,44 @@ final class PostRepository
             'UPDATE posts SET deleted_at = CURRENT_TIMESTAMP WHERE public_id = :public_id AND deleted_at IS NULL',
         );
         $statement->execute(['public_id' => $publicId]);
+    }
+
+    private function replaceMedia(int $postId, array $media): void
+    {
+        $delete = $this->connection->prepare('DELETE FROM post_media WHERE post_id = :post_id');
+        $delete->execute(['post_id' => $postId]);
+
+        $insert = $this->connection->prepare(
+            'INSERT INTO post_media (post_id, media_type, url, alt_text, sort_order)
+             VALUES (:post_id, :media_type, :url, :alt_text, :sort_order)',
+        );
+        foreach ($media as $sortOrder => $item) {
+            $insert->execute([
+                'post_id' => $postId,
+                'media_type' => $item['type'],
+                'url' => $item['url'],
+                'alt_text' => $item['alt_text'] ?? null,
+                'sort_order' => $sortOrder,
+            ]);
+        }
+    }
+
+    private function mediaForPostIds(array $postIds): array
+    {
+        if ($postIds === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($postIds), '?'));
+        $statement = $this->connection->prepare(
+            "SELECT post_id, media_type, url, alt_text, sort_order FROM post_media
+             WHERE post_id IN ({$placeholders}) ORDER BY post_id, sort_order, id",
+        );
+        $statement->execute($postIds);
+        $grouped = [];
+        foreach ($statement->fetchAll() as $row) {
+            $grouped[(int) $row['post_id']][] = $row;
+        }
+
+        return $grouped;
     }
 }

@@ -13,7 +13,7 @@ use DateTimeImmutable;
 
 final class PostService
 {
-    private const FIELDS = ['title', 'content', 'post_type', 'visibility', 'published_at'];
+    private const FIELDS = ['title', 'content', 'post_type', 'visibility', 'published_at', 'media'];
     private const TYPES = ['NOTE', 'ARTICLE', 'MEDIA'];
     private const VISIBILITIES = ['PUBLIC', 'UNLISTED', 'PRIVATE'];
 
@@ -145,6 +145,36 @@ final class PostService
                 $errors[] = ['field' => 'published_at', 'reason' => 'invalid_format'];
             }
         }
+        if (array_key_exists('media', $input)) {
+            if (!is_array($input['media']) || !array_is_list($input['media']) || count($input['media']) > 10) {
+                $errors[] = ['field' => 'media', 'reason' => 'invalid_value'];
+            } else {
+                foreach ($input['media'] as $index => $media) {
+                    $path = 'media.' . $index;
+                    if (!is_array($media)) {
+                        $errors[] = ['field' => $path, 'reason' => 'invalid_value'];
+                        continue;
+                    }
+                    foreach (array_diff(array_keys($media), ['type', 'url', 'alt_text']) as $field) {
+                        $errors[] = ['field' => $path . '.' . $field, 'reason' => 'unknown_field'];
+                    }
+                    if (!in_array($media['type'] ?? null, ['IMAGE', 'VIDEO', 'AUDIO', 'FILE'], true)) {
+                        $errors[] = ['field' => $path . '.type', 'reason' => 'invalid_value'];
+                    }
+                    $url = (string) ($media['url'] ?? '');
+                    $parts = parse_url($url);
+                    if (strlen($url) > 2048 || filter_var($url, FILTER_VALIDATE_URL) === false
+                        || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+                        || ($parts['host'] ?? '') === '' || isset($parts['user']) || isset($parts['pass'])) {
+                        $errors[] = ['field' => $path . '.url', 'reason' => 'invalid_format'];
+                    }
+                    if (array_key_exists('alt_text', $media) && $media['alt_text'] !== null
+                        && mb_strlen((string) $media['alt_text']) > 500) {
+                        $errors[] = ['field' => $path . '.alt_text', 'reason' => 'invalid_length'];
+                    }
+                }
+            }
+        }
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
@@ -153,6 +183,7 @@ final class PostService
         if (!$partial) {
             $fields['title'] = $input['title'] ?? null;
             $fields['published_at'] = $input['published_at'] ?? null;
+            $fields['media'] = $input['media'] ?? [];
         }
         if (array_key_exists('published_at', $fields) && $fields['published_at'] !== null) {
             $fields['published_at'] = (new DateTimeImmutable((string) $fields['published_at']))->format('Y-m-d H:i:s');

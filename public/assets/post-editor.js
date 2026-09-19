@@ -64,6 +64,11 @@
       post_type: fields.get('post_type'),
       visibility: fields.get('visibility'),
       published_at: fields.get('publish') ? new Date().toISOString() : null,
+      media: fields.get('media_url') ? [{
+        type: fields.get('media_type'),
+        url: fields.get('media_url'),
+        alt_text: fields.get('media_alt_text') || null,
+      }] : [],
     };
     try {
       const result = await api(postId ? `/api/v1/posts/${encodeURIComponent(postId)}` : '/api/v1/posts', { method: postId ? 'PATCH' : 'POST', body: JSON.stringify(payload) });

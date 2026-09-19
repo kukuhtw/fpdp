@@ -66,6 +66,8 @@ Envelope error standar:
 | GET | `/posts/{postId}` | Publik | Membaca post yang dapat dilihat |
 | PATCH | `/posts/{postId}` | Bearer | Memperbarui post lokal milik user |
 | DELETE | `/posts/{postId}` | Bearer | Soft-delete post lokal milik user |
+
+Penulisan post menerima maksimal 10 metadata media terurut (`IMAGE`, `VIDEO`, `AUDIO`, atau `FILE`). URL media wajib berupa URL HTTPS absolut tanpa credential tertanam; alternative text dibatasi 500 karakter. Mengirim `media` melalui `PATCH` mengganti seluruh daftar media secara atomik.
 | GET | `/timeline` | Publik/Bearer opsional | Timeline normalisasi local, external, dan federated |
 
 ### Sumber eksternal
@@ -145,4 +147,3 @@ Setiap item memuat:
 | 422 | Validasi semantik gagal |
 | 429 | Rate limit terlampaui |
 | 502 | Provider upstream gagal |
-

@@ -66,6 +66,8 @@ Standard error envelope:
 | GET | `/posts/{postId}` | Public | Read a visible post |
 | PATCH | `/posts/{postId}` | Bearer | Update an owned local post |
 | DELETE | `/posts/{postId}` | Bearer | Soft-delete an owned local post |
+
+Post writes accept up to 10 ordered media metadata items (`IMAGE`, `VIDEO`, `AUDIO`, or `FILE`). Media URLs must be absolute HTTPS URLs without embedded credentials; alternative text is limited to 500 characters. Supplying `media` in a `PATCH` replaces the complete media list atomically.
 | GET | `/timeline` | Public/optional Bearer | Return normalized local, external, and federated content |
 
 ### External sources
@@ -145,4 +147,3 @@ Every item contains:
 | 422 | Semantic validation failure |
 | 429 | Rate limit exceeded |
 | 502 | Upstream provider failure |
-
