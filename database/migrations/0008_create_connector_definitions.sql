@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS connector_definitions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(64) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    adapter_class VARCHAR(255) NOT NULL,
+    auth_type VARCHAR(64) NULL,
+    supports_sync TINYINT(1) NOT NULL DEFAULT 1,
+    supports_webhook TINYINT(1) NOT NULL DEFAULT 0,
+    supports_profile TINYINT(1) NOT NULL DEFAULT 1,
+    supports_posts TINYINT(1) NOT NULL DEFAULT 1,
+    supports_products TINYINT(1) NOT NULL DEFAULT 0,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_connector_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

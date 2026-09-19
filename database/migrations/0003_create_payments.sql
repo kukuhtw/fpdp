@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    uuid CHAR(36) NOT NULL,
+    order_id VARCHAR(128) NOT NULL,
+    gateway_code VARCHAR(64) NOT NULL,
+    external_transaction_id VARCHAR(128) NULL,
+    payment_method VARCHAR(64) NULL,
+    currency CHAR(3) NOT NULL DEFAULT 'IDR',
+    amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    fee DECIMAL(18,2) NOT NULL DEFAULT 0,
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    payment_url VARCHAR(255) NULL,
+    expired_at TIMESTAMP NULL,
+    paid_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_payment_uuid (uuid),
+    KEY idx_payments_order_id (order_id),
+    KEY idx_payments_gateway_code (gateway_code),
+    KEY idx_payments_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

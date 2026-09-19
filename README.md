@@ -47,7 +47,8 @@ The intended product combines:
 | Payment lifecycle | Dummy create, status, cancel, refund, and webhook normalization |
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
-| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, and config loader/validation test |
+| Database layer | `Database` PDO connection manager and `MigrationRunner`; ordered migrations under `database/migrations/` with foreign keys and indexes, run via `database/migrate.php` |
+| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, and database connection test |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
@@ -111,7 +112,9 @@ public/
 .env.example             Safe example environment file (no secrets)
 
 database/
-└── schema.sql          Initial MySQL schema
+├── schema.sql          Reference snapshot of the current schema (see migrations for the authoritative, executable version)
+├── migrations/         Ordered, repeatable SQL migrations with foreign keys and indexes
+└── migrate.php         CLI runner: applies pending migrations
 
 documentation/
 ├── README.md           Bilingual documentation index
@@ -127,7 +130,9 @@ tests/
 ├── MvcHomeTest.php          Landing-view rendering test
 ├── RouterTest.php           Router matching and fallback behavior
 ├── FrontControllerTest.php  Route wiring and health-envelope test
-└── ConfigTest.php           Config defaults, .env override, and validation test
+├── ConfigTest.php           Config defaults, .env override, and validation test
+├── MigrationRunnerTest.php  Migration ordering, tracking, and idempotency test
+└── DatabaseTest.php         Database connection wiring test
 ```
 
 ### Requirements
@@ -135,7 +140,8 @@ tests/
 - PHP 8.2 or newer
 - Composer
 - PHP SimpleXML extension for RSS and Atom parsing
-- MySQL 8 or newer when using the provided database schema
+- PHP pdo_mysql extension (pdo_sqlite is used only by the test suite)
+- MySQL 8 or newer when running migrations against a real database
 - Network access when testing a real external feed
 
 ### Quick start
@@ -161,6 +167,8 @@ tests/
    php tests/RouterTest.php
    php tests/FrontControllerTest.php
    php tests/ConfigTest.php
+   php tests/MigrationRunnerTest.php
+   php tests/DatabaseTest.php
    ```
 
 4. Serve the front controller and try it in a browser or with curl:
@@ -170,11 +178,14 @@ tests/
    curl http://localhost:8080/api/v1/health
    ```
 
-5. Optionally create a MySQL database and import the initial schema:
+5. Create a MySQL database and set `DB_*` credentials in `.env`, then run migrations:
 
    ```bash
-   mysql -u root -p fpdp < database/schema.sql
+   mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS fpdp"
+   php database/migrate.php
    ```
+
+   The runner tracks applied migrations in a `migrations` table, so re-running it is safe and only applies what is still pending.
 
 `public/index.php` is the HTTP front controller; it dispatches requests through `App\Core\Router` using the route table in `app/routes.php`. Only `GET /` (landing page) and `GET /api/v1/health` are wired up so far — the remaining `/api/v1` operations in the [API contract](documentation/API-CONTRACT.en.md) are still design-only.
 
@@ -309,7 +320,8 @@ Produk yang dituju menggabungkan:
 | Siklus pembayaran | Dummy create, status, cancel, refund, dan normalisasi webhook |
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
-| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, dan test config loader/validasi |
+| Database layer | `Database` PDO connection manager dan `MigrationRunner`; migration terurut di `database/migrations/` dengan foreign key dan index, dijalankan lewat `database/migrate.php` |
+| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, dan test koneksi database |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
