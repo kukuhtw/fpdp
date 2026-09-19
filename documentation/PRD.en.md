@@ -51,6 +51,8 @@ Individuals currently depend on large platforms for identity, content, transacti
 
 - As a node, I want to discover another node's capabilities.
 - As a user, I want federated content to show its source clearly.
+- As a visitor, I want to discover a profile's federated connections and see their latest public posts.
+- As an owner, I want to choose which federated connections appear on my public profile.
 
 ## 6. Functional requirements
 
@@ -121,7 +123,7 @@ Individuals currently depend on large platforms for identity, content, transacti
 
 ## 10. Product phases
 
-1. Personal website, local profile, and posts (identity, registration, authentication, and profile management are delivered; posts, personalization, and the public-facing UI are not yet built)
+1. Personal website and local content (identity, authentication, profiles, local post CRUD, local timeline, post editor, and public profile UI are delivered; node personalization remains planned)
 2. Social feed, timeline, and external aggregation
 3. Federation and remote actors
 4. Marketplace and payment abstraction
@@ -210,3 +212,26 @@ This addendum adds an AI-assisted, monetizable visitor experience on top of the 
 - Visitor sign-in methods other than Google OAuth.
 - Multi-currency ad and chat billing beyond what the payment abstraction already supports.
 
+## 12. Product Addendum: Federated Connections on Public Profiles
+
+### 12.1 Experience requirements
+
+- Add a **Federated network** section to the public profile after the owner's latest content.
+- Connection cards show avatar/fallback, display name, federated address, domain, relationship, synchronization time, and one latest public post.
+- The `FEDERATED` label and origin domain remain visible; outbound links use remote canonical URLs.
+- Empty, loading, stale-cache, remote-unavailable, hidden, and blocked states have explicit behavior.
+- Show at most six connections initially; use cursor pagination for more.
+
+### 12.2 API requirements
+
+- `GET /api/v1/profiles/{handle}/federated-connections` returns the moderation-filtered public list.
+- `GET /api/v1/me/federated-connections` returns the owner's list including visibility and health.
+- `PATCH /api/v1/me/federated-connections/{connectionId}` changes `show_on_profile`, mute, or block state.
+- Public responses never expose inbox URLs, key material, internal delivery errors, or private moderation metadata.
+
+### 12.3 Acceptance criteria
+
+- Only active, unblocked connections with `show_on_profile=true` appear.
+- Initial rendering includes at most one latest public post per connection.
+- Stale cache shows its synchronization time; remote timeout never blocks profile rendering.
+- Tests cover ownership, visibility, blocked-node filtering, deduplication, pagination, and the A→B→D→E→A graph cycle.

@@ -266,7 +266,9 @@ Task secara berurutan:
 5. Tambahkan delivery queue, retry, deduplication, tombstone, dan semantic update/delete.
 6. Tambahkan kontrol follow, block, mute, report, dan moderasi.
 7. Tampilkan konten federasi dengan remote identity dan canonical URL yang jelas.
-8. Jalankan test interoperability, abuse, key rotation, replay, dan kegagalan.
+8. Tambahkan discovery koneksi pada profil publik dengan flag `show_on_profile` yang dikontrol owner dan satu preview post terbaru dari cache per koneksi.
+9. Tambahkan cursor pagination, indikator stale-cache, perilaku non-blocking saat remote gagal, dan traversal graph yang aman terhadap siklus.
+10. Jalankan test interoperability, abuse, key rotation, replay, siklus graph, filter privasi, dan kegagalan.
 
 Exit criteria:
 
@@ -274,6 +276,8 @@ Exit criteria:
 - activity duplikat dan replay tidak menyebabkan efek berulang;
 - update/delete remote mengikuti semantic yang terdokumentasi;
 - admin dan pengguna dapat memblokir node atau actor yang bermasalah;
+- profil publik hanya menampilkan koneksi yang disetujui owner, aman menurut moderasi, dan memiliki preview cache beratribusi;
+- graph bersiklus seperti A→B→D→E→A tidak menyebabkan record berulang atau traversal tanpa batas;
 - ownership lokal, eksternal, dan federasi tetap dapat dibedakan.
 
 ### Fase 7 — Ekosistem dan scale
@@ -415,4 +419,3 @@ Sebuah task selesai hanya jika seluruh kondisi yang relevan terpenuhi:
 - Demonstrasikan satu vertical slice yang berfungsi pada akhir setiap iterasi.
 - Evaluasi ulang urutan roadmap pada setiap milestone tanpa melewati dependency keamanan atau integritas data.
 - Perbarui roadmap ketika scope, pilihan protokol, prioritas provider, atau kapasitas tim berubah secara material.
-

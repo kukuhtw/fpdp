@@ -41,6 +41,8 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 ### 5.5 Federation
 - Sebagai node, saya ingin mengenali kemampuan node lain.
 - Sebagai pengguna, saya ingin melihat konten federasi dengan jelas sumbernya.
+- Sebagai visitor, saya ingin menemukan koneksi federasi suatu profil dan melihat post publik terbaru mereka.
+- Sebagai owner, saya ingin memilih koneksi federasi mana yang ditampilkan pada profil publik saya.
 
 ## 6. Functional Requirements
 ### 6.1 Identity dan Autentikasi
@@ -102,7 +104,7 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 ## 10. Prioritas Produk
 ### Phase 1
 - Personal website
-- Local profile and posts (identity, registrasi, autentikasi, dan manajemen profil sudah selesai; post, personalisasi, dan UI publik belum dibangun)
+- Identity, registrasi, autentikasi, profil, local post CRUD, timeline lokal, editor post, dan UI profil publik sudah tersedia; personalisasi node masih direncanakan.
 
 ### Phase 2
 - Social feed and timeline
@@ -199,3 +201,27 @@ Addendum ini menambahkan pengalaman visitor berbasis AI yang dapat dimonetisasi 
 - Real-time ad bidding, programmatic exchange, atau moderasi creative otomatis.
 - Metode sign-in visitor selain Google OAuth.
 - Billing multi-currency untuk iklan dan chat di luar yang sudah didukung payment abstraction.
+
+## 12. Addendum Produk: Koneksi Federasi pada Profil Publik
+
+### 12.1 Experience Requirements
+
+- Tambahkan bagian **Jaringan federasi** pada profil publik setelah konten terbaru owner.
+- Kartu koneksi berisi avatar/fallback, display name, federated address, domain, relationship, waktu sinkronisasi, dan satu post publik terbaru.
+- Label `FEDERATED` dan domain asal selalu terlihat; seluruh link keluar memakai canonical URL remote.
+- Empty, loading, stale-cache, remote-unavailable, hidden, dan blocked state memiliki perilaku yang jelas.
+- Default maksimum enam koneksi; gunakan cursor pagination untuk data berikutnya.
+
+### 12.2 API Requirements
+
+- `GET /api/v1/profiles/{handle}/federated-connections` mengembalikan daftar publik yang sudah difilter moderasi.
+- `GET /api/v1/me/federated-connections` mengembalikan daftar owner, termasuk visibility dan health.
+- `PATCH /api/v1/me/federated-connections/{connectionId}` mengubah `show_on_profile`, mute, atau block.
+- Response publik tidak membocorkan inbox URL, key material, delivery error internal, atau metadata moderasi privat.
+
+### 12.3 Acceptance Criteria
+
+- Hanya koneksi aktif, tidak diblokir, dan `show_on_profile=true` yang tampil.
+- Maksimal satu preview post publik terbaru per koneksi pada initial render.
+- Cache stale diberi waktu sinkronisasi; timeout remote tidak memblokir render profil.
+- Test mencakup ownership, visibility, blocked-node filtering, deduplication, pagination, dan siklus A→B→D→E→A.

@@ -223,3 +223,26 @@ Outside this addendum's MVP:
 - Ad content moderation gaps could expose an owner's page to inappropriate creatives if the manual review step is skipped.
 - Visitor PII from Google OAuth increases the platform's privacy and compliance surface.
 
+## 13. Addendum: Federated Connection Discovery on Public Profiles (2026-09-19)
+
+### 13.1 Business requirement
+
+A public profile is also a discovery surface for independent people and nodes the owner trusts or follows. Visitors must be able to see federated users connected to that profile and previews of their latest public activity without losing provenance.
+
+### 13.2 Functional requirements
+
+- The public profile displays federated connections: remote identity, node/domain, relationship status, and canonical link.
+- Each connection may show its latest public remote post when available and permitted by local moderation policy.
+- Previews preserve `source_type=FEDERATED`, remote actor/node, original canonical URL, publication time, and synchronization state.
+- Owners can show or hide a connection on their public profile without disconnecting it.
+- `BLOCKED`, `MUTED`, rejected, or node-blocked relationships never appear publicly.
+- Remote-node failure must not make the local profile unavailable; use valid cached data or omit the preview.
+- Cycles such as A→B→D→E→A are valid. Graph traversal requires cycle detection and depth limits.
+
+### 13.3 Acceptance criteria
+
+- Visitors can distinguish owner-local posts from posts by federated connections.
+- Actor/post links open the correct remote canonical URL.
+- Owners can control public connection visibility.
+- Blocked actors/nodes disappear from lists and previews.
+- The profile remains available when a remote node times out or is offline.

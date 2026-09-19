@@ -684,3 +684,63 @@ Index minimum harus mendukung:
 9. Backfill data, validasi constraint, kemudian aktifkan foreign-key enforcement.
 
 Setiap migration wajib memiliki forward test, rollback strategy, data-backfill plan jika diperlukan, dan pembaruan ERD ini.
+
+## 12. Addendum — Koneksi Federasi pada Profil Publik
+
+Model target ini mendukung discovery koneksi publik dan preview post terbaru dari cache. Bagian ini adalah desain target, bukan klaim bahwa persistence federasi sudah diimplementasikan.
+
+```mermaid
+erDiagram
+    PROFILES ||--o{ FEDERATED_CONNECTIONS : memiliki
+    REMOTE_NODES ||--o{ REMOTE_ACTORS : menaungi
+    REMOTE_ACTORS ||--o{ FEDERATED_CONNECTIONS : direferensikan
+    REMOTE_ACTORS ||--o{ FEDERATED_POSTS : menerbitkan
+    FEDERATED_CONNECTIONS }o--o| FEDERATED_POSTS : preview_terbaru
+
+    REMOTE_NODES {
+        bigint id PK
+        uuid public_id UK
+        varchar domain UK
+        varchar status
+        varchar trust_state
+        timestamp last_seen_at
+    }
+    REMOTE_ACTORS {
+        bigint id PK
+        bigint remote_node_id FK
+        varchar actor_uri UK
+        varchar federated_address UK
+        varchar display_name
+        varchar avatar_url
+        varchar canonical_url
+        timestamp fetched_at
+    }
+    FEDERATED_CONNECTIONS {
+        bigint id PK
+        bigint profile_id FK
+        bigint remote_actor_id FK
+        varchar relationship_status
+        boolean show_on_profile
+        timestamp accepted_at
+        timestamp updated_at
+    }
+    FEDERATED_POSTS {
+        bigint id PK
+        bigint remote_actor_id FK
+        varchar object_uri UK
+        varchar canonical_url
+        text content
+        varchar visibility
+        timestamp published_at
+        timestamp fetched_at
+        timestamp deleted_at
+    }
+```
+
+Constraint dan aturan query:
+
+- Unique `(profile_id, remote_actor_id)` mencegah edge duplikat; edge bersifat directional dan siklus tetap sah.
+- `relationship_status`: `PENDING`, `FOLLOWING`, `CONNECTED`, `MUTED`, `BLOCKED`, atau `DISCONNECTED`.
+- Query publik mensyaratkan `show_on_profile=true`, status hubungan yang diizinkan, trust state node yang diizinkan, dan post publik yang belum dihapus.
+- Preview terbaru dipilih dari cache lokal; render profil publik tidak melakukan remote fetch yang blocking.
+- Index `(profile_id, show_on_profile, relationship_status, id)` mendukung cursor pagination; index `(remote_actor_id, published_at, id)` mendukung lookup post terbaru.

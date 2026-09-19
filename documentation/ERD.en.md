@@ -684,3 +684,63 @@ Minimum indexes should support:
 9. Backfill data, validate constraints, then enable foreign-key enforcement.
 
 Every migration must include a forward test, rollback strategy, data-backfill plan when required, and an update to this ERD.
+
+## 12. Addendum — Public Federated Connections
+
+This target model supports public connection discovery and cached latest-post previews. It is a design target, not a statement that federation persistence is already implemented.
+
+```mermaid
+erDiagram
+    PROFILES ||--o{ FEDERATED_CONNECTIONS : owns
+    REMOTE_NODES ||--o{ REMOTE_ACTORS : hosts
+    REMOTE_ACTORS ||--o{ FEDERATED_CONNECTIONS : referenced_by
+    REMOTE_ACTORS ||--o{ FEDERATED_POSTS : publishes
+    FEDERATED_CONNECTIONS }o--o| FEDERATED_POSTS : latest_preview
+
+    REMOTE_NODES {
+        bigint id PK
+        uuid public_id UK
+        varchar domain UK
+        varchar status
+        varchar trust_state
+        timestamp last_seen_at
+    }
+    REMOTE_ACTORS {
+        bigint id PK
+        bigint remote_node_id FK
+        varchar actor_uri UK
+        varchar federated_address UK
+        varchar display_name
+        varchar avatar_url
+        varchar canonical_url
+        timestamp fetched_at
+    }
+    FEDERATED_CONNECTIONS {
+        bigint id PK
+        bigint profile_id FK
+        bigint remote_actor_id FK
+        varchar relationship_status
+        boolean show_on_profile
+        timestamp accepted_at
+        timestamp updated_at
+    }
+    FEDERATED_POSTS {
+        bigint id PK
+        bigint remote_actor_id FK
+        varchar object_uri UK
+        varchar canonical_url
+        text content
+        varchar visibility
+        timestamp published_at
+        timestamp fetched_at
+        timestamp deleted_at
+    }
+```
+
+Constraints and query rules:
+
+- Unique `(profile_id, remote_actor_id)` prevents duplicate edges; an edge is directional and cycles are valid.
+- `relationship_status` is one of `PENDING`, `FOLLOWING`, `CONNECTED`, `MUTED`, `BLOCKED`, or `DISCONNECTED`.
+- Public queries require `show_on_profile=true`, an allowed relationship status, an allowed remote-node trust state, and a non-deleted public post.
+- Latest previews are selected from the local cache; public-profile rendering never performs a blocking remote fetch.
+- Index `(profile_id, show_on_profile, relationship_status, id)` supports cursor pagination; index `(remote_actor_id, published_at, id)` supports latest-post lookup.

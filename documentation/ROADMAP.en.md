@@ -12,7 +12,7 @@ This roadmap is based on the repository's state when Phase 0 started, kept here 
 - only the dummy payment gateway is functional;
 - RSS, Atom, and Custom API adapters can normalize remote records in memory;
 - an initial payment and integration schema exists;
-- most HTTP, authentication, persistence, UI, queue, commerce, and federation capabilities are not implemented.
+- identity/authentication, local post CRUD, the local timeline, post editor, and public profile UI are implemented; most queue, commerce, external-sync, personalization, and federation capabilities are not.
 
 Phase 0 and most of Phase 1 have since been completed. See the [development progress report](PROGRESS-REPORT.en.md) for the current, verified state of every phase and workstream.
 
@@ -266,7 +266,9 @@ Tasks, in order:
 5. Add delivery queue, retries, deduplication, tombstones, and update/delete semantics.
 6. Add follow/block/mute/report and moderation controls.
 7. Display federated content with unmistakable remote identity and canonical URLs.
-8. Run interoperability, abuse, key-rotation, replay, and failure tests.
+8. Add public-profile connection discovery with an owner-controlled `show_on_profile` flag and one cached latest-post preview per connection.
+9. Add cursor pagination, stale-cache indicators, non-blocking remote-failure behavior, and cycle-safe graph traversal.
+10. Run interoperability, abuse, key-rotation, replay, graph-cycle, privacy-filtering, and failure tests.
 
 Exit criteria:
 
@@ -274,6 +276,8 @@ Exit criteria:
 - duplicate and replayed activities are harmless;
 - remote updates/deletions follow documented semantics;
 - administrators and users can block abusive nodes or actors;
+- public profiles show only owner-approved, moderation-safe connections and attributed cached previews;
+- cyclic graphs such as A→B→D→E→A do not cause repeated records or unbounded traversal;
 - local, external, and federated ownership remain distinguishable.
 
 ### Phase 7 — Ecosystem and scale
@@ -415,4 +419,3 @@ A task is complete only when all applicable conditions are met:
 - Demonstrate one working vertical slice at the end of each iteration.
 - Reassess roadmap order at every milestone, but do not bypass security or data-integrity dependencies.
 - Update this roadmap when scope, protocol choice, provider priority, or team capacity changes materially.
-

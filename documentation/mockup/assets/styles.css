@@ -306,6 +306,15 @@ a { color: inherit; }
 .public-post h3 { margin: 34px 0 13px; font: 500 27px/1.16 var(--font-display); }
 .public-post p { margin: 0; color: #626a63; font-size: 12px; line-height: 1.65; }
 .public-post a { margin-top: auto; color: var(--accent); font-size: 11px; font-weight: 800; text-decoration: none; }
+.federation-network { background: #ebe8df; }
+.federation-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+.federation-card { padding: 21px; border: 1px solid #d4d1c7; border-radius: 21px; background: #fffdf7; box-shadow: 0 12px 35px rgba(31,38,33,.05); }
+.federation-card.stale { background: #faf5e8; }
+.federation-card header { display: flex; align-items: center; gap: 10px; }.federation-card header div { min-width: 0; flex: 1; }
+.federation-card header a { display: block; color: var(--ink); font-size: 12px; font-weight: 850; text-decoration: none; }.federation-card header div span { display: block; color: var(--muted); font-size: 9px; overflow: hidden; text-overflow: ellipsis; }
+.remote-avatar { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 13px; display: grid; place-items: center; color: white; background: var(--accent); font-weight: 900; }.remote-avatar.violet { background: #765384; }.remote-avatar.amber { background: #a76829; }
+.remote-post { min-height: 190px; margin-top: 18px; padding: 17px; border-radius: 14px; background: #f3f1e9; display: flex; flex-direction: column; }.remote-post .source { color: var(--accent); font-size: 8px; font-weight: 850; letter-spacing: .08em; }.remote-post h3 { margin: 17px 0 8px; font: 500 21px/1.18 var(--font-display); }.remote-post p { margin: 0 0 12px; color: var(--muted); font-size: 11px; line-height: 1.55; }.remote-post a { margin-top: auto; color: var(--accent); font-size: 10px; font-weight: 800; text-decoration: none; }
+.federation-card footer,.network-note { margin-top: 13px; color: var(--muted); font-size: 9px; }.network-note { text-align: center; }
 .video-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
 .video-card { padding: 16px; border: 1px solid #dcd8cf; border-radius: 21px; background: rgba(255,255,255,.52); }
 .video-embed { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #10201a; }
@@ -355,7 +364,7 @@ a { color: inherit; }
   .public-links { width: 100%; order: 3; overflow-x: auto; }
   .public-hero { padding-top: 45px; grid-template-columns: 1fr; }
   .portrait-card { max-width: 390px; width: 100%; margin: 0 auto; }
-  .public-post-grid, .project-feature, .video-grid { grid-template-columns: 1fr; }
+  .public-post-grid, .project-feature, .video-grid, .federation-grid { grid-template-columns: 1fr; }
   .shop-banner { padding: 30px; align-items: flex-start; flex-direction: column; }
   .shop-banner .button { margin-left: 0; }
 }

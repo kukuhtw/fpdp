@@ -201,3 +201,27 @@ Di luar MVP addendum ini:
 - Sengketa payment untuk barang intangible (sesi chat, view CV) lebih sulit diselesaikan dibanding order produk fisik.
 - Celah moderasi konten iklan bisa mengekspos halaman owner ke creative yang tidak pantas jika langkah review manual dilewati.
 - PII visitor dari Google OAuth memperbesar permukaan privacy dan compliance platform.
+
+## 13. Addendum: Discovery Koneksi Federasi pada Profil Publik (2026-09-19)
+
+### 13.1 Kebutuhan Bisnis
+
+Profil publik juga menjadi pintu discovery ke jaringan independen yang dipercaya atau diikuti owner. Visitor harus dapat melihat user/node federasi lain yang terkoneksi dengan profil tersebut beserta aktivitas publik terbaru mereka, tanpa kehilangan asal konten.
+
+### 13.2 Functional Requirements
+
+- Profil publik menampilkan koneksi federasi: identitas remote, node/domain, status hubungan, dan tautan canonical.
+- Setiap koneksi dapat menampilkan preview post publik terbarunya jika tersedia dan lolos kebijakan moderasi lokal.
+- Preview mempertahankan `source_type=FEDERATED`, remote actor/node, canonical URL asli, waktu publikasi, dan status sinkronisasi.
+- Owner dapat menampilkan atau menyembunyikan koneksi di profil tanpa memutus hubungan federasi.
+- Koneksi `BLOCKED`, `MUTED`, ditolak, atau berasal dari node yang diblokir tidak boleh tampil.
+- Kegagalan node remote tidak boleh membuat profil lokal gagal; gunakan cache valid terakhir atau lewati preview.
+- Siklus A→B→D→E→A sah. Traversal graph wajib memakai cycle detection dan batas kedalaman.
+
+### 13.3 Acceptance Criteria
+
+- Visitor dapat membedakan post lokal owner dari post koneksi federasi.
+- Tautan actor/post mengarah ke canonical URL remote yang benar.
+- Owner dapat mengatur visibility koneksi publik.
+- Actor/node yang diblokir hilang dari daftar dan preview.
+- Profil tetap tersedia saat node remote timeout atau offline.
