@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Controllers\AnalyticsController;
 use App\Controllers\AuthController;
 use App\Controllers\CvController;
 use App\Controllers\ContentPageController;
@@ -20,6 +21,7 @@ use App\Core\Database;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Router;
+use App\Repositories\AnalyticsEventRepository;
 use App\Repositories\AuditEventRepository;
 use App\Repositories\AuthTokenRepository;
 use App\Repositories\CvAccessGrantRepository;
@@ -43,6 +45,7 @@ use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
 use App\Repositories\VisitorTokenRepository;
 use App\Services\Auth\AuthService;
+use App\Services\Analytics\AnalyticsService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Federation\FederationService;
 use App\Services\Cv\CvAccessService;
@@ -76,14 +79,19 @@ $buildProfileService = static function (): ProfileService {
     return new ProfileService(new ProfileRepository(Database::connection()));
 };
 
+$buildAnalyticsService = static function (): AnalyticsService {
+    return new AnalyticsService(new AnalyticsEventRepository(Database::connection()));
+};
+
 $buildRateLimiter = static function (): RateLimiter {
     return new RateLimiter(new RateLimitRepository(Database::connection()));
 };
 
-$buildPostController = static function () use ($buildAuthService): PostController {
+$buildPostController = static function () use ($buildAuthService, $buildAnalyticsService): PostController {
     return new PostController(
         $buildAuthService(),
         new PostService(new PostRepository(Database::connection())),
+        $buildAnalyticsService(),
     );
 };
 
@@ -179,7 +187,7 @@ $buildFederationController = static function () use ($buildAuthService, $buildFe
     return new FederationController($buildAuthService(), $buildFederationService());
 };
 
-$buildDashboardController = static function () use ($buildAuthService, $buildFederationService): DashboardController {
+$buildDashboardController = static function () use ($buildAuthService, $buildFederationService, $buildAnalyticsService): DashboardController {
     $connection = Database::connection();
 
     return new DashboardController(
@@ -194,10 +202,15 @@ $buildDashboardController = static function () use ($buildAuthService, $buildFed
             new PaymentRepository($connection),
             $buildFederationService(),
             new AuditEventRepository($connection),
+            $buildAnalyticsService(),
         ),
     );
 };
-$buildMarketplaceController = static function () use ($buildAuthService): MarketplaceController {
+
+$buildAnalyticsController = static function () use ($buildAuthService, $buildProfileService, $buildAnalyticsService): AnalyticsController {
+    return new AnalyticsController($buildAuthService(), $buildProfileService(), $buildAnalyticsService());
+};
+$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService): MarketplaceController {
     $connection = Database::connection();
     return new MarketplaceController(
         $buildAuthService(),
@@ -206,6 +219,7 @@ $buildMarketplaceController = static function () use ($buildAuthService): Market
             new OrderRepository($connection),
             new OrderItemRepository($connection),
         ),
+        $buildAnalyticsService(),
     );
 };
 $buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {
@@ -261,8 +275,8 @@ $router->get('/api/v1/me', function (Request $request, array $params) use ($buil
     return (new AuthController($buildAuthService(), $buildRateLimiter()))->me($request);
 });
 
-$router->get('/api/v1/profiles/{handle}', function (Request $request, array $params) use ($buildAuthService, $buildProfileService): Response {
-    return (new ProfileController($buildAuthService(), $buildProfileService()))->show($request, $params);
+$router->get('/api/v1/profiles/{handle}', function (Request $request, array $params) use ($buildAuthService, $buildProfileService, $buildAnalyticsService): Response {
+    return (new ProfileController($buildAuthService(), $buildProfileService(), $buildAnalyticsService()))->show($request, $params);
 });
 
 $router->patch('/api/v1/me/profile', function (Request $request, array $params) use ($buildAuthService, $buildProfileService): Response {
@@ -335,6 +349,14 @@ $router->get('/api/v1/me/payment-gateways', function (Request $request, array $p
 
 $router->patch('/api/v1/me/payment-gateways/{code}', function (Request $request, array $params) use ($buildPaymentController): Response {
     return $buildPaymentController()->updateGateway($request, $params);
+});
+
+$router->get('/api/v1/me/dashboard/analytics', function (Request $request, array $params) use ($buildAnalyticsController): Response {
+    return $buildAnalyticsController()->summary($request);
+});
+
+$router->post('/api/v1/profiles/{handle}/track/outbound-click', function (Request $request, array $params) use ($buildAnalyticsController): Response {
+    return $buildAnalyticsController()->trackOutboundClick($request, $params);
 });
 
 $router->get('/api/v1/profiles/{handle}/federated-connections', function (Request $request, array $params) use ($buildFederationController): Response {

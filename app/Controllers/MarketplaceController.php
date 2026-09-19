@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
+use App\Services\Analytics\AnalyticsService;
 use App\Services\Auth\AuthService;
 use App\Services\Marketplace\MarketplaceService;
 
@@ -15,6 +16,7 @@ final class MarketplaceController
     public function __construct(
         private readonly AuthService $auth,
         private readonly MarketplaceService $marketplace,
+        private readonly ?AnalyticsService $analytics = null,
     ) {
     }
 
@@ -56,7 +58,15 @@ final class MarketplaceController
     public function createOrder(Request $request): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
-        return JsonEnvelope::success($this->marketplace->createOrder((int) $context['node']['id'], $request->json() ?? []), 201);
+        $order = $this->marketplace->createOrder((int) $context['node']['id'], $request->json() ?? []);
+
+        // Note: order creation is currently owner-authenticated (no public
+        // checkout exists yet), so this does not yet represent a genuine
+        // anonymous-visitor conversion — see the Analytics section of the
+        // progress report.
+        $this->analytics?->recordShopConversion((int) $context['node']['id'], (string) $order['public_id']);
+
+        return JsonEnvelope::success($order, 201);
     }
 
     public function showOrder(Request $request, array $params): Response

@@ -31,6 +31,7 @@ foreach ([
     'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, token_hash TEXT UNIQUE, token_type TEXT DEFAULT "ACCESS", scopes TEXT, expires_at TIMESTAMP, revoked_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE rate_limits (id INTEGER PRIMARY KEY AUTOINCREMENT, rate_key TEXT UNIQUE, attempts INTEGER DEFAULT 1, window_started_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, user_id INTEGER, profile_id INTEGER, title TEXT, content TEXT, post_type TEXT DEFAULT "NOTE", visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, deleted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE post_media (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER NOT NULL, media_type TEXT, url TEXT, alt_text TEXT, sort_order INTEGER DEFAULT 0)',
     'CREATE TABLE external_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, provider TEXT NOT NULL, external_post_id TEXT NOT NULL, status TEXT DEFAULT "ACTIVE", UNIQUE (provider, external_post_id))',
     'CREATE TABLE remote_nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, domain TEXT UNIQUE, name TEXT, status TEXT DEFAULT "ACTIVE", trust_state TEXT DEFAULT "UNKNOWN", last_seen_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE remote_actors (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_node_id INTEGER, actor_uri TEXT, federated_address TEXT UNIQUE, display_name TEXT, avatar_url TEXT, canonical_url TEXT, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
@@ -43,6 +44,7 @@ foreach ([
     'CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, buyer_email TEXT, buyer_name TEXT, status TEXT DEFAULT "PENDING", total_amount TEXT DEFAULT "0", currency TEXT DEFAULT "IDR", notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE payments (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, order_id TEXT, gateway_code TEXT, external_transaction_id TEXT, payment_method TEXT, currency TEXT DEFAULT "IDR", amount REAL DEFAULT 0, fee REAL DEFAULT 0, status TEXT DEFAULT "PENDING", payment_url TEXT, metadata TEXT, expired_at TIMESTAMP, paid_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE audit_events (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER, actor_user_id INTEGER, action TEXT, subject_type TEXT, subject_public_id TEXT, metadata TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE analytics_events (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, event_type TEXT NOT NULL, subject_type TEXT, subject_public_id TEXT, visitor_hash TEXT, occurred_on TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
 ] as $sql) {
     $db->exec($sql);
 }
@@ -121,7 +123,9 @@ dash_assert($data['commerce']['pending_order_count'] === 1, 'pending_order_count
 dash_assert((float) $data['commerce']['revenue_this_month'] === 100000.0, 'revenue_this_month wrong: ' . json_encode($data['commerce']));
 dash_assert($data['federation'] === ['follower_count' => 1, 'following_count' => 1], 'Federation counts wrong: ' . json_encode($data['federation']));
 dash_assert(count($data['recent_activity']) === 2, 'recent_activity should include both seeded audit events');
-dash_assert($data['analytics']['available'] === false, 'Analytics should honestly report unavailable, not fake data');
+dash_assert($data['analytics']['available'] === true, 'Analytics should report available now that the subsystem exists');
+dash_assert(count($data['analytics']['daily_traffic']) === 7, 'daily_traffic should always have exactly 7 entries (gaps filled with zero)');
+dash_assert($data['analytics']['profile_views'] === 0, 'No views have happened yet at this point in the test');
 
 // ---- Test 3: payments dashboard summary matches the same underlying data ----
 $paymentsSummary = $dispatch('GET', '/api/v1/me/dashboard/payments', null, $ownerToken);
@@ -133,6 +137,31 @@ dash_assert(count($psData['recent_transactions']) === 1, 'recent_transactions sh
 
 $unauthPayments = $dispatch('GET', '/api/v1/me/dashboard/payments');
 dash_assert($unauthPayments['status'] === 401, 'Payments summary should require auth');
+
+// ---- Test 4: viewing the public profile/post and tracking an outbound click actually records analytics events ----
+$profileView = $dispatch('GET', '/api/v1/profiles/owner');
+dash_assert($profileView['status'] === 200, 'Public profile view should succeed: ' . json_encode($profileView));
+
+$postView = $dispatch('GET', '/api/v1/posts/p1');
+dash_assert($postView['status'] === 200, 'Public post view should succeed: ' . json_encode($postView));
+
+$unauthClick = $dispatch('POST', '/api/v1/profiles/owner/track/outbound-click', ['target_url' => 'https://shop.example/product']);
+dash_assert($unauthClick['status'] === 202, 'Tracking an outbound click should not require auth and should succeed: ' . json_encode($unauthClick));
+
+$badClick = $dispatch('POST', '/api/v1/profiles/owner/track/outbound-click', ['target_url' => 'not-a-url']);
+dash_assert($badClick['status'] === 422, 'An invalid target_url should 422');
+
+$analytics = $dispatch('GET', '/api/v1/me/dashboard/analytics', null, $ownerToken);
+dash_assert($analytics['status'] === 200, 'Analytics summary should succeed: ' . json_encode($analytics));
+$aData = $analytics['body']['data'];
+dash_assert($aData['profile_views'] === 1, 'profile_views should be 1 after one profile view: ' . json_encode($aData));
+dash_assert($aData['content_views'] === 1, 'content_views should be 1 after one post view');
+dash_assert($aData['outbound_clicks'] === 1, 'outbound_clicks should be 1 after one successfully tracked click (the invalid one must not count)');
+dash_assert($aData['unique_visitors'] === 1, 'unique_visitors should be 1: profile view + post view share the same day/IP/UA hash');
+dash_assert($aData['top_content'][0]['subject_public_id'] === 'p1', 'top_content should surface the viewed post: ' . json_encode($aData['top_content']));
+
+$unauthAnalytics = $dispatch('GET', '/api/v1/me/dashboard/analytics');
+dash_assert($unauthAnalytics['status'] === 401, 'Analytics summary should require auth');
 
 // Cleanup
 Database::reset();

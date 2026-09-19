@@ -12,17 +12,13 @@ use App\Repositories\OrderRepository;
 use App\Repositories\PaymentRepository;
 use App\Repositories\PostRepository;
 use App\Repositories\ProductRepository;
+use App\Services\Analytics\AnalyticsService;
 use App\Services\Federation\FederationService;
 
 /**
  * Read-only aggregator for the owner dashboard's Overview page. Combines
  * counts that already exist elsewhere (content, commerce, federation,
- * audit trail) rather than tracking anything new itself.
- *
- * Deliberately does NOT report profile views, content reach, or outbound
- * clicks: FPDP has no visitor-analytics tracking anywhere yet (see the
- * "analytics" block in getOverview()'s response) — that is a separate,
- * much larger feature, not something this aggregator can honestly fake.
+ * audit trail, visitor analytics) rather than tracking anything new itself.
  */
 final class DashboardService
 {
@@ -36,6 +32,7 @@ final class DashboardService
         private readonly PaymentRepository $payments,
         private readonly FederationService $federation,
         private readonly AuditEventRepository $auditEvents,
+        private readonly AnalyticsService $analytics,
     ) {
     }
 
@@ -73,10 +70,7 @@ final class DashboardService
                 'following_count' => $federationSummary['following_count'],
             ],
             'recent_activity' => $this->recentActivity($nodeId),
-            'analytics' => [
-                'available' => false,
-                'reason' => 'No visitor-analytics tracking exists yet (profile views, content reach); this is future work.',
-            ],
+            'analytics' => array_merge(['available' => true], $this->analytics->getSummary($nodeId)),
         ];
     }
 

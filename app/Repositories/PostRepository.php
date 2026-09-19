@@ -10,7 +10,7 @@ final class PostRepository
 {
     private const SELECT = '
         SELECT posts.*, profiles.handle, profiles.display_name, profiles.avatar_url,
-               nodes.domain AS node_domain
+               nodes.id AS node_id, nodes.domain AS node_domain
         FROM posts
         INNER JOIN profiles ON profiles.id = posts.profile_id
         INNER JOIN users ON users.id = posts.user_id

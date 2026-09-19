@@ -8,13 +8,17 @@ use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\ResourcePresenter;
 use App\Core\Http\Response;
+use App\Services\Analytics\AnalyticsService;
 use App\Services\Auth\AuthService;
 use App\Services\Content\PostService;
 
 final class PostController
 {
-    public function __construct(private readonly AuthService $auth, private readonly PostService $posts)
-    {
+    public function __construct(
+        private readonly AuthService $auth,
+        private readonly PostService $posts,
+        private readonly ?AnalyticsService $analytics = null,
+    ) {
     }
 
     public function index(Request $request): Response
@@ -36,7 +40,13 @@ final class PostController
 
     public function show(Request $request, array $params): Response
     {
-        return JsonEnvelope::success(ResourcePresenter::post($this->posts->get($params['postId'])));
+        $post = $this->posts->get($params['postId']);
+
+        if (isset($post['node_id'])) {
+            $this->analytics?->recordPostView((int) $post['node_id'], (string) $post['public_id'], $request->ipAddress, $request->header('user-agent'));
+        }
+
+        return JsonEnvelope::success(ResourcePresenter::post($post));
     }
 
     public function update(Request $request, array $params): Response
