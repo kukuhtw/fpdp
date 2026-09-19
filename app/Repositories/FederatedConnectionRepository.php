@@ -155,6 +155,21 @@ final class FederatedConnectionRepository
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function findByProfileAndActorId(int $profileId, int $remoteActorId): ?array
+    {
+        $statement = $this->connection->prepare(
+            self::SELECT_PUBLIC . ' WHERE fc.profile_id = :profile_id AND fc.remote_actor_id = :actor_id',
+        );
+        $statement->execute(['profile_id' => $profileId, 'actor_id' => $remoteActorId]);
+
+        $row = $statement->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function findConnectionsByActorId(int $remoteActorId): array

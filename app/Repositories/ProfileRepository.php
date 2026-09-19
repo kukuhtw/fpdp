@@ -54,6 +54,19 @@ final class ProfileRepository
     /**
      * @return array<string, mixed>|null
      */
+    public function findById(int $id): ?array
+    {
+        $statement = $this->connection->prepare(self::SELECT . ' WHERE profiles.id = :id');
+        $statement->execute(['id' => $id]);
+
+        $row = $statement->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
     public function findByHandle(string $handle): ?array
     {
         $statement = $this->connection->prepare(self::SELECT . ' WHERE profiles.handle = :handle');
