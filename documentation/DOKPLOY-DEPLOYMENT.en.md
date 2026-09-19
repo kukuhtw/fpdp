@@ -1,215 +1,235 @@
-# FPDP Deployment Guide — Dokploy
+# Deploying FPDP with Dokploy
 
-## 1. What is Dokploy?
+## 1. What this deployment provides
 
-[Dokploy](https://dokploy.com) is an open-source PaaS that runs on your own VPS. It deploys applications using Docker Compose, manages databases, TLS certificates, and provides a web dashboard. This guide explains how to deploy FPDP using Dokploy with the provided `dokploy-compose.yml`, `Dockerfile`, and `.env.dokploy.example`.
+The repository includes a production-oriented Dokploy Compose deployment:
 
-## 2. Prerequisites
+- PHP 8.3 with Apache and the required PHP extensions;
+- MySQL 8.4 on a private Compose network;
+- automatic, repeatable database migrations before Apache starts;
+- optional idempotent first-owner bootstrap;
+- persistent volumes for MySQL and `storage/` (including CV documents and the install lock);
+- app and database health checks;
+- no host port binding, `container_name`, or hand-written Traefik labels;
+- production defaults with the web installer locked.
 
-- A VPS running Ubuntu 22.04 or newer with Docker installed.
-- Dokploy installed on that VPS (see [dokploy.com/docs](https://dokploy.com/docs) for installation instructions).
-- A domain name pointing to your VPS IP (e.g. `profile.example.com`).
-- Git: your FPDP fork or this repository pushed to a Git provider (GitHub, GitLab, etc.) that Dokploy can access.
+Files:
 
-## 3. Project structure for Dokploy
+- `Dockerfile`
+- `dokploy-compose.yml`
+- `.env.dokploy.example`
+- `docker/apache-vhost.conf`
+- `docker/entrypoint.sh`
+- `database/bootstrap-owner.php`
 
-Dokploy uses the four pre‑configured files already in this repository:
+## 2. Architecture
 
-| File | Purpose |
-|---|---|
-| `dokploy-compose.yml` | Defines the `app` and `db` services, health checks, volumes, and environment. |
-| `Dockerfile` | PHP 8.3 Apache image with MySQL extensions, Apache rewrite/headers modules, and the entrypoint. |
-| `.env.dokploy.example` | Template for all required environment variables. Copy this to configure your deployment. |
-| `docker/entrypoint.sh` | Waits for DB, runs migrations, bootstraps the owner account, and disables the web installer. |
+```mermaid
+flowchart LR
+    U[Visitor] --> DNS[DNS A/AAAA record]
+    DNS --> T[Dokploy Traefik<br/>TLS termination]
+    T -->|HTTP port 80| A[FPDP app<br/>PHP 8.3 + Apache]
+    A -->|private network| DB[(MySQL 8.4)]
+    A --> S[(fpdp_storage volume)]
+    DB --> D[(fpdp_mysql volume)]
 
-> **Note:** The existing `docker-compose.yml` (if any) is for local development. `dokploy-compose.yml` is tuned for production — it enables `RUN_MIGRATIONS=true` and `DISABLE_WEB_INSTALLER=true`, and adds health checks for both services.
-## 4. Step-by-step deployment
-
-### 4.1 Create a new project in Dokploy
-
-1. Log into your Dokploy dashboard.
-2. Click **New Project** → choose **Docker Compose**.
-3. Name your project (e.g. `fpdp`).
-4. Select the Git repository that contains your FPDP code.
-5. Set the **Branch** to `main` (or your preferred release branch).
-6. Set the **Compose file path** to `dokploy-compose.yml`.
-
-### 4.2 Add environment variables
-
-Dokploy will prompt you for environment variables. Use `.env.dokploy.example` as your reference. The minimum required set is:
-
-```env
-APP_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-DB_PASSWORD=your-strong-database-password
-MYSQL_ROOT_PASSWORD=your-different-strong-root-password
-NODE_DOMAIN=profile.example.com
+    G[Git repository] --> DP[Dokploy Compose deployment]
+    DP --> A
+    DP --> DB
 ```
 
-> **Security:** `APP_KEY` must be at least 64 hexadecimal characters. Generate one with: `openssl rand -hex 32`
+Only the `app` service should receive a public domain. MySQL has no published host port.
 
-Optional but recommended:
+## 3. Prerequisites
 
-```env
-APP_NAME=FPDP
-NODE_NAME=My FPDP Node
-NODE_DEFAULT_LOCALE=id
-NODE_TIMEZONE=Asia/Jakarta
-AUTH_TOKEN_TTL=604800
-RATE_LIMIT_LOGIN_MAX=5
-RATE_LIMIT_LOGIN_WINDOW=900
-RATE_LIMIT_REGISTER_MAX=5
-RATE_LIMIT_REGISTER_WINDOW=3600
+- A working Dokploy server.
+- A Git repository accessible to Dokploy.
+- A domain with an `A` record pointing to the Dokploy server; add `AAAA` only when IPv6 is configured correctly.
+- Ports 80 and 443 reachable on the Dokploy server.
+- Strong, distinct application, database-user, and MySQL-root secrets.
+
+## 4. Create the Compose service
+
+1. In Dokploy, create or open a Project and Environment.
+2. Add a **Docker Compose** service—not Docker Stack, because this repository uses `build`.
+3. Select the Git provider/repository and production branch.
+4. Set **Compose Path** to `./dokploy-compose.yml`.
+5. Keep a single app replica. Startup migrations and the local `storage` volume are intentionally single-node in the current MVP.
+6. Enable isolated deployments if desired. Domain routing is configured through Dokploy in section 6; no manual Traefik labels are required.
+
+Dokploy writes Compose variables to a `.env` file beside the Compose definition. The Compose file explicitly uses `env_file: .env`, because variables saved by Dokploy are not automatically injected into containers unless Compose references or loads them.
+
+## 5. Configure environment variables
+
+Copy the values from `.env.dokploy.example` into the Compose service's Environment editor and replace every placeholder.
+
+Required security-sensitive values:
+
+```dotenv
+APP_KEY=<at-least-64-random-hex-characters>
+DB_PASSWORD=<strong-database-user-password>
+MYSQL_ROOT_PASSWORD=<different-strong-root-password>
+NODE_DOMAIN=example.com
 ```
 
-Google OAuth for visitor auth (optional):
+Generate an application key locally:
 
-```env
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-VISITOR_TOKEN_TTL=2592000
-CV_MAX_FILE_SIZE_BYTES=5242880
+```bash
+php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
 ```
 
-### 4.3 Bootstrap the owner account
+For the first deployment, also set:
 
-On the **first deployment only**, add these bootstrap variables:
-
-```env
+```dotenv
 BOOTSTRAP_OWNER_EMAIL=owner@example.com
-BOOTSTRAP_OWNER_PASSWORD=your-very-strong-password-at-least-12-characters
-BOOTSTRAP_OWNER_HANDLE=owner
+BOOTSTRAP_OWNER_PASSWORD=<at-least-12-characters>
+BOOTSTRAP_OWNER_HANDLE=profile
 BOOTSTRAP_OWNER_DISPLAY_NAME=Node Owner
-BOOTSTRAP_OWNER_LOCALE=id
+BOOTSTRAP_OWNER_LOCALE=en
 ```
 
-The `docker/entrypoint.sh` script detects these and creates the owner account automatically after the first migration run.
+The startup process waits for MySQL, runs migrations, and creates this owner before Apache accepts traffic. Bootstrap is idempotent: subsequent starts detect the existing email and skip creation. After the first successful login, remove `BOOTSTRAP_OWNER_PASSWORD` and the other `BOOTSTRAP_OWNER_*` variables, then redeploy. Do not keep a reusable password in deployment configuration.
 
-> **⚠️ Important:** After the first deployment succeeds, **remove** `BOOTSTRAP_OWNER_PASSWORD` (and optionally the other `BOOTSTRAP_OWNER_*` variables) from Dokploy and redeploy. The password is checked only during container startup and is ignored once the account exists, but leaving it in the environment is a security risk.
+The current registration model derives the node host as `<handle>.<NODE_DOMAIN>`. The example therefore produces `profile.example.com`; configure that same hostname in Dokploy. Set DNS and these two variables consistently.
 
-### 4.4 Configure the domain
+Keep these fixed values unless changing the Compose topology:
 
-1. In your Dokploy project, go to **Domains**.
-2. Add your domain (e.g. `profile.example.com`).
-3. Dokploy obtains a Let's Encrypt TLS certificate automatically.
-4. Point your domain's DNS A/AAAA record to your VPS IP.
-### 4.6 Verify the deployment
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+DB_CONNECTION=mysql
+DB_HOST=db
+DB_PORT=3306
+```
+
+Optional Google visitor login requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. The authorized callback must be registered as:
+
+```text
+https://profile.example.com/api/v1/profiles/{handle}/visitor-auth/google/callback
+```
+
+## 6. Configure domain and HTTPS
+
+Use Dokploy's native Domains feature:
+
+1. Open the Compose service's **Domains** tab.
+2. Add `profile.example.com`.
+3. Select service **app**.
+4. Set the container port to **80**.
+5. Use `/` as the path.
+6. Enable HTTPS and certificate provisioning.
+7. Save and redeploy after changing a domain.
+
+Dokploy adds the required Traefik routing internally. Do not add `ports: "80:80"`; the Compose service uses `expose: 80` so MySQL and Apache do not create unnecessary host-port conflicts.
+
+## 7. First deployment
+
+Click **Deploy** and follow the logs. A successful first startup includes messages similar to:
+
+```text
+Applied: 0020_create_posts.sql
+Owner bootstrap completed. Remove BOOTSTRAP_OWNER_PASSWORD from Dokploy and redeploy.
+```
+
+Verify:
 
 ```bash
-# Health endpoint (should return a 200 JSON envelope)
-curl https://profile.example.com/api/v1/health
-
-# Public profile (replace "owner" with your handle)
-curl https://profile.example.com/@owner
-
-# API timeline
-curl https://profile.example.com/api/v1/timeline
-
-# Login as the owner (replace the password)
-curl -X POST https://profile.example.com/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"owner@example.com","password":"your-password"}'
+curl --fail https://profile.example.com/api/v1/health
 ```
 
-## 5. Post-deployment steps
+Then log in through the post editor at:
 
-### 5.1 Remove bootstrap credentials
+```text
+https://profile.example.com/dashboard/posts
+```
 
-After the first successful deployment:
+After login succeeds:
 
-1. Go to your Dokploy project → **Environment**.
-2. Remove `BOOTSTRAP_OWNER_PASSWORD` (and optionally the other `BOOTSTRAP_OWNER_*` variables).
-3. Click **Redeploy**.
+1. remove every `BOOTSTRAP_OWNER_*` variable, especially the password;
+2. redeploy;
+3. confirm health and login again;
+4. verify `https://profile.example.com/.env` is not accessible;
+5. verify `/install.php` reports that installation is locked.
 
-The bootstrap script skips automatically because the owner account already exists.
+## 8. Deployment lifecycle
 
-### 5.2 Set up regular backups
+```mermaid
+flowchart TD
+    P[Push to production branch] --> B[Dokploy builds image]
+    B --> H[MySQL health check]
+    H --> M[Run pending migrations]
+    M --> O{Bootstrap email configured?}
+    O -->|First deploy| C[Create owner idempotently]
+    O -->|No| W[Start Apache]
+    C --> W
+    W --> A[App health check]
+    A --> R[Traefik routes HTTPS traffic]
+```
 
-Dokploy does not back up Docker volumes automatically. Schedule a backup for the MySQL volume:
+Migrations are forward-only and run automatically. Before deploying a migration that changes or removes data, take a database backup and define its rollback strategy. Do not scale `app` beyond one replica until migration locking and shared/object storage are implemented.
+
+## 9. Updating and rolling back
+
+### Normal update
+
+1. Back up MySQL and the storage volume.
+2. Push or merge the tested revision into the configured branch.
+3. Deploy from Dokploy.
+4. Watch build, migration, Apache, and health-check logs.
+5. Run a health check and a short login/post smoke test.
+
+### Application rollback
+
+Redeploy a previously known-good Git commit/image from Dokploy. Code rollback does not automatically reverse database migrations. Only roll back across schema changes when that migration's documented compatibility and restore plan allow it.
+
+### Database rollback
+
+Restore from the pre-deployment backup when a destructive/incompatible migration cannot be corrected forward. Restore MySQL and `fpdp_storage` from the same recovery point when records reference stored documents.
+
+## 10. Backup and restore
+
+At minimum, back up both named volumes:
+
+- `fpdp_mysql`: database and migration state;
+- `fpdp_storage`: CV documents, runtime files, and install lock.
+
+A logical database backup can be created from the Dokploy terminal or server shell:
 
 ```bash
-# Example: weekly MySQL dump via cron
-docker exec fpdp_db_1 mysqldump -u fpdp -p'your-password' fpdp > /backups/fpdp-$(date +%F).sql
+docker compose -f dokploy-compose.yml exec -T db \
+  mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers fpdp \
+  > fpdp-$(date +%F-%H%M).sql
 ```
 
-The persistent volumes are:
+Keep backups outside the same server/volume and encrypt them at rest. Test restoration on staging regularly. Container recreation is expected; data survival depends on the volumes, not on a running container.
 
-- `fpdp_mysql` — MySQL data directory (`/var/lib/mysql`)
-- `fpdp_storage` — uploaded CV files and logs (`/var/www/html/storage`)
-## 7. Troubleshooting
+## 11. Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Deployment fails at "Container unhealthy" | Database not ready, or health endpoint returns non-200 | Check container logs in Dokploy; verify `DB_HOST=db` (the service name, not `localhost`); increase `start_period` in `dokploy-compose.yml` if the VPS is slow |
-| `DB_PASSWORD` / `MYSQL_ROOT_PASSWORD` errors | Environment variables not set | Add them in Dokploy project → Environment and redeploy |
-| Owner account not created | `BOOTSTRAP_OWNER_*` variables missing or empty | Add all five variables and redeploy; check container logs for "Owner bootstrap skipped" |
-| "Owner bootstrap skipped: account already exists" | Expected after first deployment | Remove `BOOTSTRAP_OWNER_PASSWORD` as recommended |
-| 404 on `/@handle` | Profile does not exist, or `NODE_DOMAIN` is wrong | Verify the handle; check that `NODE_DOMAIN` matches your public domain |
-| Web installer (`install.php`) accessible | `DISABLE_WEB_INSTALLER` not `true` or `storage/installed.lock` missing | Set `DISABLE_WEB_INSTALLER=true` in environment; if the file is missing, run `touch storage/installed.lock` inside the container |
-| Let's Encrypt certificate not issued | DNS record not propagated or domain not pointed to your VPS | Verify DNS with `dig profile.example.com`; wait for propagation (up to 48 hours) |
+| Symptom | Check |
+|---|---|
+| Build fails while installing PHP extensions | Inspect the Docker build log; rebuild without cache after confirming repository files are current |
+| App repeatedly says it is waiting for MySQL | Confirm `DB_HOST=db`, database credentials match the MySQL service variables, and the `db` health check passes |
+| Domain returns 404/502 | Domain must target service `app`, port `80`; redeploy after domain changes and confirm app health check |
+| Migration fails | Inspect the exact migration in logs; do not delete the database volume as a shortcut; restore or correct forward |
+| Owner bootstrap fails | Password must be 12–128 characters; handle must match lowercase letters/numbers/hyphens and be 3–63 characters |
+| CV disappears after redeploy | Confirm `fpdp_storage:/var/www/html/storage` is attached and was not deleted |
+| App exposes debug details | Set `APP_ENV=production` and `APP_DEBUG=false`, then redeploy |
+| Installer is reachable | `DISABLE_WEB_INSTALLER=true` creates the persistent install lock during every startup |
 
-## 8. Comparison: Dokploy vs VPS vs shared hosting
+## 12. Security checklist
 
-| Feature | Dokploy | VPS (manual) | Shared hosting |
-|---|---|---|---|
-| Setup effort | Low — one-click deploy after config | Medium — manual Nginx/DB setup | Medium — upload files, run installer |
-| TLS | Automatic (Let's Encrypt) | Manual (Certbot) | Usually provided |
-| Database management | Automatic (Docker container) | Manual installation & maintenance | Provided by host (phpMyAdmin) |
-| Updates | Redeploy button | `git pull` + `php migrate.php` | Re-upload files + manual SQL |
-| Resource isolation | Full Docker isolation | Native server | Shared with other tenants |
-| Cost | VPS cost only | VPS cost only | Usually cheaper |
-| Persistence | Docker volumes (back up manually) | Native filesystem | Host-managed storage |
+- Keep MySQL private; never add a host `ports` mapping to `db`.
+- Use different values for `DB_PASSWORD` and `MYSQL_ROOT_PASSWORD`.
+- Remove bootstrap credentials after first deployment.
+- Store secrets in Dokploy variables or a supported external secret provider, never in Git.
+- Keep `APP_DEBUG=false` and enforce HTTPS.
+- Restrict Dokploy dashboard access and enable its own backups/updates.
+- Back up and restore-test both persistent volumes.
+- Review logs without copying access tokens, OAuth secrets, or database passwords into tickets.
 
-## 9. References
+## 13. Dokploy references
 
-- [Dokploy documentation](https://dokploy.com/docs)
-- [Repository README](../README.md)
-- [General deployment guide (VPS & shared hosting)](DEPLOYMENT-GUIDE.en.md)
-- [Development progress report](PROGRESS-REPORT.en.md)
-- [.env.dokploy.example](../.env.dokploy.example) — environment variable reference
-- [dokploy-compose.yml](../dokploy-compose.yml) — Docker Compose definition
-- [Dockerfile](../Dockerfile) — container image definition
-
-### 5.3 Configure Google OAuth (optional)
-
-If you want visitor Google sign-in on profiles:
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com).
-2. Create an OAuth 2.0 Client ID (Web application type).
-3. Add `https://profile.example.com/api/v1/profiles/{handle}/visitor-auth/google/callback` as an authorized redirect URI.
-4. Add the `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to Dokploy environment variables.
-5. Redeploy.
-
-## 6. Updating FPDP
-
-### 6.1 Standard update
-
-1. Push new code to your Git repository (or merge a pull request).
-2. In Dokploy, click **Redeploy**.
-3. Dokploy rebuilds the image, pulls new migrations, and restarts the containers.
-4. `docker/entrypoint.sh` runs `php database/migrate.php` on every start — only new, unapplied migrations execute.
-
-### 6.2 Zero-downtime considerations
-
-The current `Dockerfile` and `dokploy-compose.yml` do **not** configure multiple replicas or a rolling update strategy. During the few seconds the `app` container restarts, the node returns 502/503 errors. This is acceptable for a personal node.
-
-For a production setup serving many visitors, consider:
-
-- Adding a second `app` replica and a load balancer in front.
-- Using a reverse proxy (like Nginx or Traefik) managed by Dokploy.
-- Running migrations manually before deploying the new image.
-
-### 4.5 Deploy
-
-Click **Deploy** in the Dokploy dashboard. Dokploy will:
-
-1. Clone the repository.
-2. Build the Docker image from `Dockerfile`.
-3. Start the MySQL 8.4 container (`db`).
-4. Wait for MySQL to become healthy.
-5. Start the `app` container.
-6. `docker/entrypoint.sh` runs inside the container:
-   - Waits for MySQL (up to 60 retries / ~120 seconds).
-   - Runs `php database/migrate.php` — applies all pending migrations.
-   - If `BOOTSTRAP_OWNER_*` variables are set and no owner exists yet, creates the owner account.
-   - Creates `storage/installed.lock` to disable the web installer.
-7. Dokploy's health check hits `GET /api/v1/health` — when it returns 200, the deployment is marked healthy.
+- [Docker Compose in Dokploy](https://docs.dokploy.com/docs/core/docker-compose)
+- [Compose domains](https://docs.dokploy.com/docs/core/docker-compose/domains)
+- [Environment variables](https://docs.dokploy.com/docs/core/variables)
+- [Domain troubleshooting](https://docs.dokploy.com/docs/core/troubleshooting/domains)

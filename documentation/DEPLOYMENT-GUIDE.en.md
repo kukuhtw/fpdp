@@ -15,6 +15,8 @@ It assumes the [repository README](../README.md) quick start already works on yo
 
 ## 3. Choose a path
 
+For a container-managed VPS, use the dedicated [Dokploy deployment guide](DOKPLOY-DEPLOYMENT.en.md). It includes Compose, health checks, persistent volumes, automatic migrations, and first-owner bootstrap.
+
 | | VPS | Shared hosting |
 |---|---|---|
 | Shell/SSH access | Yes | Usually no |

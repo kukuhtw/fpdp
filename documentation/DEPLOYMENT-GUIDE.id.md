@@ -15,6 +15,8 @@ Panduan ini mengasumsikan quick start pada [README repository](../README.md) sud
 
 ## 3. Pilih jalur deployment
 
+Untuk VPS yang dikelola dengan container, gunakan [panduan deployment Dokploy](DOKPLOY-DEPLOYMENT.id.md). Panduan tersebut mencakup Compose, health check, persistent volume, migration otomatis, dan bootstrap owner pertama.
+
 | | VPS | Shared hosting |
 |---|---|---|
 | Akses shell/SSH | Ya | Biasanya tidak |

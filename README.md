@@ -705,6 +705,8 @@ Start with the [documentation index](documentation/README.md). Product requireme
 - [Narasi manfaat dan copywriting profesional — Bahasa Indonesia](documentation/VALUE-PROPOSITION.id.md)
 - [Deployment guide (VPS & shared hosting, install wizard) — English](documentation/DEPLOYMENT-GUIDE.en.md)
 - [Panduan deployment (VPS & shared hosting, install wizard) — Bahasa Indonesia](documentation/DEPLOYMENT-GUIDE.id.md)
+- [Dokploy deployment — English](documentation/DOKPLOY-DEPLOYMENT.en.md)
+- [Deployment Dokploy — Bahasa Indonesia](documentation/DOKPLOY-DEPLOYMENT.id.md)
 
 ---
 
@@ -1403,6 +1405,8 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 - [Narasi manfaat dan copywriting profesional — Bahasa Indonesia](documentation/VALUE-PROPOSITION.id.md)
 - [Deployment guide (VPS & shared hosting, install wizard) — English](documentation/DEPLOYMENT-GUIDE.en.md)
 - [Panduan deployment (VPS & shared hosting, install wizard) — Bahasa Indonesia](documentation/DEPLOYMENT-GUIDE.id.md)
+- [Dokploy deployment — English](documentation/DOKPLOY-DEPLOYMENT.en.md)
+- [Deployment Dokploy — Bahasa Indonesia](documentation/DOKPLOY-DEPLOYMENT.id.md)
 
 ---
 
