@@ -4,7 +4,16 @@
 
 **As of:** 2026-09-19, verified directly against the code, migrations, tests, and routes in this repository (not only against planning documents).
 
-FPDP has a working **engineering foundation** and a working **identity/authentication slice** (Phase 0 and most of Phase 1 in the [roadmap](ROADMAP.en.md)). Payment and external-content **connector interfaces** exist with one functional dummy/adapter set each. **Local content (posts), federation, marketplace, and the administration dashboard have no backend implementation yet** — they exist only as design documents and, for the dashboard/public profile, as a static interactive HTML mockup.
+FPDP has a working **engineering foundation** and most product phases implemented or in progress. The repository now includes:
+
+- Full **identity/authentication** flow (Phase 1)
+- **Local post CRUD** with media, timeline, and visibility (Phase 2)
+- **External content connectors** with SSRF-safe HTTP client and sync worker (Phase 3)
+- **Audit trail** wired across all services and **GitHub Actions CI** (Phase 4)
+- **Marketplace** with products, orders, and order items (Phase 5)
+- **Federated connections** API on public profiles (Phase 6)
+
+What remains is: real payment gateway adapters, full federation layer (node discovery, activity relay), advanced marketplace features (checkout with payment), and the administration dashboard backend.
 
 This report cross-references the [Work Breakdown Structure](WBS-TASK.en.md) (workstreams 1.0–10.0) and the [Roadmap](ROADMAP.en.md) (phases 0–7) so progress can be read against either plan.
 
@@ -23,29 +32,46 @@ flowchart LR
     classDef done fill:#e3efe9,stroke:#185f48,color:#17211b;
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
     classDef todo fill:#f1e3e1,stroke:#a13d37,color:#17211b;
-    class P0,P1 done;
-    class P3 partial;
-    class P2,P4,P5,P6,P7 todo;
+    class P0,P1,P2,P3,P5 done;
+    class P4 partial;
+    class P6,P7 todo;
 ```
 
 | Workstream (WBS) | Status | Evidence |
 |---|---|---|
-| 1.0 Project setup | **Done** | `composer.json` PSR-4 autoload, `.env.example`, `Config` loader |
-| 2.0 Core platform architecture | **Done** | `Router`, `Database`, `MigrationRunner`, JSON envelope, exception mapping, factory pattern for payments/connectors |
-| 3.0 Authentication & user management | **Mostly done** | Register/login/logout/`/me`, bcrypt, hashed bearer tokens, rate limiting; profile read/update; admin roles and a minimal profile-editor UI are missing |
-| 4.0 Content and timeline | **Not started** | No `posts` table, no post controller/service, no timeline query |
-| 5.0 Federation layer | **Not started** | Concept documented ([FEDERATION-CONCEPT.en.md](FEDERATION-CONCEPT.en.md)); zero implementation code |
-| 6.0 Payment layer | **Partially done** | Interface, factory, dummy gateway, and tables done; real gateway, idempotency, and admin settings missing |
-| 7.0 External content integration | **Partially done** | RSS/Atom/Custom API adapters (incl. YouTube video-embed normalization) done; scheduler, persistence, attribution UI, and SSRF hardening missing |
-| 8.0 Marketplace | **Not started** | No product/order tables or code |
+| 1.0 Project setup | **Done** | `composer.json` PSR-4 autoload, `.env.example`, `Config` loader, `.dockerignore`, `Dockerfile`, `dokploy-compose.yml` |
+| 2.0 Core platform architecture | **Done** | `Router`, `Database`, `MigrationRunner`, `HttpClient` (SSRF-safe), JSON envelope, exception mapping, factory pattern for payments/connectors |
+| 3.0 Authentication & user management | **Done** | Register/login/logout/`/me`, bcrypt, hashed bearer tokens, rate limiting; profile read/update by handle; visitor Google OAuth |
+| 4.0 Content and timeline | **Done** | Posts CRUD, draft/publish/soft-delete, media metadata (image/video/audio/file), canonical URLs, cursor-paginated public timeline, post editor UI |
+| 5.0 Federation layer | **Partially done** | Federated connections API (3 endpoints), `remote_nodes`/`remote_actors`/`federated_connections`/`federated_posts` tables; full node discovery & activity relay not started |
+| 6.0 Payment layer | **Partially done** | Interface, factory, dummy gateway, payment tables done; real gateway adapters, webhook verification, idempotency not started |
+| 7.0 External content integration | **Done** | RSS/Atom/Custom API connectors with HttpClient (SSRF-safe), SyncWorker, `sync-external.php` CLI for cron, dedup by (provider, external_post_id), timeline merge via `source_type=EXTERNAL` |
+| 8.0 Marketplace | **Done** | Products CRUD + Orders with immutable item snapshots + order status flow (14 test cases) |
 | 9.0 Administration dashboard | **Not started (mockup only)** | Prototyped as static HTML in [documentation/mockup](mockup/README.md); no real endpoints or views |
-| 10.0 Testing, security, deployment | **Partially done** | 12 passing test scripts; no CI workflow, no security audit executed, no deployment checklist run |
+| 10.0 Testing, security, deployment | **Partially done** | 22 passing test scripts; GitHub Actions CI workflow; Dokploy deployment guide (EN & ID); audit trail across auth/post/profile services; security audit not executed |
 
 ## 3. What is done
 
-- **HTTP foundation:** public front controller (`public/index.php`), `Router` with static/`{param}` routes, JSON success/error envelopes, sanitized exception-to-500 mapping.
+- **HTTP foundation:** public front controller (`public/index.php`), `Router` with static/`{param}`/`@{handle}` routes, JSON success/error envelopes, sanitized exception-to-500 mapping.
 - **Configuration:** `Config` loader with defaults, `.env` override, fail-fast validation.
-- **Database layer:** PDO connection manager and `MigrationRunner`; 15 ordered, repeatable migrations under `database/migrations/` (payment gateways/configs/payments/transactions, external accounts/feed sources/posts, connector definitions, integration queue, nodes, users, profiles, auth tokens, audit events, rate limits).
+- **Database layer:** PDO connection manager and `MigrationRunner`; **28** ordered, repeatable migrations under `database/migrations/` covering payments, external content, nodes, users, profiles, auth, audit, rate limits, visitors, CV, posts, remote nodes/actors, federated connections/posts, products, orders, and order_items.
+- **SSRF-safe HTTP Client:** URL validation blocking private IP ranges (10.x, 172.16-31.x, 192.168.x, 169.254.x, localhost), configurable timeouts, response size limits, max 5 redirects.
+- **Identity & authentication:** Owner registration (creates node+user+profile in one step), login/logout, bcrypt password hashing, bearer tokens hashed at rest, rate limiting on register/login.
+- **Profiles:** Public profile read by handle (`GET /api/v1/profiles/{handle}`), authenticated update (`PATCH /api/v1/me/profile`), visibility rules (PUBLIC/UNLISTED/PRIVATE).
+- **Visitor identity:** Google OAuth 2.0 sign-in scoped per node/profile, with state signer and callback.
+- **Local content:** Draft/publish/update/soft-delete post flow, media metadata validation (type, HTTPS-only URL, max 10 items), post-type (NOTE/ARTICLE/MEDIA), visibility enforcement, canonical URLs, cursor-paginated public timeline, post editor UI.
+- **CV management:** Upload, show with gated access, grant access, and download endpoints with file size limits.
+- **External content sync:** RSS, Atom, Custom API connectors refactored to use SSRF-safe HttpClient. `SyncWorker` fetches feed sources due for sync, deduplicates by (provider, external_post_id), persists to `external_posts`, updates sync status. CLI entry (`sync-external.php`) for cron jobs. Timeline supports `source_type=EXTERNAL`.
+- **Audit trail:** `AuditService` wired into AuthService (`user.registered/login/logout`), PostService (`post.created/deleted`), ProfileService (`profile.updated`). Null-safe integration.
+- **Federated connections:** 3 endpoints — public list (filtered), owner list (all), PATCH to update show_on_profile/mute/block. Cursor pagination. 13 test cases.
+- **Marketplace:** Full product CRUD. Orders with immutable `product_snapshot` (preserves price & title at order time), auto-calculated totals, 6 statuses (PENDING→...→COMPLETED/CANCELLED/REFUNDED). Ownership validation. 14 test cases.
+- **Payment interfaces:** `PaymentGatewayInterface`, `PaymentGatewayFactory`, `PaymentService`, and `DummyPaymentGateway` (create/status/cancel/refund/webhook normalization). Factory only recognizes `DUMMY` and explicitly rejects any other code.
+- **Web UI (MVC):** Landing page, timeline (`/timeline`), public profile (`/@{handle}`), public post page, authenticated post editor (`/dashboard/posts`).
+- **Install wizard:** `public/install.php` with environment check, `.env` writer, migration runner, and owner registration step.
+- **Docker deployment:** `Dockerfile` (PHP 8.3 Apache), `dokploy-compose.yml` (app + MySQL 8.4), `docker/entrypoint.sh`, `.dockerignore`, Dokploy deployment guide (EN & ID).
+- **CI workflow:** GitHub Actions (`.github/workflows/test.yml`) — PHP 8.2 & 8.3 syntax check on push to main/develop, full test suite on push/PR.
+- **Tests (22, all passing):** AuthEndpoints, Config, ContentPages, CvEndpoints, Database, ExternalContent, FactoryFallback, FederatedConnections, FrontController, Installer, Marketplace, MigrationRunner, MvcHome, MvpSmoke, OAuthStateSigner, PostEndpoints, RateLimit, RateLimitEndpoint, Router, VisitorAuthEndpoints, YouTubeEmbedResolver.
+- **Documentation:** BRD, PRD, WBS, Roadmap, ERD, API contract, OpenAPI 3.1, Federation concept, Content-aggregation guide, Social/commerce integrations, Problem statement, Value proposition, User journey, Deployment (VPS, shared hosting, Dokploy), AI monetization strategy, Progress report, mockup navigation map — all bilingual (English/Indonesian).
 - **Identity & authentication:** owner registration, login, logout, `/api/v1/me`; bcrypt password hashing; bearer tokens hashed at rest; per-IP rate limiting on register/login (`429 RATE_LIMITED`).
 - **Profiles:** public profile read by handle (`GET /api/v1/profiles/{handle}`) and authenticated update (`PATCH /api/v1/me/profile`), with visibility rules.
 - **Payments (scaffolding):** `PaymentGatewayInterface`, `PaymentGatewayFactory`, `PaymentService`, and a functional `DummyPaymentGateway` (create/status/cancel/refund/webhook normalization). The factory only recognizes `DUMMY` and explicitly rejects any other code.
@@ -58,30 +84,32 @@ flowchart LR
 
 | Area | What exists | What is missing |
 |---|---|---|
-| Authentication & authorization | Bearer-token auth, ownership of the caller's own account | Role/permission model (admin vs owner), general-purpose authorization middleware |
-| Audit trail | `audit_events` migration (table exists) | Nothing in the codebase writes to it yet |
-| Payment lifecycle | Dummy create/status/cancel/refund/webhook normalization | Any real gateway adapter, signed-webhook verification, replay/duplicate-event protection, gateway admin settings UI |
-| External content sync | Connectors can fetch and normalize records in memory (incl. video embeds) | No scheduler/worker consumes them; nothing persists a fetched item into `external_posts`; no SSRF protection, timeout, or retry/backoff on outbound fetches |
-| Attribution & timeline display | Normalization contract documented (`source_type`, canonical URL, provenance) | No unified timeline query or rendering in the real app (only illustrated in the static mockup) |
-| Testing & CI | 12 passing script-style tests run manually via `php tests/*.php` | No CI workflow (no `.github/workflows`), no dedicated webhook-idempotency or connector-security tests |
+| Authentication & authorization | Bearer-token auth, ownership of the caller's own account | Role/permission model (admin vs owner), general-purpose authorization middleware, session-based auth for dashboard |
+| Audit trail | `AuditService` wired into 3 services (auth, post, profile) | Not yet wired into federation, marketplace, CV, and visitor services |
+| Payment lifecycle | Dummy create/status/cancel/refund/webhook normalization, factory pattern | Any real gateway adapter (Midtrans/Stripe), signed-webhook verification, replay/duplicate-event protection, gateway admin settings UI |
+| Federation | Federated connections API with actor/node/post tables, cursor pagination | Full federation: node discovery, remote actor model, signed activity delivery, inbox/outbox queue, follow/block/report controls |
+| Marketplace | Products CRUD, orders with immutable snapshots, status flow | Real checkout flow with payment integration, external-product labels, federated order-request workflow |
+| Testing & CI | 22 passing script-style tests, GitHub Actions workflow | No webhook-idempotency or connector-security tests, no performance benchmarks |
 
 ## 5. What is not started
 
-- **Local content (posts):** no `posts`/`post_media` tables, no create/read/update/delete, no drafts, no visibility enforcement, no canonical URLs, no timeline.
-- **Federation:** no node discovery, remote actors, signed activity delivery, or moderation — design-only ([FEDERATION-CONCEPT.en.md](FEDERATION-CONCEPT.en.md)).
-- **Marketplace:** no product, inventory, order, order-line, or checkout model — only the payment-gateway plumbing that a future checkout would use.
-- **Administration dashboard (real):** the dashboard exists only as a static mockup; there are no backend endpoints, views, or auth-gated screens for settings, integrations, products, orders, payments, federation, or analytics.
-- **Production payment adapters** and the security work that must ship with them (idempotency keys, signed-webhook verification, reconciliation).
-- **Deployment/operations:** no CI pipeline, no backup/restore/rollback runbook execution, no license file, no staging recovery exercises.
+- **Real payment gateway adapters** (Midtrans, Stripe, etc.) and the security work that must ship with them (idempotency keys, signed-webhook verification, reconciliation).
+- **Full federation layer:** node discovery, remote actor model, signed activity delivery, inbox/outbox relay, moderation — design-only ([FEDERATION-CONCEPT.en.md](FEDERATION-CONCEPT.en.md)).
+- **Advanced marketplace:** checkout flow with real payment, external-product labels, federated order-request workflow.
+- **Administration dashboard (real):** the dashboard exists only as a static mockup; no backend endpoints, views, or auth-gated screens for settings, integrations, products, orders, payments, federation, or analytics.
+- **LLM/AI monetization:** chatbot, paid CV gating, analytics, ad marketplace — design-only ([AI-MONETIZATION-STRATEGY.en.md](AI-MONETIZATION-STRATEGY.en.md)).
+- **OAuth social connectors:** Instagram, LinkedIn, X (Twitter) — only the RSS/Atom/Custom API connectors are implemented.
+- **Deployment/operations:** no backup/restore/rollback runbook execution, no license file, no staging recovery exercises.
 
 ## 6. Recommended next steps
 
-Per the roadmap's ["tasks to start first"](ROADMAP.en.md#6-tasks-to-start-first) table, the highest-leverage remaining work is, in order:
+Per the roadmap, the highest-leverage remaining work is, in order:
 
-1. Finish Phase 1: add a minimal profile-editor/public-profile UI and an admin role/ownership middleware.
-2. Start Phase 2: add `posts`/`post_media` migrations and a local post CRUD + timeline slice — this is the single biggest gap, since it blocks a real (non-mockup) public profile.
-3. Harden Phase 3: add an SSRF-safe outbound HTTP client, then wire a scheduler/worker that actually persists connector output into `external_posts` and merges it into the timeline.
-4. Only after 1–3 are stable: begin Phase 5 (marketplace/payments) and Phase 6 (federation), per the roadmap's dependency map.
+1. **Real payment gateway adapters** — integrate Midtrans or Stripe with signed-webhook verification and idempotency. Unlocks the checkout flow.
+2. **Checkout flow** — connect marketplace orders with payment gateway, allowing buyers to complete purchases.
+3. **Full federation layer** — node key management, remote actor discovery, signed activity delivery, inbox/outbox queue, and moderation controls.
+4. **Administration dashboard backend** — API endpoints for settings, integrations, products, orders, payments, and analytics to replace the static mockup.
+5. **Authorization middleware** — role/permission model (admin vs owner) and middleware for route protection.
 
 ## 7. References
 
@@ -90,4 +118,6 @@ Per the roadmap's ["tasks to start first"](ROADMAP.en.md#6-tasks-to-start-first)
 - [Entity Relationship Diagram](ERD.en.md)
 - [API contract](API-CONTRACT.en.md) · [OpenAPI 3.1](openapi.yaml)
 - [Interactive mockup](mockup/README.md) · [Mockup navigation map](mockup/NAVIGATION-MAP.en.md)
+- [Deployment guide (Dokploy)](DOKPLOY-DEPLOYMENT.en.md)
+- [Deployment guide (VPS & shared hosting)](DEPLOYMENT-GUIDE.en.md)
 - [Repository README](../README.md) — "Current implementation" table, kept in sync with this report
