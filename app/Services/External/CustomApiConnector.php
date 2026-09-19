@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Services\External;
 
 use App\Contracts\ExternalContentProviderInterface;
+use App\Core\Http\HttpClient;
+use RuntimeException;
 
 final class CustomApiConnector implements ExternalContentProviderInterface
 {
     /**
      * @param array<string, mixed> $configuration
      */
-    public function __construct(private readonly array $configuration = [])
-    {
+    public function __construct(
+        private readonly array $configuration = [],
+        private readonly HttpClient $http = new HttpClient(),
+    ) {
     }
 
     public function getProviderCode(): string
@@ -42,19 +46,23 @@ final class CustomApiConnector implements ExternalContentProviderInterface
     public function fetchPosts(array $account, ?string $cursor = null): array
     {
         $sourceUrl = $account['source_url'] ?? ($this->configuration['source_url'] ?? '');
-
         if ($sourceUrl === '') {
             return ['items' => [], 'next_cursor' => null];
         }
 
-        $payload = @file_get_contents($sourceUrl);
-        if ($payload === false || $payload === '') {
-            return ['items' => [], 'next_cursor' => null];
+        try {
+            $response = $this->http->get($sourceUrl, ['Accept' => 'application/json'], 15, 2 * 1024 * 1024);
+        } catch (RuntimeException $e) {
+            return ['items' => [], 'next_cursor' => null, 'error' => $e->getMessage()];
         }
 
-        $data = json_decode($payload, true);
+        if ($response['status'] < 200 || $response['status'] >= 300) {
+            return ['items' => [], 'next_cursor' => null, 'error' => "HTTP {$response['status']}"];
+        }
+
+        $data = json_decode($response['body'], true);
         if (!is_array($data)) {
-            return ['items' => [], 'next_cursor' => null];
+            return ['items' => [], 'next_cursor' => null, 'error' => 'Invalid JSON'];
         }
 
         $items = [];
