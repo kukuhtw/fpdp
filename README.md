@@ -12,6 +12,384 @@ FPDP adalah **personal digital home** tahap awal yang tidak terikat pada provide
 
 ## English
 
+### Overview
+
+**FPDP, Federated Personal Digital Platform, is an open architecture for building a personal digital home that you own and control.**
+
+Instead of placing identity, content, audience, commerce, and digital activity inside a single centralized platform, FPDP allows each person to operate their own independent node on a domain and hosting environment they control.
+
+A personal FPDP node can function as a website, social profile, professional identity, publishing platform, portfolio, marketplace, content aggregator, and payment-enabled digital presence.
+
+The key idea is simple:
+
+**your domain becomes your digital home.**
+
+Your profile, posts, products, media, and local application data remain under your control, while federation allows independent FPDP nodes to discover and interact with each other across the internet.
+
+A user on one FPDP node can eventually follow, communicate, exchange content, and interact with users hosted on completely different servers without requiring all users to belong to the same central platform.
+
+```text
+alice.id
+   │
+   │ Federation
+   ▼
+bob.social
+   │
+   │ Federation
+   ▼
+charlie.me
+```
+
+Each node maintains its own application and database.
+
+```text
+alice.id
+App + Database A
+
+bob.social
+App + Database B
+
+charlie.me
+App + Database C
+```
+
+There is no requirement for a single central user database or central content database.
+
+FPDP is designed around the principle that **federation should connect independent digital identities rather than centralize them.**
+
+#### A Personal Digital Home
+
+FPDP is not intended to be only another social networking application.
+
+It is designed as a foundation for a broader personal digital presence.
+
+A single FPDP installation can progressively provide:
+
+```text
+Personal Website
++
+Social Profile
++
+Professional Profile
++
+Blog and Publishing
++
+Photo and Video Content
++
+Portfolio
++
+Federated Social Network
++
+Marketplace
++
+Payment-enabled Commerce
++
+External Content Aggregation
++
+Digital Identity
+```
+
+For example, a user could operate:
+
+```text
+https://andi.id
+```
+
+and use it as the primary destination for:
+
+```text
+/@andi
+/posts
+/articles
+/photos
+/videos
+/portfolio
+/products
+/connections
+```
+
+Instead of treating third-party platforms as the permanent home of a user's digital identity, FPDP treats them as connected channels.
+
+A user may connect content from services such as social networks, marketplaces, blogs, RSS feeds, or external APIs while preserving clear attribution and canonical links to the original source.
+
+Conceptually:
+
+```text
+Instagram
+LinkedIn
+TikTok
+X
+Threads
+YouTube
+RSS
+External APIs
+Marketplace Platforms
+       │
+       ▼
+ External Connectors
+       │
+       ▼
+      FPDP
+       │
+       ▼
+ Personal Digital Home
+```
+
+#### Federation by Design
+
+The long-term goal of FPDP is to allow independently operated personal nodes to participate in a shared network.
+
+Instead of:
+
+```text
+Millions of Users
+       │
+       ▼
+One Platform
+       │
+       ▼
+One Central Database
+```
+
+FPDP explores a different model:
+
+```text
+Person A Node
+      ↕
+Person B Node
+      ↕
+Person C Node
+      ↕
+Person D Node
+```
+
+Every node remains independently controlled while federation provides interoperability.
+
+This model allows local content to remain authoritative on the node where it was created.
+
+Remote nodes may cache, reference, or synchronize permitted information, but they do not become the authoritative owner of that data.
+
+#### Provider Independent by Default
+
+FPDP is designed to avoid unnecessary provider lock-in.
+
+Payment processing uses a provider-independent abstraction so a node operator can eventually choose services such as:
+
+```text
+Midtrans
+Xendit
+DOKU
+iPaymu
+Nicepay
+Paywuz
+Stripe
+PayPal
+or another compatible provider
+```
+
+The application communicates through a common payment interface rather than embedding one provider directly into marketplace logic.
+
+The same principle applies to external content integrations.
+
+Connectors are designed behind a common abstraction so new sources can be added without rewriting the core application.
+
+Examples may include:
+
+```text
+RSS
+Atom
+Custom REST APIs
+Instagram
+Facebook
+LinkedIn
+TikTok
+X
+Threads
+YouTube
+Shopee
+other external platforms
+```
+
+#### Local, Federated, and External Content
+
+FPDP distinguishes content by origin.
+
+Content may be:
+
+```text
+LOCAL
+created and owned by the current node
+
+FEDERATED
+originating from another independent FPDP node
+
+EXTERNAL
+retrieved from a third-party platform or feed
+```
+
+This distinction is important because ownership and provenance must remain clear.
+
+External and federated content should retain information such as:
+
+```text
+source
+provider
+original author
+canonical URL
+publication time
+origin domain
+```
+
+This allows FPDP to create a unified digital experience without pretending that all content originated locally.
+
+#### Commerce Without Payment Lock-in
+
+FPDP also explores decentralized commerce.
+
+A node may publish its own products and accept orders while selecting its preferred payment infrastructure.
+
+Conceptually:
+
+```text
+Product
+   ↓
+Order
+   ↓
+Checkout
+   ↓
+Payment Service
+   ↓
+Payment Gateway Interface
+   ↓
+Selected Payment Provider
+```
+
+The marketplace layer should not need to know whether payment is processed by Midtrans, Xendit, DOKU, Paywuz, or another provider.
+
+This makes payment infrastructure a configurable component of the user's digital node rather than a permanent dependency of the platform.
+
+#### Open Architecture
+
+FPDP currently follows a framework-light modular monolith approach using PHP and MySQL.
+
+The architecture emphasizes:
+
+```text
+independent deployment
+
+clear service boundaries
+
+provider abstractions
+
+federation readiness
+
+asynchronous integration
+
+data provenance
+
+extensibility
+
+security
+
+operational simplicity
+```
+
+The project intentionally starts with a modular monolith rather than microservices so that a personal node can remain relatively simple to deploy on:
+
+```text
+shared hosting
+VPS
+Docker
+cloud infrastructure
+```
+
+while still allowing individual modules to evolve over time.
+
+#### Project Direction
+
+FPDP is currently an evolving architecture and implementation prototype.
+
+The initial goal is not to recreate every feature of existing social networks or marketplaces.
+
+The first important milestone is proving that independent nodes can operate successfully while retaining ownership of their own identity and data.
+
+A practical end-to-end vision is:
+
+```text
+Install FPDP on your own domain
+        ↓
+Create your personal identity
+        ↓
+Publish local content
+        ↓
+Connect external feeds
+        ↓
+Discover another FPDP node
+        ↓
+Follow a remote identity
+        ↓
+Exchange signed federated activities
+        ↓
+Display local, federated, and external content
+        ↓
+Publish products
+        ↓
+Accept orders
+        ↓
+Use the payment gateway of your choice
+```
+
+If this model works reliably across independent domains and independent databases, FPDP can grow from a personal website platform into an interoperable digital network.
+
+#### Vision
+
+The broader vision of FPDP is to make a person's own domain the center of their digital presence.
+
+Not:
+
+```text
+Your profile belongs to a platform.
+```
+
+But:
+
+```text
+Your profile lives on your domain.
+```
+
+Not:
+
+```text
+Your audience belongs to a platform.
+```
+
+But:
+
+```text
+Your relationships can exist across an open network.
+```
+
+Not:
+
+```text
+One company owns the network.
+```
+
+But:
+
+```text
+Independent nodes form the network.
+```
+
+FPDP explores a future where:
+
+> **Your domain is your digital home.
+> Your database contains your primary data.
+> External platforms become connected channels.
+> Payment providers remain your choice.
+> Federation connects independent identities.
+> The internet becomes the network.**
+
 ### Why FPDP exists
 
 Most online identities, audiences, content, and transactions live inside centralized platforms. FPDP explores a different model: the user's own domain becomes the primary digital identity and content destination, while external networks remain connected through attributed aggregation and federation.
@@ -331,6 +709,384 @@ Start with the [documentation index](documentation/README.md). Product requireme
 ---
 
 ## Bahasa Indonesia
+
+### Ringkasan
+
+**FPDP, Federated Personal Digital Platform (Platform Digital Personal Terfederasi), adalah arsitektur terbuka untuk membangun rumah digital personal yang sepenuhnya Anda miliki dan kendalikan.**
+
+Alih-alih menempatkan identitas, konten, audience, komersial, dan aktivitas digital di dalam satu platform terpusat, FPDP memungkinkan setiap orang menjalankan node independen miliknya sendiri pada domain dan lingkungan hosting yang mereka kendalikan.
+
+Sebuah node FPDP personal dapat berfungsi sebagai website, profil sosial, identitas profesional, platform publikasi, portofolio, marketplace, agregator konten, dan kehadiran digital yang mendukung pembayaran.
+
+Gagasan utamanya sederhana:
+
+**domain Anda menjadi rumah digital Anda.**
+
+Profil, post, produk, media, dan data aplikasi lokal Anda tetap berada di bawah kendali Anda, sementara federasi memungkinkan node-node FPDP yang independen untuk saling menemukan dan berinteraksi lintas internet.
+
+Pengguna pada satu node FPDP pada akhirnya dapat mem-follow, berkomunikasi, bertukar konten, dan berinteraksi dengan pengguna yang di-hosting di server yang sepenuhnya berbeda, tanpa mengharuskan semua pengguna berada dalam platform pusat yang sama.
+
+```text
+alice.id
+   │
+   │ Federasi
+   ▼
+bob.social
+   │
+   │ Federasi
+   ▼
+charlie.me
+```
+
+Setiap node menjalankan aplikasi dan database miliknya sendiri.
+
+```text
+alice.id
+Aplikasi + Database A
+
+bob.social
+Aplikasi + Database B
+
+charlie.me
+Aplikasi + Database C
+```
+
+Tidak ada keharusan untuk memiliki satu database pengguna pusat atau database konten pusat.
+
+FPDP dirancang berdasarkan prinsip bahwa **federasi seharusnya menghubungkan identitas digital yang independen, bukan memusatkannya.**
+
+#### Rumah Digital Personal
+
+FPDP tidak dimaksudkan hanya sebagai aplikasi jejaring sosial lainnya.
+
+FPDP dirancang sebagai fondasi untuk kehadiran digital personal yang lebih luas.
+
+Satu instalasi FPDP secara bertahap dapat menyediakan:
+
+```text
+Website Personal
++
+Profil Sosial
++
+Profil Profesional
++
+Blog dan Publikasi
++
+Konten Foto dan Video
++
+Portofolio
++
+Jejaring Sosial Terfederasi
++
+Marketplace
++
+Komersial dengan Pembayaran
++
+Agregasi Konten Eksternal
++
+Identitas Digital
+```
+
+Sebagai contoh, seorang pengguna dapat menjalankan:
+
+```text
+https://andi.id
+```
+
+dan menggunakannya sebagai tujuan utama untuk:
+
+```text
+/@andi
+/posts
+/articles
+/photos
+/videos
+/portfolio
+/products
+/connections
+```
+
+Alih-alih memperlakukan platform pihak ketiga sebagai rumah permanen identitas digital pengguna, FPDP memperlakukannya sebagai kanal yang terhubung.
+
+Pengguna dapat menghubungkan konten dari layanan seperti jejaring sosial, marketplace, blog, RSS feed, atau API eksternal sembari tetap menjaga atribusi yang jelas dan tautan kanonik ke sumber aslinya.
+
+Secara konsep:
+
+```text
+Instagram
+LinkedIn
+TikTok
+X
+Threads
+YouTube
+RSS
+API Eksternal
+Platform Marketplace
+       │
+       ▼
+ Connector Eksternal
+       │
+       ▼
+      FPDP
+       │
+       ▼
+ Rumah Digital Personal
+```
+
+#### Federasi Sejak Awal Desain
+
+Tujuan jangka panjang FPDP adalah memungkinkan node personal yang dioperasikan secara independen untuk berpartisipasi dalam satu jaringan bersama.
+
+Alih-alih:
+
+```text
+Jutaan Pengguna
+       │
+       ▼
+Satu Platform
+       │
+       ▼
+Satu Database Pusat
+```
+
+FPDP mengeksplorasi model yang berbeda:
+
+```text
+Node Orang A
+      ↕
+Node Orang B
+      ↕
+Node Orang C
+      ↕
+Node Orang D
+```
+
+Setiap node tetap dikendalikan secara independen, sementara federasi menyediakan interoperabilitas.
+
+Model ini memungkinkan konten lokal tetap otoritatif pada node tempat konten itu dibuat.
+
+Node remote dapat meng-cache, mereferensikan, atau menyinkronkan informasi yang diizinkan, tetapi mereka tidak menjadi pemilik otoritatif atas data tersebut.
+
+#### Independen dari Provider secara Default
+
+FPDP dirancang untuk menghindari ketergantungan yang tidak perlu pada satu provider (provider lock-in).
+
+Pemrosesan pembayaran menggunakan abstraksi yang independen terhadap provider, sehingga operator node pada akhirnya dapat memilih layanan seperti:
+
+```text
+Midtrans
+Xendit
+DOKU
+iPaymu
+Nicepay
+Paywuz
+Stripe
+PayPal
+atau provider lain yang kompatibel
+```
+
+Aplikasi berkomunikasi melalui satu interface pembayaran yang umum, alih-alih menanamkan satu provider secara langsung ke dalam logika marketplace.
+
+Prinsip yang sama berlaku untuk integrasi konten eksternal.
+
+Connector dirancang di balik satu abstraksi umum sehingga sumber baru dapat ditambahkan tanpa menulis ulang aplikasi inti.
+
+Contohnya dapat mencakup:
+
+```text
+RSS
+Atom
+Custom REST API
+Instagram
+Facebook
+LinkedIn
+TikTok
+X
+Threads
+YouTube
+Shopee
+platform eksternal lainnya
+```
+
+#### Konten Lokal, Terfederasi, dan Eksternal
+
+FPDP membedakan konten berdasarkan asalnya.
+
+Konten dapat berupa:
+
+```text
+LOCAL
+dibuat dan dimiliki oleh node saat ini
+
+FEDERATED
+berasal dari node FPDP independen lainnya
+
+EXTERNAL
+diambil dari platform pihak ketiga atau feed
+```
+
+Perbedaan ini penting karena kepemilikan dan asal-usul (provenance) harus tetap jelas.
+
+Konten eksternal dan terfederasi harus tetap menyimpan informasi seperti:
+
+```text
+sumber
+provider
+penulis asli
+URL kanonik
+waktu publikasi
+domain asal
+```
+
+Hal ini memungkinkan FPDP menciptakan pengalaman digital yang terpadu tanpa berpura-pura bahwa semua konten berasal dari lokal.
+
+#### Komersial Tanpa Terkunci pada Satu Payment Provider
+
+FPDP juga mengeksplorasi komersial (commerce) yang terdesentralisasi.
+
+Sebuah node dapat memublikasikan produknya sendiri dan menerima order sembari memilih infrastruktur pembayaran yang disukainya.
+
+Secara konsep:
+
+```text
+Produk
+   ↓
+Order
+   ↓
+Checkout
+   ↓
+Payment Service
+   ↓
+Payment Gateway Interface
+   ↓
+Provider Pembayaran Terpilih
+```
+
+Lapisan marketplace tidak perlu tahu apakah pembayaran diproses oleh Midtrans, Xendit, DOKU, Paywuz, atau provider lainnya.
+
+Hal ini menjadikan infrastruktur pembayaran sebagai komponen yang dapat dikonfigurasi pada node digital pengguna, alih-alih menjadi ketergantungan permanen dari platform.
+
+#### Arsitektur Terbuka
+
+FPDP saat ini mengikuti pendekatan modular monolith tanpa framework berat, menggunakan PHP dan MySQL.
+
+Arsitektur ini menekankan pada:
+
+```text
+deployment independen
+
+batas service yang jelas
+
+abstraksi provider
+
+kesiapan federasi
+
+integrasi asinkron
+
+provenance data
+
+extensibility
+
+keamanan
+
+kesederhanaan operasional
+```
+
+Proyek ini sengaja dimulai dengan modular monolith, bukan microservices, agar node personal tetap relatif sederhana untuk di-deploy pada:
+
+```text
+shared hosting
+VPS
+Docker
+infrastruktur cloud
+```
+
+sembari tetap memungkinkan setiap modul berkembang seiring waktu.
+
+#### Arah Proyek
+
+FPDP saat ini merupakan arsitektur dan prototipe implementasi yang terus berkembang.
+
+Tujuan awalnya bukan untuk menduplikasi seluruh fitur jejaring sosial atau marketplace yang sudah ada.
+
+Milestone penting pertama adalah membuktikan bahwa node-node independen dapat beroperasi dengan sukses sembari tetap mempertahankan kepemilikan atas identitas dan datanya sendiri.
+
+Visi end-to-end yang praktis adalah:
+
+```text
+Instal FPDP pada domain Anda sendiri
+        ↓
+Buat identitas personal Anda
+        ↓
+Publikasikan konten lokal
+        ↓
+Hubungkan feed eksternal
+        ↓
+Temukan node FPDP lain
+        ↓
+Follow identitas remote
+        ↓
+Bertukar signed federated activity
+        ↓
+Tampilkan konten lokal, terfederasi, dan eksternal
+        ↓
+Publikasikan produk
+        ↓
+Terima order
+        ↓
+Gunakan payment gateway pilihan Anda
+```
+
+Jika model ini bekerja secara andal lintas domain independen dan database independen, FPDP dapat berkembang dari platform website personal menjadi jaringan digital yang interoperable.
+
+#### Visi
+
+Visi besar FPDP adalah menjadikan domain milik seseorang sebagai pusat dari kehadiran digitalnya.
+
+Bukan:
+
+```text
+Profil Anda dimiliki oleh sebuah platform.
+```
+
+Melainkan:
+
+```text
+Profil Anda hidup di domain Anda sendiri.
+```
+
+Bukan:
+
+```text
+Audience Anda dimiliki oleh sebuah platform.
+```
+
+Melainkan:
+
+```text
+Relasi Anda dapat eksis lintas jaringan terbuka.
+```
+
+Bukan:
+
+```text
+Satu perusahaan memiliki jaringannya.
+```
+
+Melainkan:
+
+```text
+Node-node independen membentuk jaringan.
+```
+
+FPDP mengeksplorasi masa depan di mana:
+
+> **Domain Anda adalah rumah digital Anda.
+> Database Anda berisi data utama Anda.
+> Platform eksternal menjadi kanal yang terhubung.
+> Provider pembayaran tetap menjadi pilihan Anda.
+> Federasi menghubungkan identitas-identitas independen.
+> Internet menjadi jaringannya.**
 
 ### Mengapa FPDP dibuat
 
