@@ -40,16 +40,18 @@ The intended product combines:
 |---|---|
 | PHP structure | Lightweight PHP 8.2+ modular structure with PSR-4 autoloading |
 | MVC example | `HomeController`, view renderer, and static landing view |
+| HTTP entry point | Public front controller (`public/index.php`), `Router` with static and `{param}` routes, JSON success/error envelopes |
+| REST handlers | `GET /api/v1/health` implemented against the documented envelope; other routes not yet implemented |
 | Payments | Interface, service, factory, and functional dummy gateway |
 | Payment lifecycle | Dummy create, status, cancel, refund, and webhook normalization |
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
-| Tests | MVP smoke test and MVC rendering test |
+| Tests | MVP smoke test, MVC rendering test, router test, and front-controller route test |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
 
-- HTTP router/front controller and REST handlers;
+- remaining REST handlers beyond `/health`;
 - registration, login, sessions, bearer tokens, roles, and permissions;
 - user, node, profile, and local-post persistence;
 - public profile and timeline user interfaces;
@@ -94,12 +96,16 @@ Factories currently select adapters by provider code. Only the dummy payment gat
 ```text
 app/
 ├── Contracts/          Shared payment and external-provider interfaces
-├── Controllers/        MVC controllers
-├── Core/               Minimal view rendering
+├── Controllers/        MVC controllers and REST handlers (HomeController, HealthController)
+├── Core/               Router, HTTP request/response/envelope, and view rendering
 ├── Services/
 │   ├── External/       RSS, Atom, and Custom API adapters
 │   └── Payment/        Payment service, factory, and dummy adapter
-└── Views/              PHP views
+├── Views/              PHP views
+└── routes.php          Route table consumed by the front controller
+
+public/
+└── index.php           HTTP front controller (serve this directory)
 
 database/
 └── schema.sql          Initial MySQL schema
@@ -114,8 +120,10 @@ documentation/
 └── openapi.yaml        OpenAPI 3.1 source of truth
 
 tests/
-├── MvpSmokeTest.php    Payment and connector smoke test
-└── MvcHomeTest.php     Landing-view rendering test
+├── MvpSmokeTest.php         Payment and connector smoke test
+├── MvcHomeTest.php          Landing-view rendering test
+├── RouterTest.php           Router matching and fallback behavior
+└── FrontControllerTest.php  Route wiring and health-envelope test
 ```
 
 ### Requirements
@@ -140,15 +148,24 @@ tests/
    ```bash
    php tests/MvpSmokeTest.php
    php tests/MvcHomeTest.php
+   php tests/RouterTest.php
+   php tests/FrontControllerTest.php
    ```
 
-3. Optionally create a MySQL database and import the initial schema:
+3. Serve the front controller and try it in a browser or with curl:
+
+   ```bash
+   php -S localhost:8080 -t public
+   curl http://localhost:8080/api/v1/health
+   ```
+
+4. Optionally create a MySQL database and import the initial schema:
 
    ```bash
    mysql -u root -p fpdp < database/schema.sql
    ```
 
-The repository does not currently contain a public web entry point or router. `MvcHomeTest.php` demonstrates rendering the landing page directly through `HomeController`.
+`public/index.php` is the HTTP front controller; it dispatches requests through `App\Core\Router` using the route table in `app/routes.php`. Only `GET /` (landing page) and `GET /api/v1/health` are wired up so far — the remaining `/api/v1` operations in the [API contract](documentation/API-CONTRACT.en.md) are still design-only.
 
 ### Using the current services
 
@@ -233,6 +250,10 @@ Start with the [documentation index](documentation/README.md). Product requireme
 - [Development roadmap and strategy — English](documentation/ROADMAP.en.md)
 - [Roadmap dan strategi pengembangan — Bahasa Indonesia](documentation/ROADMAP.id.md)
 - [Interactive dashboard and public-profile mockup](documentation/mockup/README.md)
+- [Entity Relationship Diagram — English](documentation/ERD.en.md)
+- [Entity Relationship Diagram — Bahasa Indonesia](documentation/ERD.id.md)
+- [Social and commerce integrations — English](documentation/SOCIAL-COMMERCE-INTEGRATIONS.en.md)
+- [Integrasi sosial dan commerce — Bahasa Indonesia](documentation/SOCIAL-COMMERCE-INTEGRATIONS.id.md)
 
 ---
 
@@ -266,16 +287,18 @@ Produk yang dituju menggabungkan:
 |---|---|
 | Struktur PHP | Struktur modular ringan berbasis PHP 8.2+ dengan autoload PSR-4 |
 | Contoh MVC | `HomeController`, view renderer, dan landing view statis |
+| HTTP entry point | Front controller publik (`public/index.php`), `Router` dengan rute statis dan `{param}`, JSON envelope sukses/error |
+| REST handler | `GET /api/v1/health` sudah sesuai envelope yang didokumentasikan; rute lain belum diimplementasikan |
 | Pembayaran | Interface, service, factory, dan dummy gateway yang berfungsi |
 | Siklus pembayaran | Dummy create, status, cancel, refund, dan normalisasi webhook |
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
-| Pengujian | MVP smoke test dan test render MVC |
+| Pengujian | MVP smoke test, test render MVC, test router, dan test rute front controller |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
 
-- router/front controller HTTP dan handler REST;
+- handler REST lain di luar `/health`;
 - registrasi, login, session, bearer token, role, dan permission;
 - persistence user, node, profil, dan post lokal;
 - UI profil publik dan timeline;
@@ -320,12 +343,16 @@ Factory saat ini memilih adapter berdasarkan kode provider. Hanya dummy payment 
 ```text
 app/
 ├── Contracts/          Interface payment dan external provider
-├── Controllers/        Controller MVC
-├── Core/               View renderer minimal
+├── Controllers/        Controller MVC dan REST handler (HomeController, HealthController)
+├── Core/               Router, HTTP request/response/envelope, dan view renderer
 ├── Services/
 │   ├── External/       Adapter RSS, Atom, dan Custom API
 │   └── Payment/        Payment service, factory, dan dummy adapter
-└── Views/              View PHP
+├── Views/              View PHP
+└── routes.php          Tabel rute yang dipakai front controller
+
+public/
+└── index.php           Front controller HTTP (arahkan web server ke folder ini)
 
 database/
 └── schema.sql          Skema awal MySQL
@@ -340,8 +367,10 @@ documentation/
 └── openapi.yaml        Sumber utama OpenAPI 3.1
 
 tests/
-├── MvpSmokeTest.php    Smoke test payment dan connector
-└── MvcHomeTest.php     Test render landing view
+├── MvpSmokeTest.php         Smoke test payment dan connector
+├── MvcHomeTest.php          Test render landing view
+├── RouterTest.php           Test pencocokan rute dan fallback
+└── FrontControllerTest.php  Test wiring rute dan envelope health
 ```
 
 ### Kebutuhan sistem
@@ -366,15 +395,24 @@ tests/
    ```bash
    php tests/MvpSmokeTest.php
    php tests/MvcHomeTest.php
+   php tests/RouterTest.php
+   php tests/FrontControllerTest.php
    ```
 
-3. Opsional: buat database MySQL dan impor skema awal:
+3. Jalankan front controller dan coba lewat browser atau curl:
+
+   ```bash
+   php -S localhost:8080 -t public
+   curl http://localhost:8080/api/v1/health
+   ```
+
+4. Opsional: buat database MySQL dan impor skema awal:
 
    ```bash
    mysql -u root -p fpdp < database/schema.sql
    ```
 
-Repository saat ini belum memiliki public web entry point atau router. `MvcHomeTest.php` menunjukkan proses render landing page secara langsung melalui `HomeController`.
+`public/index.php` adalah front controller HTTP; request diteruskan melalui `App\Core\Router` menggunakan tabel rute di `app/routes.php`. Baru `GET /` (landing page) dan `GET /api/v1/health` yang sudah tersambung — operasi `/api/v1` lainnya pada [kontrak API](documentation/API-CONTRACT.id.md) masih sebatas desain.
 
 ### Menggunakan service yang tersedia
 
@@ -459,6 +497,10 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 - [Development roadmap and strategy — English](documentation/ROADMAP.en.md)
 - [Roadmap dan strategi pengembangan — Bahasa Indonesia](documentation/ROADMAP.id.md)
 - [Mockup interaktif dashboard dan profil publik](documentation/mockup/README.md)
+- [Entity Relationship Diagram — English](documentation/ERD.en.md)
+- [Entity Relationship Diagram — Bahasa Indonesia](documentation/ERD.id.md)
+- [Social and commerce integrations — English](documentation/SOCIAL-COMMERCE-INTEGRATIONS.en.md)
+- [Integrasi sosial dan commerce — Bahasa Indonesia](documentation/SOCIAL-COMMERCE-INTEGRATIONS.id.md)
 
 ---
 
