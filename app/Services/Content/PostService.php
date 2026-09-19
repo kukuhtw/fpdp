@@ -8,6 +8,7 @@ use App\Core\Exceptions\ForbiddenException;
 use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
+use App\Repositories\ExternalPostRepository;
 use App\Repositories\PostRepository;
 use DateTimeImmutable;
 
