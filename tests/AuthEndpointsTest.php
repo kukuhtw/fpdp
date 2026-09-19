@@ -83,6 +83,15 @@ Database::connection()->exec('
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 ');
+Database::connection()->exec('
+    CREATE TABLE rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rate_key TEXT NOT NULL UNIQUE,
+        attempts INTEGER NOT NULL DEFAULT 1,
+        window_started_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+');
 
 /** @var Router $router */
 $router = require __DIR__ . '/../app/routes.php';

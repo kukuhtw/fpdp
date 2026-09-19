@@ -13,9 +13,11 @@ use App\Core\Router;
 use App\Repositories\AuthTokenRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
+use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
 use App\Services\Auth\AuthService;
 use App\Services\Profile\ProfileService;
+use App\Services\Security\RateLimiter;
 
 $router = new Router();
 
@@ -36,6 +38,10 @@ $buildProfileService = static function (): ProfileService {
     return new ProfileService(new ProfileRepository(Database::connection()));
 };
 
+$buildRateLimiter = static function (): RateLimiter {
+    return new RateLimiter(new RateLimitRepository(Database::connection()));
+};
+
 $router->get('/', function (Request $request, array $params): Response {
     return Response::html((new HomeController())->index());
 });
@@ -44,20 +50,20 @@ $router->get('/api/v1/health', function (Request $request, array $params): Respo
     return (new HealthController())->show();
 });
 
-$router->post('/api/v1/auth/register', function (Request $request, array $params) use ($buildAuthService): Response {
-    return (new AuthController($buildAuthService()))->register($request);
+$router->post('/api/v1/auth/register', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->register($request);
 });
 
-$router->post('/api/v1/auth/login', function (Request $request, array $params) use ($buildAuthService): Response {
-    return (new AuthController($buildAuthService()))->login($request);
+$router->post('/api/v1/auth/login', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->login($request);
 });
 
-$router->post('/api/v1/auth/logout', function (Request $request, array $params) use ($buildAuthService): Response {
-    return (new AuthController($buildAuthService()))->logout($request);
+$router->post('/api/v1/auth/logout', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->logout($request);
 });
 
-$router->get('/api/v1/me', function (Request $request, array $params) use ($buildAuthService): Response {
-    return (new AuthController($buildAuthService()))->me($request);
+$router->get('/api/v1/me', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->me($request);
 });
 
 $router->get('/api/v1/profiles/{handle}', function (Request $request, array $params) use ($buildAuthService, $buildProfileService): Response {

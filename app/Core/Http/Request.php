@@ -16,6 +16,7 @@ final class Request
         public readonly array $query = [],
         public readonly ?string $body = null,
         public readonly array $headers = [],
+        public readonly string $ipAddress = '0.0.0.0',
     ) {
     }
 
@@ -35,6 +36,7 @@ final class Request
             $query,
             $body === false ? null : $body,
             self::headersFromGlobals(),
+            (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
         );
     }
 

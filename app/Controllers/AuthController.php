@@ -4,21 +4,32 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Config;
 use App\Core\Exceptions\UnauthorizedException;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\ResourcePresenter;
 use App\Core\Http\Response;
 use App\Services\Auth\AuthService;
+use App\Services\Security\RateLimiter;
 
 final class AuthController
 {
-    public function __construct(private readonly AuthService $auth)
-    {
+    public function __construct(
+        private readonly AuthService $auth,
+        private readonly RateLimiter $rateLimiter,
+    ) {
     }
 
     public function register(Request $request): Response
     {
+        $this->rateLimiter->hit(
+            'auth_register',
+            $request->ipAddress,
+            (int) Config::get('RATE_LIMIT_REGISTER_MAX', '5'),
+            (int) Config::get('RATE_LIMIT_REGISTER_WINDOW', '3600'),
+        );
+
         $result = $this->auth->register($request->json() ?? []);
 
         return JsonEnvelope::success(self::authPayload($result), 201);
@@ -26,6 +37,13 @@ final class AuthController
 
     public function login(Request $request): Response
     {
+        $this->rateLimiter->hit(
+            'auth_login',
+            $request->ipAddress,
+            (int) Config::get('RATE_LIMIT_LOGIN_MAX', '5'),
+            (int) Config::get('RATE_LIMIT_LOGIN_WINDOW', '900'),
+        );
+
         $result = $this->auth->login($request->json() ?? []);
 
         return JsonEnvelope::success(self::authPayload($result));
