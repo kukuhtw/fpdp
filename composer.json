@@ -1,0 +1,13 @@
+{
+  "name": "fpdp/federated-personal-digital-platform",
+  "description": "Federated Personal Digital Platform MVP",
+  "type": "project",
+  "require": {
+    "php": ">=8.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    }
+  }
+}

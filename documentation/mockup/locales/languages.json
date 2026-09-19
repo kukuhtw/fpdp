@@ -1,0 +1,23 @@
+{
+  "default": "id",
+  "fallback": "en",
+  "storageKey": "fpdp.locale",
+  "languages": [
+    {
+      "code": "id",
+      "name": "Bahasa Indonesia",
+      "englishName": "Indonesian",
+      "direction": "ltr",
+      "file": "id.json",
+      "enabled": true
+    },
+    {
+      "code": "en",
+      "name": "English",
+      "englishName": "English",
+      "direction": "ltr",
+      "file": "en.json",
+      "enabled": true
+    }
+  ]
+}
