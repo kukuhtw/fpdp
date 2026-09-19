@@ -36,6 +36,61 @@ foreach ([
     'CREATE TABLE external_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, provider TEXT, external_post_id TEXT, external_account_id INTEGER, post_type TEXT DEFAULT "ARTICLE", canonical_url TEXT, title TEXT, content TEXT, media_json TEXT, author_name TEXT, published_at TIMESTAMP, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, raw_payload TEXT, status TEXT DEFAULT "ACTIVE")',
     'CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, user_id INTEGER, profile_id INTEGER, title TEXT, content TEXT, post_type TEXT DEFAULT "NOTE", visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, deleted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE post_media (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER, media_type TEXT, url TEXT, alt_text TEXT, sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+'CREATE TABLE integration_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, provider TEXT, job_type TEXT, payload TEXT, status TEXT DEFAULT "QUEUED", retry_count INTEGER DEFAULT 0, next_retry_at TIMESTAMP, last_error TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
 ] as $sql) {
     $db->exec($sql);
 }
+/** @var Router $router */
+$router = require __DIR__ . '/../app/routes.php';
+
+$dispatch = static fn(string $method, string $path, ?array $body = null, ?string $token = null, array $query = []) => $router->dispatch(new Request($method, $path, $query, $body === null ? null : json_encode($body), $token === null ? [] : ['authorization' => 'Bearer ' . $token]));
+
+// Register owner
+$r = $dispatch('POST', '/api/v1/auth/register', ['email' => 'owner@test.local', 'password' => 'correct horse battery', 'handle' => 'owner', 'display_name' => 'Owner']);
+ext_assert($r->status === 201, 'Owner registration failed');
+$token = json_decode($r->body, true)['data']['token']['access_token'];
+
+// Add RSS feed source
+$r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'RSS', 'source_type' => 'rss', 'source_url' => 'https://example.com/feed.xml'], $token);
+ext_assert($r->status === 201, 'Add feed source failed');
+
+// List feed sources
+$r = $dispatch('GET', '/api/v1/me/feed-sources', null, $token);
+$body = json_decode($r->body, true);
+ext_assert($r->status === 200 && count($body['data']['sources']) === 1, 'Expected 1 feed source');
+
+// External posts endpoint
+$r = $dispatch('GET', '/api/v1/external/posts');
+ext_assert($r->status === 200, 'External posts list failed');
+
+// Trigger sync
+$r = $dispatch('POST', '/api/v1/me/sync', null, $token);
+ext_assert($r->status === 200, 'Trigger sync failed');
+
+// Stats
+$r = $dispatch('GET', '/api/v1/me/external/stats', null, $token);
+$body = json_decode($r->body, true);
+ext_assert($r->status === 200 && isset($body['data']['total_posts']), 'Stats failed');
+
+// HttpClient SSRF protection
+$hc = new HttpClient();
+try { $hc->get('http://127.0.0.1/'); ext_assert(false, 'Should block 127.0.0.1'); }
+catch (\RuntimeException) { ext_assert(true, 'Blocked 127.0.0.1'); }
+try { $hc->get('ftp://example.com/'); ext_assert(false, 'Should block FTP'); }
+catch (\RuntimeException) { ext_assert(true, 'Blocked FTP'); }
+
+// ExternalPostRepository
+$ep = new \App\Repositories\ExternalPostRepository($db);
+ext_assert(!$ep->exists('RSS', 'x'), 'Should not exist');
+$ep->create(1, 'RSS', 'x', null, 'ARTICLE', null, null, 'Content', null, 'Author', null);
+ext_assert($ep->exists('RSS', 'x'), 'Should exist after insert');
+
+// Queue repo
+$qr = new \App\Repositories\IntegrationQueueRepository($db);
+$qr->enqueue(1, 'RSS', 'sync', []);
+ext_assert(count($qr->fetchReady()) === 1, 'Queue should have 1 ready');
+$qr->markCompleted(1);
+ext_assert($qr->getStats()['completed'] === 1, 'Queue completed');
+
+Database::reset(); unset($db); unlink($envPath); unlink($dbPath);
+fwrite(STDOUT, "External content test passed\n");

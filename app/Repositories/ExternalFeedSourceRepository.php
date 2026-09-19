@@ -17,6 +17,9 @@ final class ExternalFeedSourceRepository
      */
     public function findDueForSync(int $limit = 10): array
     {
+        $driver = $this->connection->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        $nullsFirst = $driver === 'sqlite' ? '' : 'NULLS FIRST';
+
         $statement = $this->connection->prepare(
             "SELECT efs.*, ea.access_token, ea.external_username, ea.display_name AS account_display_name
              FROM external_feed_sources efs
@@ -24,10 +27,10 @@ final class ExternalFeedSourceRepository
              WHERE efs.sync_enabled = 1
                AND efs.status = 'ACTIVE'
                AND (efs.next_sync_at IS NULL OR efs.next_sync_at <= CURRENT_TIMESTAMP)
-             ORDER BY efs.next_sync_at ASC NULLS FIRST
+             ORDER BY efs.next_sync_at ASC {$nullsFirst}
              LIMIT :limit",
         );
-        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->bindValue('limit', $limit, \PDO::PARAM_INT);
         $statement->execute();
 
         return $statement->fetchAll();
@@ -63,13 +66,21 @@ final class ExternalFeedSourceRepository
 
     public function updateSyncStatus(int $id, string $status, ?string $lastError = null, int $syncInterval = 3600): void
     {
-        $statement = $this->connection->prepare(
-            'UPDATE external_feed_sources
+        $connection = $this->connection;
+        $driver = $connection->getAttribute(\PDO::ATTR_DRIVER_NAME);
+
+        $nextSyncExpr = match ($driver) {
+            'sqlite' => "datetime('now', '+' || :interval || ' seconds')",
+            default => 'DATE_ADD(CURRENT_TIMESTAMP, INTERVAL :interval SECOND)',
+        };
+
+        $statement = $connection->prepare(
+            "UPDATE external_feed_sources
              SET last_sync_at = CURRENT_TIMESTAMP,
-                 next_sync_at = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL :interval SECOND),
+                 next_sync_at = {$nextSyncExpr},
                  status = :status,
                  last_error = :last_error
-             WHERE id = :id',
+             WHERE id = :id",
         );
         $statement->execute([
             'id' => $id,

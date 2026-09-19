@@ -33,13 +33,16 @@ final class ExternalPostRepository
         ?string $publishedAt,
         ?array $rawPayload = null,
     ): int {
+        $driver = $this->connection->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        $insertSyntax = $driver === 'sqlite' ? 'INSERT OR IGNORE INTO' : 'INSERT IGNORE INTO';
+
         $statement = $this->connection->prepare(
-            'INSERT IGNORE INTO external_posts
+            "{$insertSyntax} external_posts
              (user_id, provider, external_post_id, external_account_id, post_type,
               canonical_url, title, content, media_json, author_name, published_at, raw_payload)
              VALUES
              (:user_id, :provider, :external_post_id, :external_account_id, :post_type,
-              :canonical_url, :title, :content, :media_json, :author_name, :published_at, :raw_payload)',
+              :canonical_url, :title, :content, :media_json, :author_name, :published_at, :raw_payload)",
         );
         $statement->execute([
             'user_id' => $userId,
