@@ -7,6 +7,8 @@ namespace App\Services\Analytics;
 use App\Core\Config;
 use App\Core\Exceptions\ValidationException;
 use App\Repositories\AnalyticsEventRepository;
+use DateTimeImmutable;
+use DateTimeZone;
 use Throwable;
 
 /**
@@ -66,7 +68,15 @@ final class AnalyticsService
      */
     public function trackOutboundClick(int $nodeId, string $targetUrl, ?string $ipAddress, ?string $userAgent): void
     {
-        if ($targetUrl === '' || strlen($targetUrl) > self::MAX_TARGET_URL_LENGTH || filter_var($targetUrl, FILTER_VALIDATE_URL) === false) {
+        $scheme = strtolower((string) parse_url($targetUrl, PHP_URL_SCHEME));
+        if (
+            $targetUrl === ''
+            || strlen($targetUrl) > self::MAX_TARGET_URL_LENGTH
+            || filter_var($targetUrl, FILTER_VALIDATE_URL) === false
+            || !in_array($scheme, ['http', 'https'], true)
+        ) {
+            // Restricted to http(s) so a javascript:/data: URI can never be
+            // stored here — FILTER_VALIDATE_URL alone accepts those too.
             throw new ValidationException([['field' => 'target_url', 'reason' => 'invalid_value']]);
         }
 
@@ -78,7 +88,14 @@ final class AnalyticsService
      */
     public function getSummary(int $nodeId): array
     {
-        $sinceDate = gmdate('Y-m-d', strtotime('-' . (self::SUMMARY_WINDOW_DAYS - 1) . ' days'));
+        // DateTimeImmutable with an explicit UTC zone throughout — never
+        // strtotime() for these date-only calculations, since strtotime()
+        // resolves a bare "Y-m-d" string in PHP's default timezone (e.g.
+        // Asia/Jakarta), which silently shifts the day relative to the
+        // gmdate('Y-m-d') UTC value that occurred_on is actually stored in.
+        $sinceDate = (new DateTimeImmutable('today', new DateTimeZone('UTC')))
+            ->modify('-' . (self::SUMMARY_WINDOW_DAYS - 1) . ' days')
+            ->format('Y-m-d');
         $daily = $this->fillDailyTraffic($this->events->dailyTraffic($nodeId, $sinceDate), $sinceDate);
 
         return [
@@ -119,10 +136,11 @@ final class AnalyticsService
         }
 
         $filled = [];
-        $cursor = strtotime($sinceDate);
-        $today = strtotime(gmdate('Y-m-d'));
-        for (; $cursor <= $today; $cursor += 86400) {
-            $date = gmdate('Y-m-d', $cursor);
+        $utc = new DateTimeZone('UTC');
+        $cursor = new DateTimeImmutable($sinceDate, $utc);
+        $today = new DateTimeImmutable('today', $utc);
+        for (; $cursor <= $today; $cursor = $cursor->modify('+1 day')) {
+            $date = $cursor->format('Y-m-d');
             $filled[] = [
                 'date' => $date,
                 'unique_visitors' => $byDate[$date]['unique_visitors'] ?? 0,
