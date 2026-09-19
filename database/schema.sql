@@ -209,3 +209,51 @@ CREATE TABLE IF NOT EXISTS federated_posts (
     CONSTRAINT fk_fed_post_actor FOREIGN KEY (remote_actor_id)
         REFERENCES remote_actors (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Marketplace tables
+
+CREATE TABLE IF NOT EXISTS products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(36) NOT NULL,
+    node_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    price DECIMAL(18,2) NOT NULL DEFAULT 0,
+    currency CHAR(3) NOT NULL DEFAULT 'IDR',
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    visibility VARCHAR(32) NOT NULL DEFAULT 'PUBLIC',
+    media JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_product_public_id (public_id),
+    KEY idx_products_node (node_id, status, visibility)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(36) NOT NULL,
+    node_id INT NOT NULL,
+    buyer_email VARCHAR(254) NULL,
+    buyer_name VARCHAR(128) NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    total_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    currency CHAR(3) NOT NULL DEFAULT 'IDR',
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_order_public_id (public_id),
+    KEY idx_orders_node (node_id, status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS order_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    product_id INT NOT NULL,
+    product_snapshot JSON NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    unit_price DECIMAL(18,2) NOT NULL DEFAULT 0,
+    subtotal DECIMAL(18,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_order_items_order (order_id),
+    KEY idx_order_items_product (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

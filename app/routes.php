@@ -10,6 +10,7 @@ use App\Controllers\HomeController;
 use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
 use App\Controllers\ExternalContentController;
+use App\Controllers\MarketplaceController;
 use App\Controllers\PostController;
 use App\Controllers\VisitorAuthController;
 use App\Core\Config;
@@ -29,6 +30,9 @@ use App\Repositories\FederatedConnectionRepository;
 use App\Repositories\FederatedPostRepository;
 use App\Repositories\ExternalFeedSourceRepository;
 use App\Repositories\ExternalPostRepository;
+use App\Repositories\OrderItemRepository;
+use App\Repositories\OrderRepository;
+use App\Repositories\ProductRepository;
 use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
@@ -41,6 +45,7 @@ use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
 use App\Services\Content\PostService;
 use App\Services\External\SyncWorker;
+use App\Services\Marketplace\MarketplaceService;
 use App\Services\Security\RateLimiter;
 use App\Services\Visitor\GoogleOAuthClient;
 use App\Services\Visitor\OAuthStateSigner;
@@ -145,6 +150,17 @@ $buildFederationController = static function () use ($buildAuthService): Federat
 };
 $buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {
     $connection = Database::connection();
+$buildMarketplaceController = static function () use ($buildAuthService): MarketplaceController {
+    $connection = Database::connection();
+    return new MarketplaceController(
+        $buildAuthService(),
+        new MarketplaceService(
+            new ProductRepository($connection),
+            new OrderRepository($connection),
+            new OrderItemRepository($connection),
+        ),
+    );
+};
     return new ExternalContentController(
         $buildAuthService(),
         new SyncWorker(
@@ -281,5 +297,36 @@ $router->post('/api/v1/me/sync', function (Request $request, array $params) use 
 
 $router->get('/api/v1/me/external/stats', function (Request $request, array $params) use ($buildExternalContentController): Response {
     return $buildExternalContentController()->stats($request);
+});
+$router->get('/api/v1/products', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->listProducts($request);
+});
+
+$router->post('/api/v1/products', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->createProduct($request);
+});
+
+$router->get('/api/v1/products/{productId}', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->showProduct($request, $params);
+});
+
+$router->patch('/api/v1/products/{productId}', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->updateProduct($request, $params);
+});
+
+$router->get('/api/v1/orders', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->listOrders($request);
+});
+
+$router->post('/api/v1/orders', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->createOrder($request);
+});
+
+$router->get('/api/v1/orders/{orderId}', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->showOrder($request, $params);
+});
+
+$router->patch('/api/v1/orders/{orderId}/status', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->updateOrderStatus($request, $params);
 });
 return $router;

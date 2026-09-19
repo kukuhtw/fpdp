@@ -1,0 +1,86 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Repositories;
+
+use PDO;
+
+final class OrderRepository
+{
+    private const SELECT = '
+        SELECT o.*, n.domain AS node_domain
+        FROM orders o
+        INNER JOIN nodes n ON n.id = o.node_id
+    ';
+
+    public function __construct(private readonly PDO $connection)
+    {
+    }
+
+    public function create(string $publicId, int $nodeId, string $totalAmount, string $currency = 'IDR', ?string $buyerEmail = null, ?string $buyerName = null, ?string $notes = null): array
+    {
+        $statement = $this->connection->prepare(
+            'INSERT INTO orders (public_id, node_id, buyer_email, buyer_name, total_amount, currency, notes)
+             VALUES (:public_id, :node_id, :buyer_email, :buyer_name, :total_amount, :currency, :notes)',
+        );
+        $statement->execute([
+            'public_id' => $publicId,
+            'node_id' => $nodeId,
+            'buyer_email' => $buyerEmail,
+            'buyer_name' => $buyerName,
+            'total_amount' => $totalAmount,
+            'currency' => $currency,
+            'notes' => $notes,
+        ]);
+
+        return $this->findByPublicId($publicId);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findByPublicId(string $publicId): ?array
+    {
+        $statement = $this->connection->prepare(
+            self::SELECT . ' WHERE o.public_id = :public_id',
+        );
+        $statement->execute(['public_id' => $publicId]);
+
+        $row = $statement->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listByNodeId(int $nodeId, int $limit = 20, ?int $beforeId = null): array
+    {
+        $where = ['o.node_id = :node_id'];
+        $parameters = ['node_id' => $nodeId];
+
+        if ($beforeId !== null) {
+            $where[] = 'o.id < :before_id';
+            $parameters['before_id'] = $beforeId;
+        }
+
+        $statement = $this->connection->prepare(
+            self::SELECT . ' WHERE ' . implode(' AND ', $where)
+            . ' ORDER BY o.id DESC LIMIT ' . ($limit + 1),
+        );
+        $statement->execute($parameters);
+
+        return $statement->fetchAll();
+    }
+
+    public function updateStatus(string $publicId, string $status): array
+    {
+        $statement = $this->connection->prepare(
+            "UPDATE orders SET status = :status WHERE public_id = :public_id",
+        );
+        $statement->execute(['public_id' => $publicId, 'status' => $status]);
+
+        return $this->findByPublicId($publicId);
+    }
+}
