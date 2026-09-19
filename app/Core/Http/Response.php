@@ -31,6 +31,11 @@ final class Response
         return new self($status, ['Content-Type' => 'application/json'], $body === false ? '{}' : $body);
     }
 
+    public static function noContent(): self
+    {
+        return new self(204, [], '');
+    }
+
     public function send(): void
     {
         http_response_code($this->status);
