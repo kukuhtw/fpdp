@@ -45,6 +45,11 @@ final class PostService
 
     public function list(array $query): array
     {
+        $sourceType = (string) ($query['source_type'] ?? 'LOCAL');
+        if (!in_array($sourceType, ['LOCAL', 'EXTERNAL', 'FEDERATED'], true)) {
+            throw new ValidationException([['field' => 'source_type', 'reason' => 'invalid_value']]);
+        }
+
         $limit = filter_var($query['limit'] ?? 20, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1, 'max_range' => 100],
         ]);
@@ -61,7 +66,9 @@ final class PostService
             $beforeId = (int) $decoded;
         }
 
-        $rows = $this->posts->listPublic((int) $limit, $beforeId, isset($query['author_handle']) ? (string) $query['author_handle'] : null);
+        $rows = $sourceType === 'LOCAL'
+            ? $this->posts->listPublic((int) $limit, $beforeId, isset($query['author_handle']) ? (string) $query['author_handle'] : null)
+            : [];
         $hasMore = count($rows) > $limit;
         if ($hasMore) {
             array_pop($rows);

@@ -223,7 +223,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostWrite'
+              $ref: '#/components/schemas/PostPatch'
       responses:
         '200':
           description: Updated post
@@ -1206,6 +1206,25 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Timestamp'
             - type: 'null'
+    PostPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title:
+          type: [string, 'null']
+          maxLength: 255
+        content:
+          type: string
+          minLength: 1
+          maxLength: 100000
+        post_type: { $ref: '#/components/schemas/PostType' }
+        visibility: { $ref: '#/components/schemas/Visibility' }
+        published_at:
+          description: Set to null to return the post to draft status.
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
     PostResponse:
       type: object
       required: [data, meta]
@@ -1668,4 +1687,3 @@ components:
 
 security:
   - bearerAuth: []
-

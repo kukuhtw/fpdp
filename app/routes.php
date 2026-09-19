@@ -7,6 +7,7 @@ use App\Controllers\CvController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\ProfileController;
+use App\Controllers\PostController;
 use App\Controllers\VisitorAuthController;
 use App\Core\Config;
 use App\Core\Database;
@@ -18,6 +19,7 @@ use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
+use App\Repositories\PostRepository;
 use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
@@ -27,6 +29,7 @@ use App\Services\Cv\CvAccessService;
 use App\Services\Cv\CvDocumentService;
 use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
+use App\Services\Content\PostService;
 use App\Services\Security\RateLimiter;
 use App\Services\Visitor\GoogleOAuthClient;
 use App\Services\Visitor\OAuthStateSigner;
@@ -53,6 +56,13 @@ $buildProfileService = static function (): ProfileService {
 
 $buildRateLimiter = static function (): RateLimiter {
     return new RateLimiter(new RateLimitRepository(Database::connection()));
+};
+
+$buildPostController = static function () use ($buildAuthService): PostController {
+    return new PostController(
+        $buildAuthService(),
+        new PostService(new PostRepository(Database::connection())),
+    );
 };
 
 $buildVisitorAuthService = static function (): VisitorAuthService {
@@ -130,6 +140,30 @@ $router->get('/api/v1/profiles/{handle}', function (Request $request, array $par
 
 $router->patch('/api/v1/me/profile', function (Request $request, array $params) use ($buildAuthService, $buildProfileService): Response {
     return (new ProfileController($buildAuthService(), $buildProfileService()))->update($request);
+});
+
+$router->get('/api/v1/posts', function (Request $request, array $params) use ($buildPostController): Response {
+    return $buildPostController()->index($request);
+});
+
+$router->post('/api/v1/posts', function (Request $request, array $params) use ($buildPostController): Response {
+    return $buildPostController()->create($request);
+});
+
+$router->get('/api/v1/posts/{postId}', function (Request $request, array $params) use ($buildPostController): Response {
+    return $buildPostController()->show($request, $params);
+});
+
+$router->patch('/api/v1/posts/{postId}', function (Request $request, array $params) use ($buildPostController): Response {
+    return $buildPostController()->update($request, $params);
+});
+
+$router->delete('/api/v1/posts/{postId}', function (Request $request, array $params) use ($buildPostController): Response {
+    return $buildPostController()->delete($request, $params);
+});
+
+$router->get('/api/v1/timeline', function (Request $request, array $params) use ($buildPostController): Response {
+    return $buildPostController()->index($request);
 });
 
 $router->get('/api/v1/profiles/{handle}/visitor-auth/google/redirect', function (Request $request, array $params) use ($buildVisitorAuthController): Response {
