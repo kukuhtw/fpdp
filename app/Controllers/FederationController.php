@@ -68,6 +68,41 @@ final class FederationController
         return JsonEnvelope::success($connection);
     }
 
+    // ---- Remote node moderation ----
+
+    /**
+     * GET /api/v1/me/federation/remote-nodes
+     *
+     * Owner-only moderation view of every remote node we have seen, with
+     * trust_state, status, and last_seen_at, so the owner can decide which
+     * domains to trust or block.
+     */
+    public function listRemoteNodes(Request $request): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success(['remote_nodes' => $this->federation->listRemoteNodesForModeration()]);
+    }
+
+    /**
+     * PATCH /api/v1/me/federation/remote-nodes/{domain}/trust
+     *
+     * Sets a remote node's trust_state (UNKNOWN/TRUSTED/BLOCKED). BLOCKED
+     * takes effect immediately: the inbox rejects that domain's activities
+     * before any signature verification or discovery is attempted.
+     *
+     * @param array<string, string> $params
+     */
+    public function updateRemoteNodeTrust(Request $request, array $params): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        $input = $request->json() ?? [];
+        $node = $this->federation->updateRemoteNodeTrust($params['domain'], (string) ($input['trust_state'] ?? ''));
+
+        return JsonEnvelope::success($node);
+    }
+
     // ---- Follow / Accept / Reject / Block ----
 
     public function sendFollow(Request $request): Response

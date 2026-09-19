@@ -280,6 +280,14 @@ $router->patch('/api/v1/me/federated-connections/{connectionId}', function (Requ
     return $buildFederationController()->updateConnection($request, $params);
 });
 
+$router->get('/api/v1/me/federation/remote-nodes', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->listRemoteNodes($request);
+});
+
+$router->patch('/api/v1/me/federation/remote-nodes/{domain}/trust', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->updateRemoteNodeTrust($request, $params);
+});
+
 $router->get('/api/v1/federation/capability', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->capability($request);
 });

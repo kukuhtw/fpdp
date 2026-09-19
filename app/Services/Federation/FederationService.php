@@ -25,6 +25,8 @@ final class FederationService
     private const UPDATABLE_FIELDS = ['show_on_profile', 'relationship_status'];
     private const DEFAULT_LIMIT = 6;
     private const MAX_LIMIT = 50;
+    private const ALLOWED_TRUST_STATES = ['UNKNOWN', 'TRUSTED', 'BLOCKED'];
+    private const MAX_ACTIVITY_SKEW_SECONDS = 300;
 
     public function __construct(
         private readonly FederatedConnectionRepository $connections,
@@ -169,6 +171,40 @@ final class FederationService
     }
 
     /**
+     * Moderation view: every remote node we have seen, so the owner can
+     * decide which domains to trust or block before it affects delivery.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listRemoteNodesForModeration(): array
+    {
+        return $this->nodes->findAll();
+    }
+
+    /**
+     * Sets a remote node's trust_state (UNKNOWN/TRUSTED/BLOCKED). BLOCKED is
+     * enforced immediately at the top of receiveActivity(), before any
+     * signature verification or discovery is attempted for that domain.
+     *
+     * @return array<string, mixed>
+     */
+    public function updateRemoteNodeTrust(string $domain, string $trustState): array
+    {
+        if (!in_array($trustState, self::ALLOWED_TRUST_STATES, true)) {
+            throw new ValidationException([['field' => 'trust_state', 'reason' => 'invalid_value']]);
+        }
+
+        $node = $this->nodes->findByDomain(strtolower(trim($domain)));
+        if ($node === null) {
+            throw new NotFoundException('Remote node not found.');
+        }
+
+        $this->nodes->updateTrustState((int) $node['id'], $trustState);
+
+        return $this->nodes->findById((int) $node['id']);
+    }
+
+    /**
      * Entry point for the public /api/v1/federation/inbox endpoint: verifies
      * the activity's signature against the sender's discovered public key,
      * rejects blocked/unverified senders, and dispatches Follow/Undo/Accept/
@@ -194,6 +230,14 @@ final class FederationService
 
         if (in_array($senderDomain, array_map('strtolower', $this->nodes->findBlockedDomains()), true)) {
             throw new ForbiddenException('Sender domain is blocked.');
+        }
+
+        $published = $activity['published'] ?? null;
+        if (is_string($published) && $published !== '') {
+            $publishedAt = strtotime($published);
+            if ($publishedAt !== false && abs(time() - $publishedAt) > self::MAX_ACTIVITY_SKEW_SECONDS) {
+                throw new ForbiddenException('Activity timestamp is outside the acceptable window.');
+            }
         }
 
         $ar = $this->getActivityRepo();

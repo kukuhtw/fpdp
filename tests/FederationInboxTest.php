@@ -181,6 +181,46 @@ $dup = $dispatch('POST', '/api/v1/federation/inbox', $followPayload);
 finbox_assert($dup['status'] === 200 || $dup['status'] === 202, 'Duplicate activity should not error: ' . json_encode($dup));
 finbox_assert($dup['body']['data']['status'] === 'duplicate', 'Replayed activity id should be reported as duplicate');
 
+// ---- Test 7: activity with a stale/out-of-window timestamp is rejected ----
+finbox_seed_remote_node($db, 'stale-sender.example', 'UNKNOWN', null);
+$stalePayload = [
+    'id' => 'act-follow-stale',
+    'type' => 'Follow',
+    'actor' => 'https://stale-sender.example/@eve',
+    'object' => 'https://owner.test.local/@owner',
+    'published' => gmdate('c', time() - 3600),
+];
+$staleResult = $dispatch('POST', '/api/v1/federation/inbox', $stalePayload);
+finbox_assert($staleResult['status'] === 403, 'Stale-timestamp activity should be rejected with 403: ' . json_encode($staleResult));
+
+// ---- Test 8: remote-node moderation list requires auth and reflects seeded nodes ----
+$unauthList = $dispatch('GET', '/api/v1/me/federation/remote-nodes');
+finbox_assert($unauthList['status'] === 401, 'Remote-node list should require auth');
+
+$modList = $dispatch('GET', '/api/v1/me/federation/remote-nodes', null, $ownerToken);
+finbox_assert($modList['status'] === 200, 'Remote-node list should succeed for an authenticated owner: ' . json_encode($modList));
+$senderNode = current(array_filter($modList['body']['data']['remote_nodes'], fn ($n) => $n['domain'] === 'sender.example'));
+finbox_assert($senderNode !== false, 'Moderation list should include previously-discovered sender.example');
+
+// ---- Test 9: owner can block a remote node's domain, which then takes effect on the inbox ----
+$blockResult = $dispatch('PATCH', '/api/v1/me/federation/remote-nodes/open-sender.example/trust', ['trust_state' => 'BLOCKED'], $ownerToken);
+finbox_assert($blockResult['status'] === 200, 'Blocking a remote node should succeed: ' . json_encode($blockResult));
+finbox_assert($blockResult['body']['data']['trust_state'] === 'BLOCKED', 'Remote node should now be BLOCKED');
+
+$afterBlock = $dispatch('POST', '/api/v1/federation/inbox', [
+    'id' => 'act-follow-after-block',
+    'type' => 'Follow',
+    'actor' => 'https://open-sender.example/@dave',
+    'object' => 'https://owner.test.local/@owner',
+]);
+finbox_assert($afterBlock['status'] === 403, 'Activity from a newly-blocked domain should be rejected: ' . json_encode($afterBlock));
+
+$invalidTrust = $dispatch('PATCH', '/api/v1/me/federation/remote-nodes/open-sender.example/trust', ['trust_state' => 'NOPE'], $ownerToken);
+finbox_assert($invalidTrust['status'] === 422, 'Invalid trust_state should 422');
+
+$unknownDomainTrust = $dispatch('PATCH', '/api/v1/me/federation/remote-nodes/never-seen.example/trust', ['trust_state' => 'TRUSTED'], $ownerToken);
+finbox_assert($unknownDomainTrust['status'] === 404, 'Unknown remote-node domain should 404');
+
 // Cleanup
 Database::reset();
 unset($db);

@@ -68,6 +68,18 @@ final class RemoteNodeRepository
         return $row === false ? null : $row;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findAll(): array
+    {
+        $statement = $this->connection->query(
+            self::SELECT . ' ORDER BY last_seen_at IS NULL, last_seen_at DESC, domain ASC',
+        );
+
+        return $statement->fetchAll();
+    }
+
     public function updateTrustState(int $id, string $trustState): void
     {
         $statement = $this->connection->prepare(
