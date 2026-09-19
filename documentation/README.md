@@ -22,6 +22,7 @@ FPDP adalah personal digital home yang tidak terikat pada provider tertentu. Dok
 | Interactive UI Mockup | [Dashboard](mockup/index.html) · [Public profile](mockup/public-profile.html) | [Petunjuk / Guide](mockup/README.md) |
 | Mockup Navigation Map | [English](mockup/NAVIGATION-MAP.en.md) | [Bahasa Indonesia](mockup/NAVIGATION-MAP.id.md) |
 | Development Progress Report | [English](PROGRESS-REPORT.en.md) | [Bahasa Indonesia](PROGRESS-REPORT.id.md) |
+| Deployment Guide (VPS & shared hosting, install wizard) | [English](DEPLOYMENT-GUIDE.en.md) | [Bahasa Indonesia](DEPLOYMENT-GUIDE.id.md) |
 | API Contract | [English](API-CONTRACT.en.md) | [Bahasa Indonesia](API-CONTRACT.id.md) |
 | OpenAPI 3.1 | [Machine-readable YAML](openapi.yaml) | [Machine-readable YAML](openapi.yaml) |
 

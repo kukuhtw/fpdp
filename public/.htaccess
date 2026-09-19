@@ -1,0 +1,15 @@
+# Deny direct access to dotfiles served from this directory (defense in depth;
+# the real .env lives outside public/ and is never served either way).
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+RewriteEngine On
+
+# Serve existing files and directories (css/js/images, install.php itself) as-is.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Everything else goes through the front controller.
+RewriteRule ^ index.php [L]

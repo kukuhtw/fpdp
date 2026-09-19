@@ -41,6 +41,15 @@ final class Response
         return new self($status, ['Location' => $url], '');
     }
 
+    public static function binary(string $content, string $contentType, string $filename): self
+    {
+        return new self(200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'attachment; filename="' . str_replace('"', '', $filename) . '"',
+            'Content-Length' => (string) strlen($content),
+        ], $content);
+    }
+
     public function send(): void
     {
         http_response_code($this->status);

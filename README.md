@@ -51,7 +51,8 @@ The intended product combines:
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
 | Database layer | `Database` PDO connection manager and `MigrationRunner`; ordered migrations under `database/migrations/` with foreign keys and indexes, run via `database/migrate.php` |
-| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, a full auth/profile HTTP flow test, rate limiter unit/endpoint tests, an OAuth state signer test, and a full visitor-auth HTTP flow test (fake Google client) |
+| Deployment | Web install wizard (`public/install.php`): requirements check, `.env` writer with tested DB credentials, migration runner, owner-account creation, and a self-lock (`storage/installed.lock`); `public/.htaccess` front-controller rewrite for Apache; see the [deployment guide](documentation/DEPLOYMENT-GUIDE.en.md) |
+| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, a full auth/profile HTTP flow test, rate limiter unit/endpoint tests, an OAuth state signer test, a full visitor-auth HTTP flow test (fake Google client), and an installer test (requirements, `.env` round-trip, connection check, install-lock) |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
@@ -106,6 +107,7 @@ app/
 │   ├── Http/            Request, Response, JsonEnvelope, ResourcePresenter
 │   ├── Exceptions/       HttpException and its 401/404/409/422/429 subtypes
 │   ├── Router.php, Config.php, Database.php, MigrationRunner.php, Uuid.php
+│   ├── Installer/        RequirementsChecker, EnvWriter, InstallLock (used by public/install.php)
 │   └── View.php          Minimal view rendering
 ├── Repositories/        Node, User, Profile, AuthToken, Visitor, VisitorToken, RateLimit data access (PDO)
 ├── Services/
@@ -119,7 +121,9 @@ app/
 └── routes.php          Route table consumed by the front controller
 
 public/
-└── index.php           HTTP front controller (serve this directory)
+├── index.php           HTTP front controller (serve this directory)
+├── install.php         Web install wizard: requirements check, .env, migrations, owner account
+└── .htaccess           Apache front-controller rewrite (used by both index.php and install.php)
 
 .env.example             Safe example environment file (no secrets)
 
@@ -151,7 +155,8 @@ tests/
 ├── RateLimitEndpointTest.php Login endpoint returns 429 once the configured limit is exceeded
 ├── OAuthStateSignerTest.php Signed OAuth state: round trip, tamper/secret/expiry rejection
 ├── VisitorAuthEndpointsTest.php Full visitor OAuth flow via a fake Google client: redirect, callback, reuse, 401s
-└── YouTubeEmbedResolverTest.php Video-ID extraction and RSS/Atom YouTube embed normalization
+├── YouTubeEmbedResolverTest.php Video-ID extraction and RSS/Atom YouTube embed normalization
+└── InstallerTest.php        Requirements check, .env round-trip, connection test, and install-lock behavior
 ```
 
 ### Requirements
@@ -195,6 +200,7 @@ tests/
    php tests/OAuthStateSignerTest.php
    php tests/VisitorAuthEndpointsTest.php
    php tests/YouTubeEmbedResolverTest.php
+   php tests/InstallerTest.php
    ```
 
 4. Create a MySQL database and set `DB_*` credentials in `.env`, then run migrations:
@@ -317,6 +323,8 @@ Start with the [documentation index](documentation/README.md). Product requireme
 - [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
 - [Problem definition — English](documentation/PROBLEM-STATEMENT.en.md)
 - [Definisi masalah — Bahasa Indonesia](documentation/PROBLEM-STATEMENT.id.md)
+- [Deployment guide (VPS & shared hosting, install wizard) — English](documentation/DEPLOYMENT-GUIDE.en.md)
+- [Panduan deployment (VPS & shared hosting, install wizard) — Bahasa Indonesia](documentation/DEPLOYMENT-GUIDE.id.md)
 
 ---
 
@@ -361,7 +369,8 @@ Produk yang dituju menggabungkan:
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
 | Database layer | `Database` PDO connection manager dan `MigrationRunner`; migration terurut di `database/migrations/` dengan foreign key dan index, dijalankan lewat `database/migrate.php` |
-| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, test alur auth/profile HTTP lengkap, test unit/endpoint rate limiter, test OAuth state signer, dan test alur visitor-auth HTTP lengkap (fake Google client) |
+| Deployment | Web install wizard (`public/install.php`): cek requirement, penulis `.env` dengan kredensial DB yang sudah diuji, migration runner, pembuatan akun owner, dan self-lock (`storage/installed.lock`); rewrite front controller Apache `public/.htaccess`; lihat [panduan deployment](documentation/DEPLOYMENT-GUIDE.id.md) |
+| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, test alur auth/profile HTTP lengkap, test unit/endpoint rate limiter, test OAuth state signer, test alur visitor-auth HTTP lengkap (fake Google client), dan test installer (requirement, round-trip `.env`, cek koneksi, install-lock) |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
@@ -416,6 +425,7 @@ app/
 │   ├── Http/            Request, Response, JsonEnvelope, ResourcePresenter
 │   ├── Exceptions/       HttpException dan subtype 401/404/409/422/429-nya
 │   ├── Router.php, Config.php, Database.php, MigrationRunner.php, Uuid.php
+│   ├── Installer/        RequirementsChecker, EnvWriter, InstallLock (dipakai public/install.php)
 │   └── View.php          View renderer minimal
 ├── Repositories/        Akses data (PDO) untuk Node, User, Profile, AuthToken, Visitor, VisitorToken, RateLimit
 ├── Services/
@@ -429,7 +439,9 @@ app/
 └── routes.php          Tabel rute yang dipakai front controller
 
 public/
-└── index.php           Front controller HTTP (arahkan web server ke folder ini)
+├── index.php           Front controller HTTP (arahkan web server ke folder ini)
+├── install.php         Web install wizard: cek requirement, .env, migration, akun owner
+└── .htaccess           Rewrite front controller Apache (dipakai index.php maupun install.php)
 
 .env.example             Contoh file environment yang aman (tanpa secret)
 
@@ -461,7 +473,8 @@ tests/
 ├── RateLimitEndpointTest.php Endpoint login mengembalikan 429 setelah limit terlampaui
 ├── OAuthStateSignerTest.php Signed OAuth state: round trip, penolakan tamper/secret/expiry
 ├── VisitorAuthEndpointsTest.php Alur OAuth visitor lengkap via fake Google client: redirect, callback, reuse, 401
-└── YouTubeEmbedResolverTest.php Ekstraksi video ID dan normalisasi embed YouTube dari RSS/Atom
+├── YouTubeEmbedResolverTest.php Ekstraksi video ID dan normalisasi embed YouTube dari RSS/Atom
+└── InstallerTest.php        Cek requirement, round-trip .env, test koneksi, dan perilaku install-lock
 ```
 
 ### Kebutuhan sistem
@@ -505,6 +518,7 @@ tests/
    php tests/OAuthStateSignerTest.php
    php tests/VisitorAuthEndpointsTest.php
    php tests/YouTubeEmbedResolverTest.php
+   php tests/InstallerTest.php
    ```
 
 4. Buat database MySQL, isi kredensial `DB_*` di `.env`, lalu jalankan migration:
@@ -627,6 +641,8 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 - [Konsep federasi — Bahasa Indonesia](documentation/FEDERATION-CONCEPT.id.md)
 - [Problem definition — English](documentation/PROBLEM-STATEMENT.en.md)
 - [Definisi masalah — Bahasa Indonesia](documentation/PROBLEM-STATEMENT.id.md)
+- [Deployment guide (VPS & shared hosting, install wizard) — English](documentation/DEPLOYMENT-GUIDE.en.md)
+- [Panduan deployment (VPS & shared hosting, install wizard) — Bahasa Indonesia](documentation/DEPLOYMENT-GUIDE.id.md)
 
 ---
 
