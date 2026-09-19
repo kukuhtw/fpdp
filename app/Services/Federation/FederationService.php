@@ -192,9 +192,114 @@ public function listOwnConnections(int $profileId): array
     // ---- Federation Node Identity & Discovery ----
 
     public function getCapabilityDocument(int $nodeId, string $domain): array
+// ---- Follow / Accept / Reject / Block Flows ----
+
+    public function sendFollow(int $nodeId, int $profileId, string $targetActorUri, string $targetDomain, ?string $targetFedAddress = null): array
+    {
+        $fr = $this->getFollowRepo();
+        $existing = $fr->findByProfileAndTarget($profileId, $targetActorUri);
+        if ($existing !== null) {
+            throw new ValidationException([['field' => 'target_actor_uri', 'reason' => 'already_following']]);
+        }
+        $localProfile = $this->profiles->findById($profileId);
+        if ($localProfile === null) throw new NotFoundException('Profile not found.');
+        $actorUri = "https://{$localProfile['node_domain']}/@" . $localProfile['handle'];
+        $followPubId = Uuid::v4();
+        $activity = $this->queueOutgoingActivity($nodeId, 'Follow', $actorUri, $targetDomain, $targetActorUri, [
+            'id' => $followPubId, 'actor' => $actorUri, 'object' => $targetActorUri, 'target_domain' => $targetDomain,
+        ]);
+        $fr->create($followPubId, $profileId, $targetActorUri, $targetFedAddress, null, (string) $activity['id']);
+        return ['follow_id' => $followPubId, 'activity_id' => (string) $activity['id'], 'status' => 'PENDING'];
+    }
+
+    public function processFollow(int $nodeId, array $activity, int $localProfileId): array
+    {
+        $actorUri = $activity['actor'] ?? '';
+        $objectUri = $activity['object'] ?? '';
+        if ($actorUri === '' || $objectUri === '') return ['status' => 'error', 'message' => 'Invalid activity'];
+        $remoteActor = $this->actors->findByActorUri($actorUri);
+        if ($remoteActor === null) return ['status' => 'error', 'message' => 'Unknown actor'];
+
+        $fr = $this->getFollowRepo();
+        $existing = $fr->findByProfileAndTarget($localProfileId, $actorUri);
+        if ($existing !== null && $existing['status'] === 'BLOCKED') {
+            $this->queueOutgoingActivity($nodeId, 'Reject', $objectUri, parse_url($actorUri, PHP_URL_HOST) ?? '', $actorUri);
+            return ['status' => 'rejected', 'message' => 'Blocked actor'];
+        }
+        if ($existing === null) {
+            $fr->create(Uuid::v4(), $localProfileId, $actorUri, $remoteActor['federated_address'] ?? null, (int) $remoteActor['id'], $activity['id'] ?? null);
+        }
+        $fr->updateStatus($existing['public_id'] ?? Uuid::v4(), 'ACCEPTED', $activity['id'] ?? null);
+
+        $localProfile = $this->profiles->findById($localProfileId);
+        $localActorUri = $localProfile ? "https://{$localProfile['node_domain']}/@" . $localProfile['handle'] : '';
+        $acceptId = Uuid::v4();
+        $this->queueOutgoingActivity($nodeId, 'Accept', $localActorUri, parse_url($actorUri, PHP_URL_HOST) ?? '', $actorUri, [
+            'id' => $acceptId, 'actor' => $localActorUri, 'object' => $activity['id'] ?? null,
+        ]);
+
+        $conn = $this->connections->findByPublicId('auto-' . $localProfileId . '-' . $remoteActor['id'], true);
+        if ($conn === null) {
+            $this->connections->create(Uuid::v4(), $localProfileId, (int) $remoteActor['id'], 'CONNECTED');
+        }
+        return ['status' => 'accepted', 'message' => "Follow from {$actorUri} accepted"];
+    }
     {
         $ks = $this->getKeyService();
         return [
+public function sendUndo(int $nodeId, int $profileId, string $followPublicId): array
+    {
+        $fr = $this->getFollowRepo();
+        $follow = $fr->findByPublicId($followPublicId);
+        if ($follow === null) throw new NotFoundException('Follow not found.');
+        $localProfile = $this->profiles->findById((int) $follow['profile_id']);
+        if ($localProfile === null) throw new NotFoundException('Profile not found.');
+        $actorUri = "https://{$localProfile['node_domain']}/@" . $localProfile['handle'];
+        $undoId = Uuid::v4();
+        $this->queueOutgoingActivity($nodeId, 'Undo', $actorUri, parse_url($follow['target_actor_uri'], PHP_URL_HOST) ?? '', $follow['activity_public_id'] ?? null, [
+            'id' => $undoId, 'actor' => $actorUri,
+            'object' => ['id' => $follow['activity_public_id'], 'type' => 'Follow', 'actor' => $actorUri, 'object' => $follow['target_actor_uri']],
+        ]);
+        $fr->updateStatus($followPublicId, 'DISCONNECTED', null);
+        return ['status' => 'undone', 'undo_id' => $undoId];
+    }
+
+    public function processUndo(int $nodeId, array $activity, int $localProfileId): array
+    {
+        $object = $activity['object'] ?? [];
+        $objectId = is_array($object) ? ($object['id'] ?? '') : $object;
+        $fr = $this->getFollowRepo();
+        foreach ($fr->findFollowersByProfileId($localProfileId) as $f) {
+            if ($f['activity_public_id'] === $objectId) {
+                $fr->updateStatus($f['public_id'], 'DISCONNECTED', null);
+                return ['status' => 'undone', 'message' => 'Follow undone'];
+            }
+        }
+        return ['status' => 'not_found', 'message' => 'No matching follow found'];
+    }
+
+    public function sendBlock(int $nodeId, int $profileId, string $targetActorUri, string $targetDomain): array
+    {
+        $fr = $this->getFollowRepo();
+        $existing = $fr->findByProfileAndTarget($profileId, $targetActorUri);
+        $localProfile = $this->profiles->findById($profileId);
+        if ($localProfile === null) throw new NotFoundException('Profile not found.');
+        $actorUri = "https://{$localProfile['node_domain']}/@" . $localProfile['handle'];
+        $blockId = Uuid::v4();
+        $this->queueOutgoingActivity($nodeId, 'Block', $actorUri, $targetDomain, $targetActorUri, [
+            'id' => $blockId, 'actor' => $actorUri, 'object' => $targetActorUri,
+        ]);
+        $fr->updateStatus($existing['public_id'] ?? Uuid::v4(), 'BLOCKED', null);
+        return ['status' => 'blocked', 'block_id' => $blockId];
+    }
+
+    private function getFollowRepo(): FollowRepository
+    {
+        if ($this->follows === null) {
+            $this->follows = new FollowRepository(\App\Core\Database::connection());
+        }
+        return $this->follows;
+    }
             'protocol' => 'FPDP-Federation/1.0',
             'domain' => $domain,
             'node_id' => $nodeId,

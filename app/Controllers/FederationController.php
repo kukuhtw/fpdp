@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Exceptions\ValidationException;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
@@ -64,6 +65,66 @@ final class FederationController
         );
 
         return JsonEnvelope::success($connection);
+    }
+
+    // ---- Follow / Accept / Reject / Block ----
+
+    public function sendFollow(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $input = $request->json() ?? [];
+        return JsonEnvelope::success($this->federation->sendFollow(
+            (int) $context['node']['id'],
+            (int) $context['profile']['id'],
+            (string) ($input['target_actor_uri'] ?? ''),
+            (string) ($input['target_domain'] ?? ''),
+            $input['target_federated_address'] ?? null,
+        ), 201);
+    }
+
+    public function sendUndo(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $input = $request->json() ?? [];
+        return JsonEnvelope::success($this->federation->sendUndo(
+            (int) $context['node']['id'],
+            (int) $context['profile']['id'],
+            (string) ($input['follow_id'] ?? ''),
+        ));
+    }
+
+    public function sendBlock(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $input = $request->json() ?? [];
+        return JsonEnvelope::success($this->federation->sendBlock(
+            (int) $context['node']['id'],
+            (int) $context['profile']['id'],
+            (string) ($input['target_actor_uri'] ?? ''),
+            (string) ($input['target_domain'] ?? ''),
+        ));
+    }
+
+    public function processFollow(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $input = $request->json() ?? [];
+        return JsonEnvelope::success($this->federation->processFollow(
+            (int) $context['node']['id'],
+            $input,
+            (int) $context['profile']['id'],
+        ));
+    }
+
+    public function processUndo(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $input = $request->json() ?? [];
+        return JsonEnvelope::success($this->federation->processUndo(
+            (int) $context['node']['id'],
+            $input,
+            (int) $context['profile']['id'],
+        ));
     }
 
     // ---- Federation Node Identity ----
