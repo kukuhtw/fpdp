@@ -13,8 +13,10 @@ use App\Repositories\FederatedPostRepository;
 use App\Repositories\FederationActivityRepository;
 use App\Repositories\FollowRepository;
 use App\Repositories\NodeKeyRepository;
+use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\RemoteActorRepository;
+use App\Repositories\RemoteNodeKeyRepository;
 use App\Repositories\RemoteNodeRepository;
 
 final class FederationService
@@ -34,6 +36,9 @@ final class FederationService
         private ?FederationActivityRepository $activities = null,
         private ?NodeKeyService $keyService = null,
         private ?FollowRepository $follows = null,
+        private ?NodeRepository $localNodes = null,
+        private ?RemoteNodeKeyRepository $remoteNodeKeys = null,
+        private ?NodeDiscoveryService $discovery = null,
     ) {
     }
 
@@ -152,17 +157,99 @@ final class FederationService
         ];
     }
 
-    public function processIncomingActivity(int $nodeId, array $activity): array
+    /**
+     * The sole locally-hosted node, used to resolve "our own node" when a
+     * remote server fetches our capability document without credentials.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getLocalNode(): ?array
     {
+        return $this->getLocalNodeRepo()->findFirst();
+    }
+
+    /**
+     * Entry point for the public /api/v1/federation/inbox endpoint: verifies
+     * the activity's signature against the sender's discovered public key,
+     * rejects blocked/unverified senders, and dispatches Follow/Undo/Accept/
+     * Reject/Block activities to their handlers.
+     *
+     * @param array<string, mixed> $activity
+     * @return array<string, mixed>
+     */
+    public function receiveActivity(array $activity): array
+    {
+        $type = (string) ($activity['type'] ?? '');
+        $actorUri = (string) ($activity['actor'] ?? '');
+        $activityId = (string) ($activity['id'] ?? '');
+        if ($type === '' || $actorUri === '' || $activityId === '') {
+            throw new ValidationException([['field' => '_', 'reason' => 'missing_required_fields']]);
+        }
+
+        $senderDomain = parse_url($actorUri, PHP_URL_HOST);
+        if (!is_string($senderDomain) || $senderDomain === '') {
+            throw new ValidationException([['field' => 'actor', 'reason' => 'invalid_actor_uri']]);
+        }
+        $senderDomain = strtolower($senderDomain);
+
+        if (in_array($senderDomain, array_map('strtolower', $this->nodes->findBlockedDomains()), true)) {
+            throw new ForbiddenException('Sender domain is blocked.');
+        }
+
         $ar = $this->getActivityRepo();
-        $id = $activity['id'] ?? Uuid::v4();
-        $type = $activity['type'] ?? 'Unknown';
-        $actorUri = $activity['actor'] ?? '';
-        $objectUri = $activity['object'] ?? null;
-        $sig = $activity['signature'] ?? null;
-        if ($ar->existsByActivityId($id)) return ['status' => 'duplicate', 'message' => 'Already processed'];
-        $ar->create($id, $nodeId, 'INCOMING', $type, $actorUri, $objectUri, parse_url($actorUri, PHP_URL_HOST), $activity, $sig);
-        return ['status' => 'received', 'message' => "{$type} received"];
+        if ($ar->existsByActivityId($activityId)) {
+            return ['status' => 'duplicate', 'message' => 'Already processed'];
+        }
+
+        $discovery = $this->getDiscoveryService();
+        $remoteNode = $discovery->ensureRemoteNode($senderDomain);
+
+        $signature = $activity['signature'] ?? null;
+        $verified = false;
+        if (is_string($signature) && $remoteNode !== null && !empty($remoteNode['public_key'])) {
+            $payloadToVerify = $activity;
+            unset($payloadToVerify['signature']);
+            $verified = $this->getKeyService()->verify((string) json_encode($payloadToVerify), $signature, (string) $remoteNode['public_key']);
+            if (!$verified) {
+                throw new ForbiddenException('Invalid activity signature.');
+            }
+        }
+
+        if (in_array($type, ['Follow', 'Block'], true) && $remoteNode !== null) {
+            $discovery->ensureRemoteActor($actorUri, $remoteNode);
+        }
+
+        $localProfile = $this->resolveLocalProfileForActivity($type, $activity);
+        if ($localProfile === null && in_array($type, ['Follow', 'Undo', 'Block'], true)) {
+            throw new NotFoundException('Target profile not found for this activity.');
+        }
+
+        if ($localProfile === null) {
+            // No local profile to attribute this to (unsupported type, or an
+            // Accept/Reject with no matching outgoing Follow) — nothing to
+            // persist against our nodes.id foreign key, so just acknowledge.
+            return ['status' => 'received', 'message' => "{$type} received, no handler", 'verified' => $verified];
+        }
+
+        $localNodeId = (int) $localProfile['node_id'];
+        $status = $verified ? 'VERIFIED' : (is_string($signature) ? 'UNVERIFIED_KEY_MISSING' : 'UNSIGNED');
+        $objectUri = is_string($activity['object'] ?? null) ? $activity['object'] : null;
+        $ar->create($activityId, $localNodeId, 'INCOMING', $type, $actorUri, $objectUri, $senderDomain, $activity, is_string($signature) ? $signature : null, $status);
+
+        if ($remoteNode !== null) {
+            $discovery->touchRemoteNode($senderDomain);
+        }
+
+        $result = match ($type) {
+            'Follow' => $this->processFollow($localNodeId, $activity, (int) $localProfile['id']),
+            'Undo' => $this->processUndo($localNodeId, $activity, (int) $localProfile['id']),
+            'Block' => $this->processBlockReceived($activity, $localProfile),
+            'Accept' => $this->processAccept($activity),
+            'Reject' => $this->processReject($activity),
+            default => ['status' => 'received', 'message' => "{$type} received, no handler"],
+        };
+
+        return array_merge($result, ['verified' => $verified]);
     }
 
     public function queueOutgoingActivity(int $nodeId, string $type, string $actorUri, string $targetDomain, ?string $objectUri = null, array $extra = []): array
@@ -266,6 +353,96 @@ final class FederationService
         return ['status' => 'not_found', 'message' => 'No matching follow found'];
     }
 
+    /**
+     * Handles an inbound Accept activity: the remote actor accepted a Follow
+     * we sent earlier, so mark it ACCEPTED and establish the connection.
+     *
+     * @param array<string, mixed> $activity
+     */
+    public function processAccept(array $activity): array
+    {
+        $objectId = $activity['object'] ?? null;
+        if (!is_string($objectId) || $objectId === '') {
+            return ['status' => 'error', 'message' => 'Invalid Accept payload'];
+        }
+
+        $fr = $this->getFollowRepo();
+        $follow = $fr->findByActivityPublicId($objectId);
+        if ($follow === null) {
+            return ['status' => 'not_found', 'message' => 'No matching follow request'];
+        }
+
+        $fr->updateStatus($follow['public_id'], 'ACCEPTED', null);
+
+        $remoteActor = $follow['remote_actor_id'] !== null
+            ? $this->actors->findById((int) $follow['remote_actor_id'])
+            : $this->actors->findByActorUri((string) $follow['target_actor_uri']);
+
+        if ($remoteActor !== null) {
+            $conn = $this->connections->findByProfileAndActorId((int) $follow['profile_id'], (int) $remoteActor['id']);
+            if ($conn === null) {
+                $this->connections->create(Uuid::v4(), (int) $follow['profile_id'], (int) $remoteActor['id'], 'CONNECTED');
+            }
+        }
+
+        return ['status' => 'accepted', 'message' => 'Follow accepted by remote'];
+    }
+
+    /**
+     * Handles an inbound Reject activity: the remote actor declined a Follow
+     * we sent earlier.
+     *
+     * @param array<string, mixed> $activity
+     */
+    public function processReject(array $activity): array
+    {
+        $objectId = $activity['object'] ?? null;
+        if (!is_string($objectId) || $objectId === '') {
+            return ['status' => 'error', 'message' => 'Invalid Reject payload'];
+        }
+
+        $fr = $this->getFollowRepo();
+        $follow = $fr->findByActivityPublicId($objectId);
+        if ($follow === null) {
+            return ['status' => 'not_found', 'message' => 'No matching follow request'];
+        }
+
+        $fr->updateStatus($follow['public_id'], 'REJECTED', null);
+
+        return ['status' => 'rejected', 'message' => 'Follow rejected by remote'];
+    }
+
+    /**
+     * Handles an inbound Block activity: the remote actor blocked our local
+     * profile. Records it so we stop showing/delivering to them.
+     *
+     * @param array<string, mixed> $activity
+     * @param array<string, mixed> $localProfile
+     */
+    public function processBlockReceived(array $activity, array $localProfile): array
+    {
+        $actorUri = (string) ($activity['actor'] ?? '');
+        if ($actorUri === '') {
+            return ['status' => 'error', 'message' => 'Invalid Block payload'];
+        }
+
+        $remoteActor = $this->actors->findByActorUri($actorUri);
+        if ($remoteActor !== null) {
+            $conn = $this->connections->findByProfileAndActorId((int) $localProfile['id'], (int) $remoteActor['id']);
+            if ($conn !== null) {
+                $this->connections->updateByPublicId((string) $conn['public_id'], ['relationship_status' => 'BLOCKED']);
+            }
+        }
+
+        $fr = $this->getFollowRepo();
+        $existing = $fr->findByProfileAndTarget((int) $localProfile['id'], $actorUri);
+        if ($existing !== null) {
+            $fr->updateStatus((string) $existing['public_id'], 'DISCONNECTED', null);
+        }
+
+        return ['status' => 'acknowledged', 'message' => 'Remote block recorded'];
+    }
+
     public function sendBlock(int $nodeId, int $profileId, string $targetActorUri, string $targetDomain): array
     {
         $fr = $this->getFollowRepo();
@@ -308,5 +485,109 @@ final class FederationService
             $this->activities = new FederationActivityRepository(\App\Core\Database::connection());
         }
         return $this->activities;
+    }
+
+    private function getLocalNodeRepo(): NodeRepository
+    {
+        if ($this->localNodes === null) {
+            $this->localNodes = new NodeRepository(\App\Core\Database::connection());
+        }
+        return $this->localNodes;
+    }
+
+    private function getRemoteNodeKeyRepo(): RemoteNodeKeyRepository
+    {
+        if ($this->remoteNodeKeys === null) {
+            $this->remoteNodeKeys = new RemoteNodeKeyRepository(\App\Core\Database::connection());
+        }
+        return $this->remoteNodeKeys;
+    }
+
+    private function getDiscoveryService(): NodeDiscoveryService
+    {
+        if ($this->discovery === null) {
+            $this->discovery = new NodeDiscoveryService(
+                $this->nodes,
+                $this->getRemoteNodeKeyRepo(),
+                $this->actors,
+                new \App\Core\Http\HttpClient(),
+            );
+        }
+        return $this->discovery;
+    }
+
+    /**
+     * Resolves which local profile an inbound activity targets, so it can be
+     * attributed to the right node. Follow/Block carry the target actor URI
+     * directly in `object`; Undo nests it inside `object.object`; Accept/
+     * Reject instead carry the id of the Follow activity we originally sent,
+     * which is looked up to find the profile that sent it.
+     *
+     * @param array<string, mixed> $activity
+     * @return array<string, mixed>|null
+     */
+    private function resolveLocalProfileForActivity(string $type, array $activity): ?array
+    {
+        return match ($type) {
+            'Follow', 'Block' => $this->resolveLocalProfileFromActorUri((string) ($activity['object'] ?? '')),
+            'Undo' => $this->resolveLocalProfileFromActorUri($this->extractUndoTargetUri($activity)),
+            'Accept', 'Reject' => $this->resolveLocalProfileFromFollowObject((string) ($activity['object'] ?? '')),
+            default => null,
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $activity
+     */
+    private function extractUndoTargetUri(array $activity): string
+    {
+        $object = $activity['object'] ?? null;
+        if (is_array($object)) {
+            return (string) ($object['object'] ?? '');
+        }
+        return '';
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveLocalProfileFromActorUri(string $uri): ?array
+    {
+        if ($uri === '') {
+            return null;
+        }
+        $path = parse_url($uri, PHP_URL_PATH) ?: '';
+        if (!str_starts_with($path, '/@') || strlen($path) <= 2) {
+            return null;
+        }
+        $handle = substr($path, 2);
+
+        $profile = $this->profiles->findByHandle(strtolower($handle));
+        if ($profile === null) {
+            return null;
+        }
+
+        $domain = parse_url($uri, PHP_URL_HOST);
+        if ($domain !== null && strcasecmp((string) $profile['node_domain'], $domain) !== 0) {
+            // The handle exists but on a different domain than claimed — reject as spoofed.
+            return null;
+        }
+
+        return $profile;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveLocalProfileFromFollowObject(string $activityId): ?array
+    {
+        if ($activityId === '') {
+            return null;
+        }
+        $follow = $this->getFollowRepo()->findByActivityPublicId($activityId);
+        if ($follow === null) {
+            return null;
+        }
+        return $this->profiles->findById((int) $follow['profile_id']);
     }
 }

@@ -104,4 +104,22 @@ final class FollowRepository
         $row = $statement->fetch();
         return $row === false ? null : $row;
     }
+
+    /**
+     * Finds the follow row that a Follow activity we sent created, by that
+     * activity's id. Used to resolve inbound Accept/Reject responses back
+     * to the local follow request they answer.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByActivityPublicId(string $activityPublicId): ?array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT * FROM follows WHERE activity_public_id = :activity_public_id',
+        );
+        $statement->execute(['activity_public_id' => $activityPublicId]);
+
+        $row = $statement->fetch();
+        return $row === false ? null : $row;
+    }
 }

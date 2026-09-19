@@ -12,7 +12,7 @@ final class FederationActivityRepository
     {
     }
 
-    public function create(string $publicId, int $nodeId, string $direction, string $activityType, string $actorUri, ?string $objectUri, ?string $targetDomain, array $payload, ?string $signature = null): int
+    public function create(string $publicId, int $nodeId, string $direction, string $activityType, string $actorUri, ?string $objectUri, ?string $targetDomain, array $payload, ?string $signature = null, ?string $status = null): int
     {
         $statement = $this->connection->prepare(
             'INSERT INTO federation_activities (public_id, node_id, direction, activity_type, actor_uri, object_uri, target_node_domain, payload, signature, status)
@@ -28,7 +28,7 @@ final class FederationActivityRepository
             'target_node_domain' => $targetDomain,
             'payload' => json_encode($payload),
             'signature' => $signature,
-            'status' => $direction === 'INCOMING' ? 'RECEIVED' : 'PENDING',
+            'status' => $status ?? ($direction === 'INCOMING' ? 'RECEIVED' : 'PENDING'),
         ]);
 
         return (int) $this->connection->lastInsertId();
@@ -42,8 +42,10 @@ final class FederationActivityRepository
         $statement = $this->connection->prepare(
             "SELECT * FROM federation_activities
              WHERE direction = 'OUTGOING' AND status = 'PENDING'
+               AND (next_attempt_at IS NULL OR next_attempt_at <= :now)
              ORDER BY created_at ASC LIMIT :limit",
         );
+        $statement->bindValue('now', gmdate('Y-m-d H:i:s'), PDO::PARAM_STR);
         $statement->bindValue('limit', $limit, PDO::PARAM_INT);
         $statement->execute();
 
@@ -67,15 +69,20 @@ final class FederationActivityRepository
             $statement = $this->connection->prepare(
                 "UPDATE federation_activities SET status = 'FAILED', retry_count = :retry_count, last_error = :last_error, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
             );
-        } else {
-            $backoff = min(3600, 60 * (2 ** ($retryCount - 1)));
-            $statement = $this->connection->prepare(
-                "UPDATE federation_activities SET status = 'PENDING', retry_count = :retry_count, last_error = :last_error, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
-            );
-            $statement->bindValue('backoff', $backoff, PDO::PARAM_INT);
+            $statement->execute(['id' => $id, 'retry_count' => $retryCount, 'last_error' => $error]);
+            return;
         }
 
-        $statement->execute(['id' => $id, 'retry_count' => $retryCount, 'last_error' => $error]);
+        $backoffSeconds = min(3600, 60 * (2 ** ($retryCount - 1)));
+        $statement = $this->connection->prepare(
+            "UPDATE federation_activities SET status = 'PENDING', retry_count = :retry_count, last_error = :last_error, next_attempt_at = :next_attempt_at, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
+        );
+        $statement->execute([
+            'id' => $id,
+            'retry_count' => $retryCount,
+            'last_error' => $error,
+            'next_attempt_at' => gmdate('Y-m-d H:i:s', time() + $backoffSeconds),
+        ]);
     }
 
     /**

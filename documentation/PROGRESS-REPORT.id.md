@@ -2,7 +2,7 @@
 
 ## 1. Ringkasan
 
-**Per tanggal:** 19 September 2026, diverifikasi langsung terhadap kode, migration, test, dan route pada repository ini (bukan hanya terhadap dokumen perencanaan).
+**Per tanggal:** 19 September 2026, diverifikasi langsung terhadap kode, migration, test, dan route pada repository ini (bukan hanya terhadap dokumen perencanaan). Bagian federasi pada laporan ini diperbarui setelah sesi lanjutan yang mengimplementasikan verifikasi signature, discovery node remote, dan wiring inbox→processor secara end-to-end (lihat §3 dan §4).
 
 FPDP sudah memiliki **fondasi engineering** dan sebagian besar fase produk sudah diimplementasikan. Repository kini mencakup:
 
@@ -11,9 +11,9 @@ FPDP sudah memiliki **fondasi engineering** dan sebagian besar fase produk sudah
 - **Konektor konten eksternal** dengan HTTP client anti-SSRF dan sync worker (Phase 3)
 - **Audit trail** terhubung ke semua service dan **GitHub Actions CI** (Phase 4)
 - **Marketplace** dengan produk, order, dan order items (Phase 5)
-- **Federated connections API** pada profil publik (Phase 6)
+- **Federasi antar-node dengan signed activity** (Phase 6): node identity Ed25519, discovery capability document, verifikasi signature masuk, follow/accept/reject/undo/block otomatis via inbox, dan delivery worker dengan retry+backoff
 
-Yang tersisa: adapter payment sungguhan, federasi penuh, marketplace lanjutan (checkout), dan backend dashboard administrasi.
+Yang tersisa: moderasi federasi tingkat node/admin, adapter payment sungguhan, marketplace lanjutan (checkout), dan backend dashboard administrasi.
 
 Laporan ini mengacu pada [Work Breakdown Structure](WBS-TASK.md) dan [Roadmap](ROADMAP.id.md) agar progres dapat dibaca terhadap kedua rencana tersebut.
 
@@ -33,7 +33,7 @@ flowchart LR
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
     classDef todo fill:#f1e3e1,stroke:#a13d37,color:#17211b;
     class P0,P1,P2,P3,P5 done;
-    class P4 partial;
+    class P4,P6 partial;
 ```
 
 | Workstream (WBS) | Status | Bukti |
@@ -42,12 +42,12 @@ flowchart LR
 | 2.0 Core platform architecture | **Selesai** | `Router`, `Database`, `MigrationRunner`, `HttpClient` (anti-SSRF), JSON envelope, exception mapping, factory pattern |
 | 3.0 Autentikasi & manajemen user | **Selesai** | Register/login/logout/`/me`, bcrypt, bearer token di-hash, rate limiting; baca/update profil; Google OAuth visitor |
 | 4.0 Konten dan timeline | **Selesai** | CRUD post, draft/publish/soft-delete, metadata media, canonical URL, timeline publik cursor, UI post editor |
-| 5.0 Federation layer | **Sebagian selesai** | 3 endpoint federated connections, tabel remote; node discovery & activity relay belum |
+| 5.0 Federation layer | **Sebagian besar selesai** | Node identity (Ed25519), discovery capability document, verifikasi signature masuk, follow/accept/reject/undo/block via inbox publik, delivery worker retry+backoff (5 test baru); moderasi tingkat node/admin belum ada |
 | 6.0 Payment layer | **Sebagian selesai** | Interface, factory, dummy gateway, dan tabel sudah selesai; gateway sungguhan, idempotency, dan pengaturan admin belum ada |
 | 7.0 Integrasi konten eksternal | **Selesai** | Konektor RSS/Atom/Custom API + HttpClient anti-SSRF, SyncWorker, CLI cron, dedup, merge timeline |
 | 8.0 Marketplace | **Selesai** | CRUD produk + Order snapshot immutable + alur status order (14 test) |
 | 9.0 Administration dashboard | **Belum dimulai (baru mockup)** | Diprototipekan sebagai HTML statis pada [documentation/mockup](mockup/README.md); belum ada endpoint atau view sungguhan |
-| 10.0 Testing, security, deployment | **Sebagian selesai** | 22 test scripts; GitHub Actions CI; panduan Dokploy (EN & ID); audit trail di 3 service |
+| 10.0 Testing, security, deployment | **Sebagian selesai** | 22 test scripts; GitHub Actions CI; panduan Dokploy (EN & ID); audit trail di 3 service; catatan: migration nyata di `database/migrations/` belum pernah tervalidasi jalan di SQLite (semua test menulis skema minimal sendiri, lihat §4) |
 
 ## 3. Yang sudah selesai
 
@@ -66,6 +66,7 @@ flowchart LR
 - **Sinkronisasi konten eksternal:** Konektor RSS/Atom/Custom API via HttpClient anti-SSRF. SyncWorker fetch → dedup → persist → update status. CLI `sync-external.php` untuk cron. Timeline dukung `source_type=EXTERNAL`.
 - **Audit trail:** AuditService terhubung ke AuthService, PostService, ProfileService. Null-safe.
 - **Federated connections:** 3 endpoint — daftar publik (filtered), daftar owner (all), PATCH untuk show_on_profile/mute/block. Pagination cursor. 13 test.
+- **Federasi signed activity (node identity, discovery, inbox otomatis):** `NodeKeyService` men-generate keypair Ed25519 per node dan menandatangani outgoing activity; `GET /api/v1/federation/capability` kini bisa diakses tanpa token oleh node remote (fallback ke node lokal tunggal) untuk keperluan discovery. `NodeDiscoveryService` baru melakukan fetch HTTP (anti-SSRF) ke capability document domain pengirim, meng-cache public key-nya di tabel `remote_node_keys`, dan auto-register remote actor yang belum dikenal. `POST /api/v1/federation/inbox` sekarang publik (bukan lagi butuh bearer token milik pemanggil) dan memverifikasi signature terhadap public key yang di-discover sebelum memproses; signature tidak valid → 403, domain yang di-`BLOCKED` di `remote_nodes` → 403 tanpa percobaan discovery. Aktivitas `Follow`/`Undo`/`Block` yang masuk di-resolve ke profil lokal dari URI aktor pada payload; `Accept`/`Reject` di-resolve balik ke `follows` yang kita kirim sendiri lalu meng-update status dan membuat `federated_connections`. `deliver-federation.php` (delivery worker cron) kini memakai backoff eksponensial yang benar-benar dihormati (`federation_activities.next_attempt_at`, migration `0033`). 5 test baru (`FederationInboxTest`): signature valid, signature dipalsukan, domain blocked, activity tanpa signature, dan round-trip send-follow → inbound Accept.
 - **Marketplace:** CRUD produk. Order dengan `product_snapshot` immutable, total auto, 6 status. Validasi kepemilikan. 14 test.
 - **Payment interfaces:** Interface, Factory, DummyGateway (create/status/cancel/refund/webhook). Factory hanya kenal `DUMMY`.
 - **Web UI:** Landing, timeline, profil publik (`@handle`), post publik, post editor.
@@ -96,7 +97,7 @@ flowchart LR
 ## 5. Yang belum dimulai
 
 - **Adapter payment sungguhan** (Midtrans, Stripe, dll) — verifikasi signed webhook, idempotency, rekonsiliasi.
-- **Federasi penuh:** node discovery, remote actor model, signed activity delivery, inbox/outbox relay, moderasi.
+- **Moderasi federasi tingkat node/admin:** UI/endpoint untuk operator meninjau dan mem-BLOCKED domain remote (kolom `trust_state` sudah ada dan sudah ditegakkan di inbox, tapi belum ada tooling admin untuk mengelolanya); proteksi replay activity berbasis nonce/timestamp window (saat ini hanya dedup by activity id).
 - **Marketplace lanjutan:** checkout flow dengan payment, external-product labels, federated order-request workflow.
 - **Administration dashboard sungguhan:** endpoint backend untuk settings, integrasi, produk, order, payment, analitik.
 - **Monetisasi LLM/AI:** chatbot, paid CV gating, analytics, ad marketplace.
@@ -109,11 +110,17 @@ Berdasarkan roadmap dan gap terkini, pekerjaan dengan dampak tertinggi secara be
 
 1. **Adapter payment sungguhan** — integrasi Midtrans/Stripe dengan signed-webhook dan idempotency.
 2. **Checkout flow** — hubungkan order marketplace dengan payment gateway.
-3. **Federasi penuh** — node key management, remote actor discovery, signed activity delivery, inbox/outbox, moderasi.
+3. **Moderasi federasi & hardening** — UI/endpoint admin untuk mengelola `trust_state` remote node, proteksi replay berbasis nonce/timestamp window, dan uji coba nyata antar dua deployment FPDP yang saling follow lewat internet (baru diuji dalam satu proses/DB test, belum lintas-server sungguhan).
 4. **Administration dashboard backend** — endpoint untuk settings, produk, order, payment, analitik.
 5. **Authorization middleware** — model role/permission (admin vs owner) untuk proteksi route.
 
-## 7. Referensi
+## 7. Catatan operasional federasi (temuan sesi lanjutan)
+
+- **Dependensi `ext-sodium`:** `NodeKeyService` (generate/sign/verify Ed25519) mensyaratkan ekstensi PHP `sodium`. Di environment development lokal (XAMPP Windows), ekstensi ini **nonaktif secara default** di `php.ini` (`;extension=sodium`) — sudah diaktifkan untuk sesi ini agar test bisa jalan. `Dockerfile` produksi (`docker-php-ext-install pdo_mysql mbstring simplexml`) tidak secara eksplisit menginstal/mengaktifkan `sodium`; perlu diverifikasi pada image PHP target (biasanya sudah built-in sejak PHP 7.2, tapi jangan diasumsikan tanpa cek).
+- **Migration nyata belum tervalidasi di SQLite:** seluruh 33 file di `database/migrations/` (termasuk yang lama) gagal dijalankan langsung lewat `MigrationRunner` terhadap SQLite in-memory (`ALTER TABLE`, `KEY idx(...)`, `... ON UPDATE CURRENT_TIMESTAMP`, `COMMENT '...'` tidak didukung sintaks SQLite). Ini bukan regresi dari sesi ini — semua test yang ada (termasuk yang baru) menulis skema SQLite minimal sendiri secara manual, bukan menjalankan migration asli. Migration hanya tervalidasi terhadap MySQL/MariaDB di CI. Belum ada test yang menjalankan `database/migrations/*.sql` end-to-end terhadap MySQL nyata di repo ini.
+- **Asumsi satu node lokal per deployment:** endpoint publik `GET /api/v1/federation/capability` (dipakai node lain untuk discovery) memakai `NodeRepository::findFirst()` ketika dipanggil tanpa bearer token, karena skema DB mendukung banyak `nodes` per instalasi tapi tidak ada resolusi berbasis `Host` header. Cocok untuk model "satu owner per deployment" yang dijelaskan di §3, tapi perlu didesain ulang jika FPDP nanti benar-benar dipakai multi-tenant dalam satu instalasi.
+
+## 8. Referensi
 
 - [Work Breakdown Structure](WBS-TASK.md)
 - [Roadmap dan strategi pengembangan](ROADMAP.id.md)

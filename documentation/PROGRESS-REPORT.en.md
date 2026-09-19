@@ -2,7 +2,7 @@
 
 ## 1. Snapshot
 
-**As of:** 2026-09-19, verified directly against the code, migrations, tests, and routes in this repository (not only against planning documents).
+**As of:** 2026-09-19, verified directly against the code, migrations, tests, and routes in this repository (not only against planning documents). The federation section of this report was updated after a follow-up session that implemented end-to-end signature verification, remote node discovery, and inbox→processor wiring (see §3 and §4).
 
 FPDP has a working **engineering foundation** and most product phases implemented or in progress. The repository now includes:
 
@@ -11,9 +11,9 @@ FPDP has a working **engineering foundation** and most product phases implemente
 - **External content connectors** with SSRF-safe HTTP client and sync worker (Phase 3)
 - **Audit trail** wired across all services and **GitHub Actions CI** (Phase 4)
 - **Marketplace** with products, orders, and order items (Phase 5)
-- **Federated connections** API on public profiles (Phase 6)
+- **Signed-activity federation** (Phase 6): Ed25519 node identity, capability-document discovery, inbound signature verification, automatic Follow/Accept/Reject/Undo/Block handling through a public inbox, and a delivery worker with retry+backoff
 
-What remains is: real payment gateway adapters, full federation layer (node discovery, activity relay), advanced marketplace features (checkout with payment), and the administration dashboard backend.
+What remains is: node/admin-level federation moderation tooling, real payment gateway adapters, advanced marketplace features (checkout with payment), and the administration dashboard backend.
 
 This report cross-references the [Work Breakdown Structure](WBS-TASK.en.md) (workstreams 1.0–10.0) and the [Roadmap](ROADMAP.en.md) (phases 0–7) so progress can be read against either plan.
 
@@ -33,8 +33,8 @@ flowchart LR
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
     classDef todo fill:#f1e3e1,stroke:#a13d37,color:#17211b;
     class P0,P1,P2,P3,P5 done;
-    class P4 partial;
-    class P6,P7 todo;
+    class P4,P6 partial;
+    class P7 todo;
 ```
 
 | Workstream (WBS) | Status | Evidence |
@@ -43,12 +43,12 @@ flowchart LR
 | 2.0 Core platform architecture | **Done** | `Router`, `Database`, `MigrationRunner`, `HttpClient` (SSRF-safe), JSON envelope, exception mapping, factory pattern for payments/connectors |
 | 3.0 Authentication & user management | **Done** | Register/login/logout/`/me`, bcrypt, hashed bearer tokens, rate limiting; profile read/update by handle; visitor Google OAuth |
 | 4.0 Content and timeline | **Done** | Posts CRUD, draft/publish/soft-delete, media metadata (image/video/audio/file), canonical URLs, cursor-paginated public timeline, post editor UI |
-| 5.0 Federation layer | **Partially done** | Federated connections API (3 endpoints), `remote_nodes`/`remote_actors`/`federated_connections`/`federated_posts` tables; full node discovery & activity relay not started |
+| 5.0 Federation layer | **Mostly done** | Ed25519 node identity, capability-document discovery, inbound signature verification, automatic Follow/Accept/Reject/Undo/Block via a public inbox, delivery worker with retry+backoff (5 new tests); node/admin-level moderation tooling not started |
 | 6.0 Payment layer | **Partially done** | Interface, factory, dummy gateway, payment tables done; real gateway adapters, webhook verification, idempotency not started |
 | 7.0 External content integration | **Done** | RSS/Atom/Custom API connectors with HttpClient (SSRF-safe), SyncWorker, `sync-external.php` CLI for cron, dedup by (provider, external_post_id), timeline merge via `source_type=EXTERNAL` |
 | 8.0 Marketplace | **Done** | Products CRUD + Orders with immutable item snapshots + order status flow (14 test cases) |
 | 9.0 Administration dashboard | **Not started (mockup only)** | Prototyped as static HTML in [documentation/mockup](mockup/README.md); no real endpoints or views |
-| 10.0 Testing, security, deployment | **Partially done** | 22 passing test scripts; GitHub Actions CI workflow; Dokploy deployment guide (EN & ID); audit trail across auth/post/profile services; security audit not executed |
+| 10.0 Testing, security, deployment | **Partially done** | 22 passing test scripts; GitHub Actions CI workflow; Dokploy deployment guide (EN & ID); audit trail across auth/post/profile services; note: the real migrations under `database/migrations/` have never been validated to run against SQLite (every test hand-writes its own minimal schema — see §7) |
 
 ## 3. What is done
 
@@ -64,6 +64,7 @@ flowchart LR
 - **External content sync:** RSS, Atom, Custom API connectors refactored to use SSRF-safe HttpClient. `SyncWorker` fetches feed sources due for sync, deduplicates by (provider, external_post_id), persists to `external_posts`, updates sync status. CLI entry (`sync-external.php`) for cron jobs. Timeline supports `source_type=EXTERNAL`.
 - **Audit trail:** `AuditService` wired into AuthService (`user.registered/login/logout`), PostService (`post.created/deleted`), ProfileService (`profile.updated`). Null-safe integration.
 - **Federated connections:** 3 endpoints — public list (filtered), owner list (all), PATCH to update show_on_profile/mute/block. Cursor pagination. 13 test cases.
+- **Signed-activity federation (node identity, discovery, automatic inbox):** `NodeKeyService` generates an Ed25519 keypair per node and signs outgoing activities; `GET /api/v1/federation/capability` is now reachable without a bearer token (falls back to the single locally-hosted node) so remote servers can discover us. The new `NodeDiscoveryService` fetches the sender's capability document over the SSRF-safe HTTP client, caches its public key in `remote_node_keys`, and auto-registers unknown remote actors. `POST /api/v1/federation/inbox` is now a public endpoint (no longer requires the caller's own bearer token) and verifies each activity's signature against the discovered public key before processing — an invalid signature returns 403, and a sender domain marked `BLOCKED` in `remote_nodes` is rejected before any discovery attempt. Inbound `Follow`/`Undo`/`Block` activities are resolved to a local profile from the actor URI embedded in the payload; inbound `Accept`/`Reject` are matched back to the `Follow` we originally sent and update its status plus the resulting `federated_connections` row. `deliver-federation.php` (the delivery cron worker) now honors real exponential backoff (`federation_activities.next_attempt_at`, migration `0033`). 5 new tests (`FederationInboxTest`): valid signature, tampered signature, blocked domain, unsigned activity, and a full send-follow → inbound-Accept round trip.
 - **Marketplace:** Full product CRUD. Orders with immutable `product_snapshot` (preserves price & title at order time), auto-calculated totals, 6 statuses (PENDING→...→COMPLETED/CANCELLED/REFUNDED). Ownership validation. 14 test cases.
 - **Payment interfaces:** `PaymentGatewayInterface`, `PaymentGatewayFactory`, `PaymentService`, and `DummyPaymentGateway` (create/status/cancel/refund/webhook normalization). Factory only recognizes `DUMMY` and explicitly rejects any other code.
 - **Web UI (MVC):** Landing page, timeline (`/timeline`), public profile (`/@{handle}`), public post page, authenticated post editor (`/dashboard/posts`).
@@ -87,14 +88,14 @@ flowchart LR
 | Authentication & authorization | Bearer-token auth, ownership of the caller's own account | Role/permission model (admin vs owner), general-purpose authorization middleware, session-based auth for dashboard |
 | Audit trail | `AuditService` wired into 3 services (auth, post, profile) | Not yet wired into federation, marketplace, CV, and visitor services |
 | Payment lifecycle | Dummy create/status/cancel/refund/webhook normalization, factory pattern | Any real gateway adapter (Midtrans/Stripe), signed-webhook verification, replay/duplicate-event protection, gateway admin settings UI |
-| Federation | Federated connections API with actor/node/post tables, cursor pagination | Full federation: node discovery, remote actor model, signed activity delivery, inbox/outbox queue, follow/block/report controls |
+| Federation | Node identity + signing, capability discovery, signature-verified inbox, Follow/Accept/Reject/Undo/Block, delivery worker with backoff | Node/admin-level moderation UI for `trust_state`, replay protection beyond activity-id dedup (no nonce/timestamp window), real cross-server testing (only exercised within a single process/DB so far) |
 | Marketplace | Products CRUD, orders with immutable snapshots, status flow | Real checkout flow with payment integration, external-product labels, federated order-request workflow |
 | Testing & CI | 22 passing script-style tests, GitHub Actions workflow | No webhook-idempotency or connector-security tests, no performance benchmarks |
 
 ## 5. What is not started
 
 - **Real payment gateway adapters** (Midtrans, Stripe, etc.) and the security work that must ship with them (idempotency keys, signed-webhook verification, reconciliation).
-- **Full federation layer:** node discovery, remote actor model, signed activity delivery, inbox/outbox relay, moderation — design-only ([FEDERATION-CONCEPT.en.md](FEDERATION-CONCEPT.en.md)).
+- **Federation moderation & hardening:** admin UI/endpoints to manage remote-node `trust_state` (the column and inbox enforcement exist; no tooling to manage it), replay protection via nonce/timestamp window, and real cross-deployment testing over the network ([FEDERATION-CONCEPT.en.md](FEDERATION-CONCEPT.en.md) for the original design).
 - **Advanced marketplace:** checkout flow with real payment, external-product labels, federated order-request workflow.
 - **Administration dashboard (real):** the dashboard exists only as a static mockup; no backend endpoints, views, or auth-gated screens for settings, integrations, products, orders, payments, federation, or analytics.
 - **LLM/AI monetization:** chatbot, paid CV gating, analytics, ad marketplace — design-only ([AI-MONETIZATION-STRATEGY.en.md](AI-MONETIZATION-STRATEGY.en.md)).
@@ -107,11 +108,17 @@ Per the roadmap, the highest-leverage remaining work is, in order:
 
 1. **Real payment gateway adapters** — integrate Midtrans or Stripe with signed-webhook verification and idempotency. Unlocks the checkout flow.
 2. **Checkout flow** — connect marketplace orders with payment gateway, allowing buyers to complete purchases.
-3. **Full federation layer** — node key management, remote actor discovery, signed activity delivery, inbox/outbox queue, and moderation controls.
+3. **Federation moderation & hardening** — admin UI/endpoints for remote-node `trust_state`, nonce/timestamp-based replay protection, and a real network test between two independent FPDP deployments (only exercised in-process/in-DB so far).
 4. **Administration dashboard backend** — API endpoints for settings, integrations, products, orders, payments, and analytics to replace the static mockup.
 5. **Authorization middleware** — role/permission model (admin vs owner) and middleware for route protection.
 
-## 7. References
+## 7. Federation operational notes (from the follow-up session)
+
+- **`ext-sodium` dependency:** `NodeKeyService` (Ed25519 generate/sign/verify) requires PHP's `sodium` extension. On the local development environment (XAMPP on Windows) it was **disabled by default** in `php.ini` (`;extension=sodium`) — it has been enabled for this session so the tests can run. The production `Dockerfile` (`docker-php-ext-install pdo_mysql mbstring simplexml`) does not explicitly install/enable `sodium`; verify it is actually present on the target PHP image before relying on signed federation in production (it usually ships built-in since PHP 7.2, but don't assume without checking).
+- **Real migrations still unvalidated against SQLite:** all 33 files under `database/migrations/` (including pre-existing ones) fail when run directly through `MigrationRunner` against an in-memory SQLite database (`ALTER TABLE`, `KEY idx(...)`, `... ON UPDATE CURRENT_TIMESTAMP`, and `COMMENT '...'` are not valid SQLite syntax). This is not a regression from this session — every existing test (and the new one) hand-writes its own minimal SQLite schema instead of running the real migration files. Migrations are currently only validated against MySQL/MariaDB in CI; no test in this repo runs `database/migrations/*.sql` end-to-end against a real MySQL instance.
+- **Single-local-node assumption:** the public `GET /api/v1/federation/capability` endpoint (used by other nodes for discovery) falls back to `NodeRepository::findFirst()` when called without a bearer token, because the schema supports multiple `nodes` per install but there is no `Host`-header-based resolution. This matches the "one owner per deployment" model described in §3, but would need redesigning if FPDP is ever run as a genuine multi-tenant install.
+
+## 8. References
 
 - [Work Breakdown Structure](WBS-TASK.en.md)
 - [Development roadmap and strategy](ROADMAP.en.md)

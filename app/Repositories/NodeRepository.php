@@ -56,4 +56,20 @@ final class NodeRepository
 
         return $statement->fetchColumn() !== false;
     }
+
+    /**
+     * Returns the first locally-hosted node. FPDP deployments currently host
+     * a single owner node, so this is used to resolve "our own node" for
+     * endpoints (like federation capability discovery) that a remote server
+     * fetches without any local credentials.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findFirst(): ?array
+    {
+        $statement = $this->connection->query('SELECT * FROM nodes ORDER BY id ASC LIMIT 1');
+        $row = $statement->fetch();
+
+        return $row === false ? null : $row;
+    }
 }

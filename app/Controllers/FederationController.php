@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
@@ -129,10 +130,31 @@ final class FederationController
 
     // ---- Federation Node Identity ----
 
+    /**
+     * GET /api/v1/federation/capability
+     *
+     * Publicly fetchable discovery document (no auth) so remote nodes can
+     * learn our inbox/outbox/actor endpoints and public key. When called
+     * with a bearer token it describes that caller's own node instead,
+     * preserving the previous owner-diagnostic behaviour.
+     */
     public function capability(Request $request): Response
     {
-        $context = $this->auth->authenticate($request->bearerToken());
-        return JsonEnvelope::success($this->federation->getCapabilityDocument((int) $context['node']['id'], (string) ($context['node']['domain'] ?? 'localhost')));
+        $token = $request->bearerToken();
+        if ($token !== null) {
+            $context = $this->auth->authenticate($token);
+            $nodeId = (int) $context['node']['id'];
+            $domain = (string) ($context['node']['domain'] ?? 'localhost');
+        } else {
+            $node = $this->federation->getLocalNode();
+            if ($node === null) {
+                throw new NotFoundException('No local node registered.');
+            }
+            $nodeId = (int) $node['id'];
+            $domain = (string) $node['domain'];
+        }
+
+        return JsonEnvelope::success($this->federation->getCapabilityDocument($nodeId, $domain));
     }
 
     public function ensureKey(Request $request): Response
@@ -141,10 +163,17 @@ final class FederationController
         return JsonEnvelope::success($this->federation->ensureNodeKey((int) $context['node']['id']));
     }
 
+    /**
+     * POST /api/v1/federation/inbox
+     *
+     * Public federation delivery endpoint — remote servers deliver signed
+     * Follow/Undo/Accept/Reject/Block activities here without any local
+     * credentials, matching the inbox URL we advertise in our own
+     * capability document.
+     */
     public function inbox(Request $request): Response
     {
-        $context = $this->auth->authenticate($request->bearerToken());
-        return JsonEnvelope::success($this->federation->processIncomingActivity((int) $context['node']['id'], $request->json() ?? []));
+        return JsonEnvelope::success($this->federation->receiveActivity($request->json() ?? []), 202);
     }
 
     public function outbox(Request $request): Response
