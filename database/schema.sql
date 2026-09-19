@@ -137,3 +137,75 @@ CREATE TABLE IF NOT EXISTS integration_queue (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- Federated connections tables
+
+CREATE TABLE IF NOT EXISTS remote_nodes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(36) NOT NULL,
+    domain VARCHAR(255) NOT NULL,
+    name VARCHAR(128) NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    trust_state VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN',
+    last_seen_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_remote_node_public_id (public_id),
+    UNIQUE KEY unique_remote_node_domain (domain)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS remote_actors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(36) NOT NULL,
+    remote_node_id INT NOT NULL,
+    actor_uri VARCHAR(2048) NOT NULL,
+    federated_address VARCHAR(255) NOT NULL,
+    display_name VARCHAR(128) NULL,
+    avatar_url VARCHAR(2048) NULL,
+    canonical_url VARCHAR(2048) NULL,
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_remote_actor_public_id (public_id),
+    KEY idx_remote_actors_node (remote_node_id),
+    CONSTRAINT fk_remote_actors_node FOREIGN KEY (remote_node_id)
+        REFERENCES remote_nodes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS federated_connections (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(36) NOT NULL,
+    profile_id INT NOT NULL,
+    remote_actor_id INT NOT NULL,
+    relationship_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    show_on_profile TINYINT(1) NOT NULL DEFAULT 1,
+    accepted_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_fed_conn_public_id (public_id),
+    UNIQUE KEY unique_profile_actor (profile_id, remote_actor_id),
+    KEY idx_fed_conn_public_query (profile_id, show_on_profile, relationship_status, id),
+    CONSTRAINT fk_fed_conn_profile FOREIGN KEY (profile_id)
+        REFERENCES profiles (id) ON DELETE CASCADE,
+    CONSTRAINT fk_fed_conn_actor FOREIGN KEY (remote_actor_id)
+        REFERENCES remote_actors (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS federated_posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    public_id CHAR(36) NOT NULL,
+    remote_actor_id INT NOT NULL,
+    object_uri VARCHAR(2048) NOT NULL,
+    canonical_url VARCHAR(2048) NULL,
+    title VARCHAR(255) NULL,
+    content LONGTEXT NULL,
+    visibility VARCHAR(32) NOT NULL DEFAULT 'PUBLIC',
+    published_at TIMESTAMP NULL,
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    UNIQUE KEY unique_fed_post_public_id (public_id),
+    KEY idx_fed_post_actor_latest (remote_actor_id, published_at, id),
+    CONSTRAINT fk_fed_post_actor FOREIGN KEY (remote_actor_id)
+        REFERENCES remote_actors (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

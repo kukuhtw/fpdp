@@ -8,6 +8,7 @@ use App\Controllers\ContentPageController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\ProfileController;
+use App\Controllers\FederationController;
 use App\Controllers\PostController;
 use App\Controllers\VisitorAuthController;
 use App\Core\Config;
@@ -21,11 +22,16 @@ use App\Repositories\CvDocumentRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\PostRepository;
+use App\Repositories\RemoteActorRepository;
+use App\Repositories\RemoteNodeRepository;
+use App\Repositories\FederatedConnectionRepository;
+use App\Repositories\FederatedPostRepository;
 use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
 use App\Repositories\VisitorTokenRepository;
 use App\Services\Auth\AuthService;
+use App\Services\Federation\FederationService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Cv\CvDocumentService;
 use App\Services\Payment\PaymentService;
@@ -116,6 +122,20 @@ $buildCvController = static function () use ($buildAuthService, $buildVisitorAut
             new CvAccessGrantRepository($connection),
             new PaymentService(),
             $cvStorageDirectory,
+        ),
+    );
+};
+$buildFederationController = static function () use ($buildAuthService): FederationController {
+    $connection = Database::connection();
+
+    return new FederationController(
+        $buildAuthService(),
+        new FederationService(
+            new FederatedConnectionRepository($connection),
+            new RemoteActorRepository($connection),
+            new RemoteNodeRepository($connection),
+            new FederatedPostRepository($connection),
+            new ProfileRepository($connection),
         ),
     );
 };
@@ -216,4 +236,15 @@ $router->get('/api/v1/profiles/{handle}/cv/download', function (Request $request
     return $buildCvController()->download($request, $params);
 });
 
+$router->get('/api/v1/profiles/{handle}/federated-connections', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->listPublicByHandle($request, $params);
+});
+
+$router->get('/api/v1/me/federated-connections', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->listOwnConnections($request);
+});
+
+$router->patch('/api/v1/me/federated-connections/{connectionId}', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->updateConnection($request, $params);
+});
 return $router;
