@@ -1,0 +1,83 @@
+# Composer dependencies and local tooling
+/vendor/
+/composer.phar
+/.phpunit.result.cache
+/.phpunit.cache/
+/.php-cs-fixer.cache
+/.phpstan.cache/
+/.phpactor.json
+
+# Environment files and local secrets
+/.env
+/.env.*
+!/.env.example
+!/.env.testing.example
+
+# Runtime data
+/storage/cache/
+/storage/logs/
+/storage/sessions/
+/storage/tmp/
+/storage/queue/
+/bootstrap/cache/*.php
+!/bootstrap/cache/.gitignore
+*.log
+*.pid
+*.seed
+*.tmp
+*.temp
+
+# Test and analysis output
+/coverage/
+/build/
+/.coverage/
+/.reports/
+/junit.xml
+/clover.xml
+
+# Local database files, exports, and backups
+*.sqlite
+*.sqlite3
+*.db
+*.sql.gz
+*.sql.zip
+*.dump
+*.bak
+/database/backups/
+
+# Frontend dependencies and generated assets (if introduced later)
+/node_modules/
+/.npm/
+/.yarn/
+/.pnpm-store/
+/public/build/
+/public/hot
+
+# IDE and editor metadata
+/.idea/
+/.vscode/
+/.fleet/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Operating-system metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Local web-server and XAMPP artifacts
+/.htaccess.local
+/php_error_log
+/access.log
+/error.log
+
+# Local agent/tool state
+/.agents/
+/.codex/

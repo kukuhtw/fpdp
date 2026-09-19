@@ -232,6 +232,7 @@ Start with the [documentation index](documentation/README.md). Product requireme
 
 - [Development roadmap and strategy — English](documentation/ROADMAP.en.md)
 - [Roadmap dan strategi pengembangan — Bahasa Indonesia](documentation/ROADMAP.id.md)
+- [Interactive dashboard and public-profile mockup](documentation/mockup/README.md)
 
 ---
 
@@ -457,6 +458,7 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 
 - [Development roadmap and strategy — English](documentation/ROADMAP.en.md)
 - [Roadmap dan strategi pengembangan — Bahasa Indonesia](documentation/ROADMAP.id.md)
+- [Mockup interaktif dashboard dan profil publik](documentation/mockup/README.md)
 
 ---
 

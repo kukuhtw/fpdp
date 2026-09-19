@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="id" dir="ltr" data-locale-path="locales/">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive FPDP owner dashboard mockup">
+  <title>FPDP · Owner Dashboard Mockup</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Dashboard navigation">
+      <a class="brand" href="#overview" data-page-target="overview">
+        <span class="brand-mark">N</span>
+        <span class="brand-copy"><strong data-i18n="app.name">Nadi</strong><span data-i18n="app.product">Personal Digital Home</span></span>
+      </a>
+
+      <nav class="side-nav">
+        <button class="nav-item active" data-page-target="overview"><span class="nav-icon">⌂</span><span data-i18n="nav.overview">Ringkasan</span></button>
+        <button class="nav-item" data-page-target="content"><span class="nav-icon">✎</span><span data-i18n="nav.content">Konten</span><span class="nav-badge">3</span></button>
+        <button class="nav-item" data-page-target="timeline"><span class="nav-icon">≋</span><span data-i18n="nav.timeline">Timeline</span></button>
+        <button class="nav-item" data-page-target="integrations"><span class="nav-icon">⌁</span><span data-i18n="nav.integrations">Integrasi</span><span class="nav-badge">1</span></button>
+      </nav>
+
+      <div class="nav-label" data-i18n="nav.commerce">Commerce</div>
+      <nav class="side-nav">
+        <button class="nav-item" data-page-target="products"><span class="nav-icon">◇</span><span data-i18n="nav.products">Produk</span></button>
+        <button class="nav-item" data-page-target="orders"><span class="nav-icon">▤</span><span data-i18n="nav.orders">Order</span><span class="nav-badge">2</span></button>
+        <button class="nav-item" data-page-target="payments"><span class="nav-icon">◉</span><span data-i18n="nav.payments">Pembayaran</span></button>
+      </nav>
+
+      <div class="nav-label">Network</div>
+      <nav class="side-nav">
+        <button class="nav-item" data-page-target="federation"><span class="nav-icon">◎</span><span data-i18n="nav.federation">Federasi</span></button>
+        <button class="nav-item" data-page-target="analytics"><span class="nav-icon">↗</span><span data-i18n="nav.analytics">Analitik</span></button>
+        <button class="nav-item" data-page-target="settings"><span class="nav-icon">⚙</span><span data-i18n="nav.settings">Pengaturan</span></button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <a class="nav-item" href="public-profile.html"><span class="nav-icon">↗</span><span data-i18n="nav.viewSite">Lihat situs publik</span></a>
+        <div class="node-card">
+          <div class="node-card-top">
+            <div class="avatar">M</div>
+            <div><strong>Maya Pradana</strong><span>maya.id</span></div>
+            <i class="online-dot" aria-hidden="true"></i>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="app-main">
+      <header class="topbar">
+        <button class="icon-button mobile-toggle" data-mobile-toggle aria-label="Open navigation">☰</button>
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input type="search" data-i18n-placeholder="common.search" placeholder="Cari apa saja…">
+          <span class="search-shortcut">/</span>
+        </div>
+        <div class="top-actions">
+          <select class="locale-select" data-language-select aria-label="Language"></select>
+          <button class="icon-button" data-i18n-aria-label="common.notifications" aria-label="Notifikasi">♢</button>
+          <button class="button button-primary" data-go-page="content"><span>＋</span><span data-i18n="header.newPost">Post baru</span></button>
+        </div>
+      </header>
+
+      <section class="page active" data-page="overview">
+        <div class="page-head">
+          <div><p class="eyebrow" data-i18n="overview.eyebrow">SABTU, 19 SEPTEMBER</p><h1 class="page-title" data-i18n="overview.title">Selamat pagi, Maya.</h1><p class="page-subtitle" data-i18n="overview.subtitle">Digital home Anda dalam kondisi baik.</p></div>
+          <div class="head-actions"><a class="button button-secondary" href="public-profile.html" data-i18n="nav.viewSite">Lihat situs publik</a><button class="button button-primary" data-go-page="content" data-i18n="header.newPost">Post baru</button></div>
+        </div>
+
+        <div class="grid grid-4" style="margin-bottom:18px">
+          <article class="card metric-card"><span class="metric-icon">◌</span><div><span class="metric-label" data-i18n="overview.profileViews">Kunjungan profil</span><div class="metric-value"><strong>2,481</strong><span class="trend">↑ 18%</span></div></div></article>
+          <article class="card metric-card"><span class="metric-icon">↗</span><div><span class="metric-label" data-i18n="overview.contentReach">Jangkauan konten</span><div class="metric-value"><strong>8.9K</strong><span class="trend">↑ 9%</span></div></div></article>
+          <article class="card metric-card"><span class="metric-icon">◎</span><div><span class="metric-label" data-i18n="overview.followers">Pengikut federasi</span><div class="metric-value"><strong>1,204</strong><span class="trend">↑ 34</span></div></div></article>
+          <article class="card metric-card"><span class="metric-icon">◇</span><div><span class="metric-label" data-i18n="overview.revenue">Pendapatan bulan ini</span><div class="metric-value"><strong>Rp8,4jt</strong><span class="trend">↑ 12%</span></div></div></article>
+        </div>
+
+        <div class="grid grid-main">
+          <div class="grid">
+            <article class="card">
+              <div class="health-banner"><span class="health-icon">✓</span><div class="health-copy"><strong data-i18n="overview.allSystems">Semua sistem beroperasi</strong><span data-i18n="overview.nodeHealth">Kesehatan node</span></div><span class="health-time" data-i18n="overview.lastChecked">Baru saja diperiksa</span></div>
+              <div class="status-list">
+                <div class="status-row"><i class="status-dot"></i><strong data-i18n="overview.web">Website publik</strong><span>42ms</span></div>
+                <div class="status-row"><i class="status-dot"></i><strong data-i18n="overview.database">Database</strong><span>18ms</span></div>
+                <div class="status-row"><i class="status-dot"></i><strong data-i18n="overview.workers">Worker sinkronisasi</strong><span>3 / 3</span></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-header"><h2 class="card-title" data-i18n="overview.recentActivity">Aktivitas terbaru</h2><button class="card-link" data-i18n="common.viewAll">Lihat semua</button></div>
+              <div class="activity-list">
+                <div class="activity"><span class="activity-icon">✎</span><div><p data-i18n="overview.activity1">Artikel telah diterbitkan.</p><time data-i18n="overview.minutesAgo">12 menit lalu</time></div><span class="activity-source">LOCAL</span></div>
+                <div class="activity"><span class="activity-icon">⌁</span><div><p data-i18n="overview.activity2">Sinkronisasi RSS mengimpor 4 post.</p><time data-i18n="overview.hourAgo">1 jam lalu</time></div><span class="activity-source">RSS</span></div>
+                <div class="activity"><span class="activity-icon">◇</span><div><p data-i18n="overview.activity3">Order dibayar.</p><time data-i18n="overview.hoursAgo">3 jam lalu</time></div><span class="activity-source">SHOP</span></div>
+                <div class="activity"><span class="activity-icon">◎</span><div><p data-i18n="overview.activity4">Node baru mengikuti Anda.</p><time data-i18n="overview.yesterday">Kemarin</time></div><span class="activity-source">FED</span></div>
+              </div>
+            </article>
+          </div>
+
+          <aside class="grid">
+            <article class="card"><div class="card-header"><h2 class="card-title" data-i18n="overview.quickActions">Aksi cepat</h2></div><div class="quick-grid">
+              <button class="quick-action" data-go-page="content"><span>✎</span><span data-i18n="overview.writePost">Tulis post</span></button>
+              <button class="quick-action" data-go-page="integrations"><span>⌁</span><span data-i18n="overview.connectSource">Hubungkan sumber</span></button>
+              <button class="quick-action" data-go-page="products"><span>◇</span><span data-i18n="overview.addProduct">Tambah produk</span></button>
+              <button class="quick-action" data-go-page="settings"><span>◌</span><span data-i18n="overview.customizeProfile">Atur profil</span></button>
+            </div></article>
+            <article class="card"><div class="card-header"><h2 class="card-title" data-i18n="overview.timelineMix">Komposisi timeline</h2></div><div class="mix-bar"><i class="mix-local"></i><i class="mix-external"></i><i class="mix-federated"></i></div><div class="legend"><div><strong>54%</strong><span data-i18n="overview.local">Lokal</span></div><div><strong>31%</strong><span data-i18n="overview.external">Eksternal</span></div><div><strong>15%</strong><span data-i18n="overview.federated">Federasi</span></div></div></article>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page" data-page="content">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="content.title">Konten</h1><p class="page-subtitle" data-i18n="content.subtitle">Buat dan kelola semua konten.</p></div><button class="button button-primary"><span>＋</span><span data-i18n="content.create">Buat konten</span></button></div>
+        <div class="tabs"><button class="tab active" data-i18n="content.all">Semua konten</button><button class="tab" data-i18n="content.posts">Post</button><button class="tab" data-i18n="content.drafts">Draft</button><button class="tab" data-i18n="content.media">Media</button></div>
+        <article class="card table-wrap"><table class="data-table"><thead><tr><th data-i18n="content.colTitle">Judul</th><th data-i18n="content.colStatus">Status</th><th data-i18n="content.colVisibility">Visibilitas</th><th data-i18n="content.colUpdated">Diperbarui</th><th></th></tr></thead><tbody>
+          <tr><td><strong data-i18n="content.post1">Designing for digital ownership</strong><span class="row-sub">/writing/digital-ownership</span></td><td><span class="badge badge-green" data-i18n="common.published">Terbit</span></td><td data-i18n="content.public">Publik</td><td data-i18n="content.today">Hari ini, 09:42</td><td><button class="more-button">⋯</button></td></tr>
+          <tr><td><strong data-i18n="content.post2">Pelajaran dari membangun node independen</strong><span class="row-sub">/writing/independent-node</span></td><td><span class="badge badge-yellow" data-i18n="common.draft">Draft</span></td><td data-i18n="content.private">Privat</td><td data-i18n="content.yesterday">Kemarin, 16:20</td><td><button class="more-button">⋯</button></td></tr>
+          <tr><td><strong data-i18n="content.post3">Catatan lapangan September</strong><span class="row-sub">/notes/september</span></td><td><span class="badge badge-green" data-i18n="common.published">Terbit</span></td><td data-i18n="content.unlisted">Tidak terdaftar</td><td data-i18n="content.sep15">15 Sep 2026</td><td><button class="more-button">⋯</button></td></tr>
+        </tbody></table></article>
+      </section>
+
+      <section class="page" data-page="timeline">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="timeline.title">Timeline terpadu</h1><p class="page-subtitle" data-i18n="timeline.subtitle">Tinjau semua sumber.</p></div><select class="locale-select"><option data-i18n="timeline.filterAll">Semua sumber</option><option>Local</option><option>RSS</option><option>Federated</option></select></div>
+        <div class="timeline-feed">
+          <article class="post-card"><div class="post-source"><span class="source-mark">N</span><div><strong>Maya Pradana · maya.id</strong><span data-i18n="timeline.localPost">Diterbitkan dari node Anda</span></div></div><h3 data-i18n="timeline.post1">Designing for digital ownership</h3><p data-i18n="timeline.post1Body">Kerangka praktis untuk membangun produk.</p><div class="post-footer"><span>LOCAL</span><span>maya.id/writing/digital-ownership</span><span>09:42</span></div></article>
+          <article class="post-card"><div class="post-source"><span class="source-mark rss">R</span><div><strong>Studio Notes</strong><span data-i18n="timeline.rssPost">Diimpor melalui RSS</span></div></div><h3 data-i18n="timeline.post2">Interface kecil, sistem tahan lama</h3><p data-i18n="timeline.post2Body">Catatan extension point.</p><div class="post-footer"><span>EXTERNAL · RSS</span><span>studionotes.example/post/42 ↗</span><span>08:16</span></div></article>
+          <article class="post-card"><div class="post-source"><span class="source-mark fed">A</span><div><strong>Ari · arinode.id</strong><span data-i18n="timeline.fedPost">Federasi dari ari@arinode.id</span></div></div><h3 data-i18n="timeline.post3">Ruang milik komunitas</h3><p data-i18n="timeline.post3Body">Teknologi dan moderasi sama pentingnya.</p><div class="post-footer"><span>FEDERATED</span><span>arinode.id/notes/community-space ↗</span><span>Yesterday</span></div></article>
+        </div>
+      </section>
+
+      <section class="page" data-page="integrations">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="integrations.title">Integrasi</h1><p class="page-subtitle" data-i18n="integrations.subtitle">Bawa konten eksternal tanpa kehilangan atribusi.</p></div><button class="button button-primary"><span>＋</span><span data-i18n="integrations.add">Hubungkan sumber</span></button></div>
+        <div class="grid grid-main">
+          <article class="card"><div class="card-header"><h2 class="card-title" data-i18n="common.connected">Terhubung</h2></div><div class="integration-list">
+            <div class="integration-row"><span class="integration-logo">RSS</span><div class="integration-copy"><strong data-i18n="integrations.rss">Studio Notes RSS</strong><span data-i18n="integrations.rssMeta">Disinkronkan 18 menit lalu · 48 item</span></div><span class="badge badge-green" data-i18n="common.connected">Terhubung</span><button class="more-button">⋯</button></div>
+            <div class="integration-row"><span class="integration-logo atom">A</span><div class="integration-copy"><strong data-i18n="integrations.atom">Research Journal Atom</strong><span data-i18n="integrations.atomMeta">Disinkronkan 2 jam lalu · 16 item</span></div><span class="badge badge-green" data-i18n="common.connected">Terhubung</span><button class="more-button">⋯</button></div>
+            <div class="integration-row"><span class="integration-logo api">API</span><div class="integration-copy"><strong data-i18n="integrations.api">Portfolio API</strong><span data-i18n="integrations.apiMeta">Perlu diperiksa</span></div><span class="badge badge-red" data-i18n="common.failed">Gagal</span><button class="button button-secondary" data-i18n="common.retry">Coba lagi</button></div>
+          </div></article>
+          <article class="card"><div class="card-header"><h2 class="card-title" data-i18n="overview.nodeHealth">Kesehatan node</h2></div><div class="status-list"><div class="status-row"><i class="status-dot"></i><strong>RSS worker</strong><span>Operational</span></div><div class="status-row"><i class="status-dot"></i><strong>Atom worker</strong><span>Operational</span></div><div class="status-row"><i class="status-dot" style="background:#d2923c"></i><strong>Custom API</strong><span>1 issue</span></div></div></article>
+        </div>
+        <h2 style="margin:32px 0 15px;font:500 25px var(--font-display)" data-i18n="integrations.available">Connector tersedia</h2>
+        <div class="grid grid-3"><article class="card connector-card"><span class="integration-logo">RSS</span><h3>RSS 2.0</h3><p data-i18n="integrations.rssDesc">Hubungkan feed RSS.</p><button class="button button-secondary" data-i18n="common.setup">Siapkan</button></article><article class="card connector-card"><span class="integration-logo atom">A</span><h3>Atom</h3><p data-i18n="integrations.atomDesc">Impor Atom feed.</p><button class="button button-secondary" data-i18n="common.setup">Siapkan</button></article><article class="card connector-card"><span class="integration-logo api">API</span><h3>Custom API</h3><p data-i18n="integrations.apiDesc">Petakan endpoint JSON.</p><button class="button button-secondary" data-i18n="common.setup">Siapkan</button></article></div>
+      </section>
+
+      <section class="page" data-page="products">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="products.title">Produk</h1><p class="page-subtitle" data-i18n="products.subtitle">Kelola produk dan jasa.</p></div><button class="button button-primary"><span>＋</span><span data-i18n="products.add">Tambah produk</span></button></div>
+        <article class="card table-wrap"><table class="data-table"><thead><tr><th data-i18n="products.name">Produk</th><th data-i18n="products.price">Harga</th><th data-i18n="products.stock">Stok</th><th data-i18n="products.status">Status</th><th></th></tr></thead><tbody>
+          <tr><td><strong data-i18n="products.product1">Workshop identitas digital</strong><span class="row-sub">90-minute online workshop</span></td><td>Rp1.250.000</td><td data-i18n="products.unlimited">Tak terbatas</td><td><span class="badge badge-green" data-i18n="common.active">Aktif</span></td><td><button class="more-button">⋯</button></td></tr>
+          <tr><td><strong data-i18n="products.product2">Panduan independent web</strong><span class="row-sub">PDF · 64 pages</span></td><td>Rp149.000</td><td>84</td><td><span class="badge badge-green" data-i18n="common.active">Aktif</span></td><td><button class="more-button">⋯</button></td></tr>
+          <tr><td><strong data-i18n="products.product3">Sesi review portfolio</strong><span class="row-sub">45-minute video call</span></td><td>Rp750.000</td><td>6</td><td><span class="badge badge-yellow" data-i18n="common.draft">Draft</span></td><td><button class="more-button">⋯</button></td></tr>
+        </tbody></table></article>
+      </section>
+
+      <section class="page" data-page="orders">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="orders.title">Order</h1><p class="page-subtitle" data-i18n="orders.subtitle">Pantau order pelanggan.</p></div></div>
+        <article class="card table-wrap"><table class="data-table"><thead><tr><th data-i18n="orders.order">Order</th><th data-i18n="orders.customer">Pelanggan</th><th data-i18n="orders.total">Total</th><th data-i18n="orders.status">Status</th><th data-i18n="orders.date">Tanggal</th></tr></thead><tbody>
+          <tr><td><strong>#FP-1048</strong><span class="row-sub" data-i18n="products.product2">Panduan independent web</span></td><td>Rina Mahesa</td><td>Rp149.000</td><td><span class="badge badge-green" data-i18n="orders.fulfilled">Selesai</span></td><td>19 Sep 2026</td></tr>
+          <tr><td><strong>#FP-1047</strong><span class="row-sub" data-i18n="products.product1">Workshop identitas digital</span></td><td>Bagas Putra</td><td>Rp1.250.000</td><td><span class="badge badge-blue" data-i18n="orders.processing">Diproses</span></td><td>18 Sep 2026</td></tr>
+          <tr><td><strong>#FP-1046</strong><span class="row-sub" data-i18n="products.product3">Sesi review portfolio</span></td><td>Nina Aditya</td><td>Rp750.000</td><td><span class="badge badge-yellow" data-i18n="common.pending">Menunggu</span></td><td>18 Sep 2026</td></tr>
+        </tbody></table></article>
+      </section>
+
+      <section class="page" data-page="payments">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="payments.title">Pembayaran</h1><p class="page-subtitle" data-i18n="payments.subtitle">Pantau transaksi dan gateway.</p></div></div>
+        <div class="kpi-strip"><div class="kpi"><span data-i18n="payments.balance">Saldo tersedia</span><strong>Rp8.420.000</strong></div><div class="kpi"><span data-i18n="payments.pendingSettlement">Settlement tertunda</span><strong>Rp1.399.000</strong></div><div class="kpi"><span data-i18n="payments.successRate">Tingkat keberhasilan</span><strong>98.4%</strong></div><div class="kpi"><span data-i18n="payments.gateway">Gateway aktif</span><strong>1</strong></div></div>
+        <article class="card gateway-card"><span class="gateway-logo">PG</span><div><strong>Payment Gateway</strong><div class="muted small">Production · Webhook healthy</div></div><span class="badge badge-green" data-i18n="common.active">Aktif</span><button class="button button-secondary" data-i18n="payments.configure">Atur gateway</button></article>
+        <article class="card table-wrap"><div class="card-header"><h2 class="card-title" data-i18n="payments.transactions">Transaksi terbaru</h2></div><table class="data-table"><thead><tr><th data-i18n="payments.transaction">Transaksi</th><th data-i18n="orders.customer">Pelanggan</th><th data-i18n="payments.method">Metode</th><th data-i18n="payments.amount">Nominal</th><th data-i18n="payments.status">Status</th></tr></thead><tbody><tr><td>PAY-82F91A</td><td>Rina Mahesa</td><td>Bank transfer</td><td>Rp149.000</td><td><span class="badge badge-green" data-i18n="common.paid">Dibayar</span></td></tr><tr><td>PAY-82F8ED</td><td>Bagas Putra</td><td>QRIS</td><td>Rp1.250.000</td><td><span class="badge badge-green" data-i18n="common.paid">Dibayar</span></td></tr><tr><td>PAY-82F7B1</td><td>Nina Aditya</td><td>Virtual account</td><td>Rp750.000</td><td><span class="badge badge-yellow" data-i18n="common.pending">Menunggu</span></td></tr></tbody></table></article>
+      </section>
+
+      <section class="page" data-page="federation">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="federation.title">Federasi</h1><p class="page-subtitle" data-i18n="federation.subtitle">Kelola hubungan node dengan jaringan.</p></div></div>
+        <div class="grid grid-main">
+          <article class="card identity-card"><h2 class="card-title" data-i18n="federation.identity">Identitas node</h2><div class="identity-address">@maya@maya.id</div><div class="identity-meta"><span><b data-i18n="federation.protocol">Versi protokol</b> · 0.1</span><span><b data-i18n="federation.delivery">Kesehatan delivery</b> · <span data-i18n="federation.good">Sehat</span></span></div></article>
+          <article class="card"><div class="card-header"><h2 class="card-title" data-i18n="federation.moderation">Moderasi</h2></div><div class="setting-row"><div><strong data-i18n="federation.blocked">Node diblokir</strong><span>3 nodes</span></div><button class="button button-secondary" data-i18n="common.manage">Kelola</button></div><div class="setting-row"><div><strong data-i18n="federation.reports">Laporan terbuka</strong><span>1 report</span></div><button class="button button-secondary" data-i18n="common.manage">Kelola</button></div></article>
+        </div>
+        <div class="grid grid-3" style="margin-top:18px"><article class="card metric-card"><span class="metric-icon">◎</span><div><span class="metric-label" data-i18n="federation.followers">Pengikut</span><div class="metric-value"><strong>1,204</strong></div></div></article><article class="card metric-card"><span class="metric-icon">↗</span><div><span class="metric-label" data-i18n="federation.following">Mengikuti</span><div class="metric-value"><strong>186</strong></div></div></article><article class="card"><div class="card-header"><h2 class="card-title" data-i18n="federation.capabilities">Capability</h2></div><div class="capabilities"><span class="capability">PROFILE</span><span class="capability">CONTENT</span><span class="capability">PRODUCTS</span><span class="capability">PAYMENTS</span></div></article></div>
+      </section>
+
+      <section class="page" data-page="analytics">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="analytics.title">Analitik</h1><p class="page-subtitle" data-i18n="analytics.subtitle">Pahami engagement tanpa tracking lintas web.</p></div></div>
+        <div class="grid grid-4" style="margin-bottom:18px"><article class="card metric-card"><span class="metric-label" data-i18n="analytics.visitors">Pengunjung unik</span><div class="metric-value"><strong>1,892</strong><span class="trend">↑ 11%</span></div></article><article class="card metric-card"><span class="metric-label" data-i18n="analytics.views">Tayangan konten</span><div class="metric-value"><strong>8,940</strong><span class="trend">↑ 9%</span></div></article><article class="card metric-card"><span class="metric-label" data-i18n="analytics.clicks">Klik keluar</span><div class="metric-value"><strong>624</strong><span class="trend">↑ 6%</span></div></article><article class="card metric-card"><span class="metric-label" data-i18n="analytics.conversion">Konversi toko</span><div class="metric-value"><strong>3.8%</strong><span class="trend">↑ .4%</span></div></article></div>
+        <div class="grid grid-main"><article class="card"><div class="card-header"><h2 class="card-title" data-i18n="analytics.traffic">Traffic 7 hari terakhir</h2></div><div class="chart"><i class="bar" style="height:42%" data-day="M"></i><i class="bar" style="height:57%" data-day="T"></i><i class="bar" style="height:49%" data-day="W"></i><i class="bar" style="height:73%" data-day="T"></i><i class="bar" style="height:68%" data-day="F"></i><i class="bar active" style="height:91%" data-day="S"></i><i class="bar" style="height:62%" data-day="S"></i></div></article><article class="card"><div class="card-header"><h2 class="card-title" data-i18n="analytics.topContent">Konten teratas</h2></div><div class="status-list"><div class="status-row"><strong data-i18n="content.post1">Designing for digital ownership</strong><span>3,204</span></div><div class="status-row"><strong data-i18n="timeline.post2">Interface kecil</strong><span>1,822</span></div><div class="status-row"><strong data-i18n="content.post3">Catatan September</strong><span>1,094</span></div></div></article></div>
+      </section>
+
+      <section class="page" data-page="settings">
+        <div class="page-head"><div><h1 class="page-title" data-i18n="settings.title">Pengaturan</h1><p class="page-subtitle" data-i18n="settings.subtitle">Kelola identitas, node, bahasa, dan keamanan.</p></div></div>
+        <div class="settings-layout">
+          <nav class="settings-nav"><button class="settings-tab active" data-settings-target="profile"><span>◌</span><span data-i18n="settings.profile">Profil</span></button><button class="settings-tab" data-settings-target="appearance"><span>◐</span><span data-i18n="settings.appearance">Tampilan</span></button><button class="settings-tab" data-settings-target="language"><span>文</span><span data-i18n="settings.language">Bahasa & wilayah</span></button><button class="settings-tab" data-settings-target="security"><span>⌾</span><span data-i18n="settings.security">Keamanan</span></button><button class="settings-tab" data-settings-target="node"><span>◎</span><span data-i18n="settings.node">Konfigurasi node</span></button></nav>
+          <div>
+            <article class="card settings-panel active" data-settings-panel="profile"><div class="card-header"><h2 class="card-title" data-i18n="settings.profileTitle">Profil publik</h2><a class="card-link" href="public-profile.html" data-i18n="common.preview">Pratinjau</a></div><div class="form-grid"><div class="field"><label data-i18n="settings.displayName">Nama tampilan</label><input value="Maya Pradana"></div><div class="field"><label>Handle</label><input value="maya" readonly></div><div class="field full"><label data-i18n="settings.bio">Bio</label><textarea>Saya mendesain produk digital yang tenang dan membangun independent web.</textarea></div><div class="field full"><label data-i18n="settings.domain">Domain utama</label><input value="maya.id"></div></div><div class="settings-actions"><button class="button button-secondary" data-i18n="common.cancel">Batal</button><button class="button button-primary" data-save-settings data-i18n="common.save">Simpan perubahan</button></div></article>
+
+            <article class="card settings-panel" data-settings-panel="appearance"><div class="card-header"><h2 class="card-title" data-i18n="settings.appearanceTitle">Tampilan</h2></div><div class="form-grid"><div class="field"><label data-i18n="settings.theme">Tema warna</label><select><option data-i18n="settings.themeLight">Terang</option><option data-i18n="settings.themeDark">Gelap</option></select></div><div class="field"><label data-i18n="settings.accent">Warna aksen</label><input type="color" value="#185f48" style="height:44px"></div></div><div class="settings-actions"><button class="button button-primary" data-save-settings data-i18n="common.save">Simpan perubahan</button></div></article>
+
+            <article class="card settings-panel" data-settings-panel="language"><div class="card-header"><h2 class="card-title" data-i18n="settings.languageTitle">Bahasa aplikasi</h2></div><p class="page-subtitle" data-i18n="settings.languageHelp">Pilihan ini mengubah antarmuka pada browser ini.</p><div class="form-grid" style="margin-top:20px"><div class="field"><label data-i18n="common.language">Bahasa</label><select data-language-select></select><span class="field-help">localStorage: <code>fpdp.locale</code></span></div><div class="field"><label data-i18n="settings.timezone">Zona waktu</label><select><option>Asia/Jakarta (UTC+7)</option><option>UTC</option><option>Europe/London</option></select></div><div class="field"><label data-i18n="settings.dateFormat">Format tanggal</label><select><option>19 Sep 2026</option><option>Sep 19, 2026</option><option>2026-09-19</option></select></div><div class="field"><label data-i18n="settings.localeFile">Registry locale</label><input value="locales/languages.json" readonly></div></div><div style="margin-top:25px"><h3 style="font-size:13px" data-i18n="settings.addLanguage">Tambahkan bahasa melalui JSON</h3><p class="field-help" data-i18n="settings.addLanguageHelp">Salin file locale dan daftarkan.</p><pre class="code-note">{
+  "code": "ja",
+  "name": "日本語",
+  "englishName": "Japanese",
+  "direction": "ltr",
+  "file": "ja.json",
+  "enabled": true
+}</pre></div><div class="settings-actions"><button class="button button-primary" data-save-settings data-i18n="common.save">Simpan perubahan</button></div></article>
+
+            <article class="card settings-panel" data-settings-panel="security"><div class="card-header"><h2 class="card-title" data-i18n="settings.securityTitle">Keamanan</h2></div><div class="setting-row"><div><strong data-i18n="settings.password">Password</strong><span>Last changed 24 days ago</span></div><button class="button button-secondary" data-i18n="common.edit">Edit</button></div><div class="setting-row"><div><strong data-i18n="settings.twoFactor">Autentikasi dua faktor</strong><span>Authenticator application</span></div><button class="toggle on" aria-pressed="true"></button></div><div class="setting-row"><div><strong data-i18n="settings.sessions">Sesi aktif</strong><span>2 devices</span></div><button class="button button-secondary" data-i18n="common.manage">Kelola</button></div></article>
+
+            <article class="card settings-panel" data-settings-panel="node"><div class="card-header"><h2 class="card-title" data-i18n="settings.nodeTitle">Konfigurasi node</h2></div><div class="form-grid"><div class="field"><label data-i18n="settings.nodeName">Nama node</label><input value="Nadi"></div><div class="field"><label data-i18n="settings.registration">Registrasi</label><select><option data-i18n="settings.registrationClosed">Ditutup</option><option>Invite only</option></select></div><div class="field full"><label>API base URL</label><input value="https://maya.id/api/v1" readonly></div></div><div class="settings-actions"><button class="button button-primary" data-save-settings data-i18n="common.save">Simpan perubahan</button></div></article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" data-toast role="status"></div>
+</body>
+</html>

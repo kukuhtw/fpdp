@@ -13,6 +13,7 @@ FPDP adalah personal digital home yang tidak terikat pada provider tertentu. Dok
 | Work Breakdown Structure | [WBS](WBS-TASK.en.md) | [WBS](WBS-TASK.md) |
 | User Journey | [English](USER-JOURNEY.en.md) | [Bahasa Indonesia](USER-JOURNEY.md) |
 | Development Roadmap & Strategy | [English](ROADMAP.en.md) | [Bahasa Indonesia](ROADMAP.id.md) |
+| Interactive UI Mockup | [Dashboard](mockup/index.html) · [Public profile](mockup/public-profile.html) | [Petunjuk / Guide](mockup/README.md) |
 | API Contract | [English](API-CONTRACT.en.md) | [Bahasa Indonesia](API-CONTRACT.id.md) |
 | OpenAPI 3.1 | [Machine-readable YAML](openapi.yaml) | [Machine-readable YAML](openapi.yaml) |
 
