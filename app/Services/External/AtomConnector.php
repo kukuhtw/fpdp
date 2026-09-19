@@ -50,17 +50,24 @@ final class AtomConnector implements ExternalContentProviderInterface
             return ['items' => [], 'next_cursor' => null];
         }
 
-        try {
-            $response = $this->http->get($sourceUrl, ['Accept' => 'application/atom+xml, application/xml'], 10);
-        } catch (RuntimeException $e) {
-            return ['items' => [], 'next_cursor' => null, 'error' => $e->getMessage()];
+        // Support local file paths (test fixtures) — bypass HttpClient
+        $xml = null;
+        if (str_starts_with($sourceUrl, 'http://') || str_starts_with($sourceUrl, 'https://')) {
+            try {
+                $response = $this->http->get($sourceUrl, ['Accept' => 'application/atom+xml, application/xml'], 10);
+            } catch (RuntimeException $e) {
+                return ['items' => [], 'next_cursor' => null, 'error' => $e->getMessage()];
+            }
+
+            if ($response['status'] < 200 || $response['status'] >= 300) {
+                return ['items' => [], 'next_cursor' => null, 'error' => "HTTP {$response['status']}"];
+            }
+
+            $xml = simplexml_load_string($response['body']);
+        } else {
+            $xml = @simplexml_load_file($sourceUrl);
         }
 
-        if ($response['status'] < 200 || $response['status'] >= 300) {
-            return ['items' => [], 'next_cursor' => null, 'error' => "HTTP {$response['status']}"];
-        }
-
-        $xml = simplexml_load_string($response['body']);
         if ($xml === false || $xml === null) {
             return ['items' => [], 'next_cursor' => null, 'error' => 'Invalid XML'];
         }
