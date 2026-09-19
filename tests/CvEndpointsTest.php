@@ -271,6 +271,8 @@ $reupload = $router->dispatch(new Request('POST', '/api/v1/me/cv', [], json_enco
 assert_that($reupload->status === 201, "Priced CV re-upload failed: {$reupload->body}");
 $documentCount = (int) $connection->query('SELECT COUNT(*) FROM cv_documents')->fetchColumn();
 assert_that($documentCount === 1, "Expected exactly one CV document after re-upload, found {$documentCount}");
+$storedFilesAfterReplace = glob($storageDir . '/*');
+assert_that(count($storedFilesAfterReplace) === 1, 'Old CV file was not deleted after replacement');
 
 // 9. The previous visitor's grant was for the old document row, so the priced
 // CV now correctly requires a new payment before it can be downloaded.

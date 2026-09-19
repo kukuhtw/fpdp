@@ -21,6 +21,18 @@ final class JsonEnvelope
         ], $status);
     }
 
+    public static function collection(array $data, ?string $nextCursor, bool $hasMore): Response
+    {
+        return Response::json([
+            'data' => $data,
+            'meta' => [
+                'request_id' => self::requestId(),
+                'next_cursor' => $nextCursor,
+                'has_more' => $hasMore,
+            ],
+        ]);
+    }
+
     /**
      * @param array<int, array<string, mixed>> $details
      */

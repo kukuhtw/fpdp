@@ -31,6 +31,11 @@ final class Router
         $this->add('PATCH', $path, $handler);
     }
 
+    public function delete(string $path, callable $handler): void
+    {
+        $this->add('DELETE', $path, $handler);
+    }
+
     private function add(string $method, string $path, callable $handler): void
     {
         $this->routes[] = ['method' => $method, 'path' => $path, 'handler' => $handler];

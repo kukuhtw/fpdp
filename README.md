@@ -46,13 +46,14 @@ The intended product combines:
 | Identity & authentication | Owner registration, login, logout, and `/me`; bcrypt password hashing, bearer tokens hashed at rest, node/user/profile creation on register; per-IP rate limiting on register/login (`429 RATE_LIMITED`) |
 | Profiles | Public profile read by handle and authenticated profile update (`PATCH /me/profile`), with visibility rules |
 | Visitor identity | Google OAuth 2.0 sign-in scoped per node/profile (`GET /profiles/{handle}/visitor-auth/google/redirect` and `.../callback`); node-scoped `visitor_accounts`, hashed-at-rest `visitor_tokens`, HMAC-signed OAuth `state` (no server-side session store) |
+| Paid CV/resume access | Owner upload (`POST /me/cv`, JSON + base64 content, stored under `storage/` outside the webroot), public metadata read, visitor-paid unlock via the existing `PaymentGatewayInterface` (`POST /profiles/{handle}/cv/access`), and gated download (`GET .../cv/download`, `402 PAYMENT_REQUIRED` without a grant); replacing a CV invalidates prior grants |
 | Payments | Interface, service, factory, and functional dummy gateway |
 | Payment lifecycle | Dummy create, status, cancel, refund, and webhook normalization |
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
 | Database layer | `Database` PDO connection manager and `MigrationRunner`; ordered migrations under `database/migrations/` with foreign keys and indexes, run via `database/migrate.php` |
 | Deployment | Web install wizard (`public/install.php`): requirements check, `.env` writer with tested DB credentials, migration runner, owner-account creation, and a self-lock (`storage/installed.lock`); `public/.htaccess` front-controller rewrite for Apache; see the [deployment guide](documentation/DEPLOYMENT-GUIDE.en.md) |
-| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, a full auth/profile HTTP flow test, rate limiter unit/endpoint tests, an OAuth state signer test, a full visitor-auth HTTP flow test (fake Google client), and an installer test (requirements, `.env` round-trip, connection check, install-lock) |
+| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, a full auth/profile HTTP flow test, rate limiter unit/endpoint tests, an OAuth state signer test, a full visitor-auth HTTP flow test (fake Google client), a full CV upload/paywall/download HTTP flow test, and an installer test (requirements, `.env` round-trip, connection check, install-lock) |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
@@ -364,13 +365,14 @@ Produk yang dituju menggabungkan:
 | Identity & autentikasi | Registrasi owner, login, logout, dan `/me`; password hashing bcrypt, bearer token di-hash saat disimpan, pembuatan node/user/profile saat register; rate limiting per-IP di register/login (`429 RATE_LIMITED`) |
 | Profil | Baca profil publik berdasarkan handle dan update profil terautentikasi (`PATCH /me/profile`), dengan aturan visibility |
 | Identity visitor | Login Google OAuth 2.0 per-node/profile (`GET /profiles/{handle}/visitor-auth/google/redirect` dan `.../callback`); `visitor_accounts` yang node-scoped, `visitor_tokens` yang di-hash saat disimpan, OAuth `state` yang ditandatangani HMAC (tanpa server-side session store) |
+| Akses CV/resume berbayar | Upload owner (`POST /me/cv`, JSON + konten base64, disimpan di `storage/` di luar webroot), baca metadata publik, unlock berbayar oleh visitor lewat `PaymentGatewayInterface` yang sudah ada (`POST /profiles/{handle}/cv/access`), dan download yang digerbang (`GET .../cv/download`, `402 PAYMENT_REQUIRED` tanpa grant); mengganti CV membatalkan grant lama |
 | Pembayaran | Interface, service, factory, dan dummy gateway yang berfungsi |
 | Siklus pembayaran | Dummy create, status, cancel, refund, dan normalisasi webhook |
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
 | Database layer | `Database` PDO connection manager dan `MigrationRunner`; migration terurut di `database/migrations/` dengan foreign key dan index, dijalankan lewat `database/migrate.php` |
 | Deployment | Web install wizard (`public/install.php`): cek requirement, penulis `.env` dengan kredensial DB yang sudah diuji, migration runner, pembuatan akun owner, dan self-lock (`storage/installed.lock`); rewrite front controller Apache `public/.htaccess`; lihat [panduan deployment](documentation/DEPLOYMENT-GUIDE.id.md) |
-| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, test alur auth/profile HTTP lengkap, test unit/endpoint rate limiter, test OAuth state signer, test alur visitor-auth HTTP lengkap (fake Google client), dan test installer (requirement, round-trip `.env`, cek koneksi, install-lock) |
+| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, test alur auth/profile HTTP lengkap, test unit/endpoint rate limiter, test OAuth state signer, test alur visitor-auth HTTP lengkap (fake Google client), test alur upload/paywall/download CV HTTP lengkap, dan test installer (requirement, round-trip `.env`, cek koneksi, install-lock) |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:

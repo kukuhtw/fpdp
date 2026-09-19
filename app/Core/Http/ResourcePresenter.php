@@ -60,6 +60,29 @@ final class ResourcePresenter
         ];
     }
 
+    public static function post(array $post): array
+    {
+        return [
+            'id' => $post['public_id'],
+            'title' => $post['title'],
+            'content' => $post['content'],
+            'post_type' => $post['post_type'],
+            'source_type' => 'LOCAL',
+            'source_provider' => 'FPDP',
+            'canonical_url' => sprintf('https://%s/posts/%s', $post['node_domain'], $post['public_id']),
+            'author' => [
+                'handle' => $post['handle'],
+                'display_name' => $post['display_name'],
+                'profile_url' => sprintf('https://%s/@%s', $post['node_domain'], $post['handle']),
+                'avatar_url' => $post['avatar_url'],
+            ],
+            'media' => [],
+            'visibility' => $post['visibility'],
+            'published_at' => $post['published_at'] === null ? null : self::timestamp((string) $post['published_at']),
+            'updated_at' => self::timestamp((string) $post['updated_at']),
+        ];
+    }
+
     private static function timestamp(string $value): string
     {
         return (new DateTimeImmutable($value, new DateTimeZone('UTC')))->format(DATE_ATOM);
