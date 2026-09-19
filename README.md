@@ -42,20 +42,22 @@ The intended product combines:
 | MVC example | `HomeController`, view renderer, and static landing view |
 | HTTP entry point | Public front controller (`public/index.php`), `Router` with static and `{param}` routes, JSON success/error envelopes, sanitized exception mapping to a 500 envelope |
 | Configuration | `Config` loader with defaults, optional `.env` file, real environment override, and fail-fast validation (`.env.example` provided) |
-| REST handlers | `GET /api/v1/health` implemented against the documented envelope; other routes not yet implemented |
+| REST handlers | `GET /api/v1/health` and the identity/profile endpoints below; other routes not yet implemented |
+| Identity & authentication | Owner registration, login, logout, and `/me`; bcrypt password hashing, bearer tokens hashed at rest, node/user/profile creation on register |
+| Profiles | Public profile read by handle and authenticated profile update (`PATCH /me/profile`), with visibility rules |
 | Payments | Interface, service, factory, and functional dummy gateway |
 | Payment lifecycle | Dummy create, status, cancel, refund, and webhook normalization |
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
 | Database layer | `Database` PDO connection manager and `MigrationRunner`; ordered migrations under `database/migrations/` with foreign keys and indexes, run via `database/migrate.php` |
-| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, and factory fallback-rejection test |
+| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, and a full auth/profile HTTP flow test |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
 
-- remaining REST handlers beyond `/health`;
-- registration, login, sessions, bearer tokens, roles, and permissions;
-- user, node, profile, and local-post persistence;
+- remaining REST handlers beyond `/health` and the identity/profile endpoints;
+- admin role permissions, rate limiting, and audit-event writes (the `audit_events` table exists but nothing writes to it yet);
+- local-post persistence;
 - public profile and timeline user interfaces;
 - scheduler, workers, retries, and normalized feed persistence;
 - federation protocol, discovery processing, and remote actors;
@@ -98,11 +100,18 @@ Factories select adapters by provider code and reject unknown or not-yet-impleme
 ```text
 app/
 ├── Contracts/          Shared payment and external-provider interfaces
-├── Controllers/        MVC controllers and REST handlers (HomeController, HealthController)
-├── Core/               Router, HTTP request/response/envelope, Config loader, and view rendering
+├── Controllers/        MVC controllers and REST handlers (Home, Health, Auth, Profile)
+├── Core/
+│   ├── Http/            Request, Response, JsonEnvelope, ResourcePresenter
+│   ├── Exceptions/       HttpException and its 401/404/409/422 subtypes
+│   ├── Router.php, Config.php, Database.php, MigrationRunner.php, Uuid.php
+│   └── View.php          Minimal view rendering
+├── Repositories/        Node, User, Profile, and AuthToken data access (PDO)
 ├── Services/
-│   ├── External/       RSS, Atom, and Custom API adapters
-│   └── Payment/        Payment service, factory, and dummy adapter
+│   ├── Auth/            AuthService: register, login, logout, token verification
+│   ├── Profile/         ProfileService: public read and owner update
+│   ├── External/        RSS, Atom, and Custom API adapters
+│   └── Payment/         Payment service, factory, and dummy adapter
 ├── Views/              PHP views
 └── routes.php          Route table consumed by the front controller
 
@@ -113,7 +122,7 @@ public/
 
 database/
 ├── schema.sql          Reference snapshot of the current schema (see migrations for the authoritative, executable version)
-├── migrations/         Ordered, repeatable SQL migrations with foreign keys and indexes
+├── migrations/         Ordered, repeatable SQL migrations, including nodes/users/profiles/auth_tokens/audit_events
 └── migrate.php         CLI runner: applies pending migrations
 
 documentation/
@@ -133,7 +142,8 @@ tests/
 ├── ConfigTest.php           Config defaults, .env override, and validation test
 ├── MigrationRunnerTest.php  Migration ordering, tracking, and idempotency test
 ├── DatabaseTest.php         Database connection wiring test
-└── FactoryFallbackTest.php  Payment/connector factories reject unsupported codes
+├── FactoryFallbackTest.php  Payment/connector factories reject unsupported codes
+└── AuthEndpointsTest.php    Full HTTP flow: register, login, /me, profile read/update, logout
 ```
 
 ### Requirements
@@ -171,16 +181,10 @@ tests/
    php tests/MigrationRunnerTest.php
    php tests/DatabaseTest.php
    php tests/FactoryFallbackTest.php
+   php tests/AuthEndpointsTest.php
    ```
 
-4. Serve the front controller and try it in a browser or with curl:
-
-   ```bash
-   php -S localhost:8080 -t public
-   curl http://localhost:8080/api/v1/health
-   ```
-
-5. Create a MySQL database and set `DB_*` credentials in `.env`, then run migrations:
+4. Create a MySQL database and set `DB_*` credentials in `.env`, then run migrations:
 
    ```bash
    mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS fpdp"
@@ -189,7 +193,23 @@ tests/
 
    The runner tracks applied migrations in a `migrations` table, so re-running it is safe and only applies what is still pending.
 
-`public/index.php` is the HTTP front controller; it dispatches requests through `App\Core\Router` using the route table in `app/routes.php`. Only `GET /` (landing page) and `GET /api/v1/health` are wired up so far — the remaining `/api/v1` operations in the [API contract](documentation/API-CONTRACT.en.md) are still design-only.
+5. Serve the front controller and try the identity flow with curl:
+
+   ```bash
+   php -S localhost:8080 -t public
+
+   curl http://localhost:8080/api/v1/health
+
+   curl -X POST http://localhost:8080/api/v1/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"email":"owner@example.com","password":"correct horse battery","handle":"owner","display_name":"Owner"}'
+
+   # copy data.token.access_token from the response above
+   curl http://localhost:8080/api/v1/me -H "Authorization: Bearer <token>"
+   curl http://localhost:8080/api/v1/profiles/owner
+   ```
+
+`public/index.php` is the HTTP front controller; it dispatches requests through `App\Core\Router` using the route table in `app/routes.php`. `GET /`, `GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/me`, `GET /api/v1/profiles/{handle}`, and `PATCH /api/v1/me/profile` are wired up so far — the remaining `/api/v1` operations in the [API contract](documentation/API-CONTRACT.en.md) are still design-only. Each node is created per registration, with its domain derived as `{handle}.{NODE_DOMAIN}`.
 
 ### Using the current services
 
@@ -319,20 +339,22 @@ Produk yang dituju menggabungkan:
 | Contoh MVC | `HomeController`, view renderer, dan landing view statis |
 | HTTP entry point | Front controller publik (`public/index.php`), `Router` dengan rute statis dan `{param}`, JSON envelope sukses/error, exception mapping tersanitasi ke envelope 500 |
 | Konfigurasi | `Config` loader dengan default, file `.env` opsional, override dari environment asli, dan validasi fail-fast (`.env.example` tersedia) |
-| REST handler | `GET /api/v1/health` sudah sesuai envelope yang didokumentasikan; rute lain belum diimplementasikan |
+| REST handler | `GET /api/v1/health` dan endpoint identity/profile di bawah; rute lain belum diimplementasikan |
+| Identity & autentikasi | Registrasi owner, login, logout, dan `/me`; password hashing bcrypt, bearer token di-hash saat disimpan, pembuatan node/user/profile saat register |
+| Profil | Baca profil publik berdasarkan handle dan update profil terautentikasi (`PATCH /me/profile`), dengan aturan visibility |
 | Pembayaran | Interface, service, factory, dan dummy gateway yang berfungsi |
 | Siklus pembayaran | Dummy create, status, cancel, refund, dan normalisasi webhook |
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
 | Database layer | `Database` PDO connection manager dan `MigrationRunner`; migration terurut di `database/migrations/` dengan foreign key dan index, dijalankan lewat `database/migrate.php` |
-| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, dan test penolakan fallback factory |
+| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, dan test alur auth/profile HTTP lengkap |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
 
-- handler REST lain di luar `/health`;
-- registrasi, login, session, bearer token, role, dan permission;
-- persistence user, node, profil, dan post lokal;
+- handler REST lain di luar `/health` dan endpoint identity/profile;
+- permission role admin, rate limiting, dan penulisan audit event (tabel `audit_events` sudah ada tapi belum ada yang menulis ke situ);
+- persistence post lokal;
 - UI profil publik dan timeline;
 - scheduler, worker, retry, dan penyimpanan feed yang sudah dinormalisasi;
 - protokol federasi, pemrosesan discovery, dan remote actor;
@@ -375,11 +397,18 @@ Factory memilih adapter berdasarkan kode provider dan menolak kode yang tidak di
 ```text
 app/
 ├── Contracts/          Interface payment dan external provider
-├── Controllers/        Controller MVC dan REST handler (HomeController, HealthController)
-├── Core/               Router, HTTP request/response/envelope, Config loader, dan view renderer
+├── Controllers/        Controller MVC dan REST handler (Home, Health, Auth, Profile)
+├── Core/
+│   ├── Http/            Request, Response, JsonEnvelope, ResourcePresenter
+│   ├── Exceptions/       HttpException dan subtype 401/404/409/422-nya
+│   ├── Router.php, Config.php, Database.php, MigrationRunner.php, Uuid.php
+│   └── View.php          View renderer minimal
+├── Repositories/        Akses data (PDO) untuk Node, User, Profile, dan AuthToken
 ├── Services/
-│   ├── External/       Adapter RSS, Atom, dan Custom API
-│   └── Payment/        Payment service, factory, dan dummy adapter
+│   ├── Auth/            AuthService: register, login, logout, verifikasi token
+│   ├── Profile/         ProfileService: baca publik dan update oleh owner
+│   ├── External/        Adapter RSS, Atom, dan Custom API
+│   └── Payment/         Payment service, factory, dan dummy adapter
 ├── Views/              View PHP
 └── routes.php          Tabel rute yang dipakai front controller
 
@@ -390,7 +419,7 @@ public/
 
 database/
 ├── schema.sql          Snapshot referensi skema saat ini (lihat migrations untuk versi yang otoritatif dan bisa dieksekusi)
-├── migrations/         Migration SQL terurut dan repeatable dengan foreign key dan index
+├── migrations/         Migration SQL terurut dan repeatable, termasuk nodes/users/profiles/auth_tokens/audit_events
 └── migrate.php         CLI runner: menjalankan migration yang masih pending
 
 documentation/
@@ -410,7 +439,8 @@ tests/
 ├── ConfigTest.php           Test default config, override .env, dan validasi
 ├── MigrationRunnerTest.php  Test urutan, tracking, dan idempotency migration
 ├── DatabaseTest.php         Test wiring koneksi database
-└── FactoryFallbackTest.php  Factory payment/connector menolak kode yang tidak didukung
+├── FactoryFallbackTest.php  Factory payment/connector menolak kode yang tidak didukung
+└── AuthEndpointsTest.php    Alur HTTP lengkap: register, login, /me, baca/update profil, logout
 ```
 
 ### Kebutuhan sistem
@@ -448,16 +478,10 @@ tests/
    php tests/MigrationRunnerTest.php
    php tests/DatabaseTest.php
    php tests/FactoryFallbackTest.php
+   php tests/AuthEndpointsTest.php
    ```
 
-4. Jalankan front controller dan coba lewat browser atau curl:
-
-   ```bash
-   php -S localhost:8080 -t public
-   curl http://localhost:8080/api/v1/health
-   ```
-
-5. Buat database MySQL, isi kredensial `DB_*` di `.env`, lalu jalankan migration:
+4. Buat database MySQL, isi kredensial `DB_*` di `.env`, lalu jalankan migration:
 
    ```bash
    mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS fpdp"
@@ -466,7 +490,23 @@ tests/
 
    Runner ini mencatat migration yang sudah diterapkan di tabel `migrations`, jadi menjalankannya berkali-kali aman dan hanya menerapkan yang masih pending.
 
-`public/index.php` adalah front controller HTTP; request diteruskan melalui `App\Core\Router` menggunakan tabel rute di `app/routes.php`. Baru `GET /` (landing page) dan `GET /api/v1/health` yang sudah tersambung — operasi `/api/v1` lainnya pada [kontrak API](documentation/API-CONTRACT.id.md) masih sebatas desain.
+5. Jalankan front controller dan coba alur identity lewat curl:
+
+   ```bash
+   php -S localhost:8080 -t public
+
+   curl http://localhost:8080/api/v1/health
+
+   curl -X POST http://localhost:8080/api/v1/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"email":"owner@example.com","password":"correct horse battery","handle":"owner","display_name":"Owner"}'
+
+   # salin data.token.access_token dari respons di atas
+   curl http://localhost:8080/api/v1/me -H "Authorization: Bearer <token>"
+   curl http://localhost:8080/api/v1/profiles/owner
+   ```
+
+`public/index.php` adalah front controller HTTP; request diteruskan melalui `App\Core\Router` menggunakan tabel rute di `app/routes.php`. `GET /`, `GET /api/v1/health`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/me`, `GET /api/v1/profiles/{handle}`, dan `PATCH /api/v1/me/profile` sudah tersambung — operasi `/api/v1` lainnya pada [kontrak API](documentation/API-CONTRACT.id.md) masih sebatas desain. Setiap node dibuat per registrasi, dengan domain diturunkan sebagai `{handle}.{NODE_DOMAIN}`.
 
 ### Menggunakan service yang tersedia
 

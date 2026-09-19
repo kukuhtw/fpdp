@@ -78,6 +78,10 @@ Replace the schema stub with ordered, repeatable migrations. Add foreign keys, u
 
 Federation amplifies identity, moderation, delivery, trust, and consistency problems. Stabilize local profiles, posts, visibility, canonical URLs, and source attribution before exchanging remote activities.
 
+### 3.8 Let each node own its appearance and language
+
+A personal digital home should not look identical for every owner. Node-level presentation (theme, layout, custom CSS) and language (default locale, available languages) are owner-controlled settings, not global application config. Store them per node so they survive independently of code deploys, validate custom CSS defensively (see Phase 2 task 8), and always keep a safe built-in theme/locale as the fallback when a setting is missing or invalid.
+
 ## 4. Priority model
 
 | Priority | Meaning | Rule |
@@ -156,13 +160,15 @@ Tasks, in order:
 5. Build the post editor, post page, and local timeline.
 6. Add output escaping, content sanitization, and media validation.
 7. Add ownership, visibility, pagination, and soft-delete tests.
+8. Add node appearance and language settings: a `node_settings` migration (theme, layout choice, custom CSS, default locale, enabled languages); a `GET/PATCH /me/settings` endpoint pair; server-side custom-CSS sanitization (reject `@import`, `expression()`, and embedded `<script>`; cap length) before it is ever rendered back to a visitor; and a settings UI reusing the language/appearance switchers already prototyped in the [interactive mockup](mockup/README.md).
 
 Exit criteria:
 
 - an owner can draft, publish, edit, unpublish, and delete a local post;
 - visitors see only content allowed by visibility rules;
 - every published item has stable authorship, source metadata, and canonical URL;
-- timeline queries remain indexed and paginated.
+- timeline queries remain indexed and paginated;
+- an owner can set a theme, layout, custom CSS, and default/available languages for their node, and the public profile and timeline render with those settings applied, falling back safely when a setting is absent or invalid.
 
 ### Phase 3 — External feed aggregation
 

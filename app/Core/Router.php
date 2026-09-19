@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Core\Exceptions\HttpException;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
@@ -44,7 +45,11 @@ final class Router
 
             $params = $this->match($route['path'], $request->path);
             if ($params !== null) {
-                return ($route['handler'])($request, $params);
+                try {
+                    return ($route['handler'])($request, $params);
+                } catch (HttpException $e) {
+                    return JsonEnvelope::error($e->getErrorCode(), $e->getMessage(), $e->getStatusCode(), $e->getDetails());
+                }
             }
         }
 

@@ -78,6 +78,10 @@ Ganti schema stub dengan migration berurutan dan repeatable. Tambahkan foreign k
 
 Federasi memperbesar masalah identity, moderation, delivery, trust, dan consistency. Stabilkan profil lokal, post, visibility, canonical URL, dan source attribution sebelum bertukar remote activity.
 
+### 3.8 Biarkan setiap node menentukan tampilan dan bahasanya sendiri
+
+Personal digital home semestinya tidak terlihat sama untuk setiap owner. Presentasi di level node (tema, layout, custom CSS) dan bahasa (locale default, daftar bahasa yang aktif) adalah pengaturan milik owner, bukan konfigurasi global aplikasi. Simpan per node agar tidak ikut berubah saat ada deploy kode, validasi custom CSS secara defensif (lihat Fase 2 task 8), dan selalu sediakan tema/locale bawaan yang aman sebagai fallback saat setting-nya kosong atau tidak valid.
+
 ## 4. Model prioritas
 
 | Prioritas | Arti | Aturan |
@@ -156,13 +160,15 @@ Task secara berurutan:
 5. Buat post editor, halaman post, dan timeline lokal.
 6. Tambahkan output escaping, sanitasi konten, dan validasi media.
 7. Tambahkan test ownership, visibility, pagination, dan soft delete.
+8. Tambahkan setting tampilan dan bahasa per node: migration `node_settings` (tema, pilihan layout, custom CSS, locale default, daftar bahasa yang aktif); pasangan endpoint `GET/PATCH /me/settings`; sanitasi custom CSS di sisi server (tolak `@import`, `expression()`, dan `<script>` yang disisipkan; batasi panjangnya) sebelum pernah dirender balik ke pengunjung; dan UI setting yang memakai ulang switcher bahasa/tampilan yang sudah ada di [mockup interaktif](mockup/README.md).
 
 Exit criteria:
 
 - owner dapat membuat draft, publish, edit, unpublish, dan menghapus post lokal;
 - pengunjung hanya melihat konten yang diizinkan visibility rule;
 - setiap item published memiliki author, source metadata, dan canonical URL yang stabil;
-- query timeline memakai index dan pagination.
+- query timeline memakai index dan pagination;
+- owner dapat mengatur tema, layout, custom CSS, dan bahasa default/aktif untuk node-nya, dan public profile serta timeline tampil sesuai setting tersebut, dengan fallback aman saat setting kosong atau tidak valid.
 
 ### Fase 3 — Agregasi feed eksternal
 

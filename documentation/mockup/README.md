@@ -34,6 +34,12 @@ Open / Buka:
 - Settings: profile, appearance, language, security / Pengaturan: profil, tampilan, bahasa, keamanan
 - Public personal digital home / Personal digital home publik
 
+## Navigation map / Peta navigasi
+
+See [NAVIGATION-MAP.en.md](NAVIGATION-MAP.en.md) / [NAVIGATION-MAP.id.md](NAVIGATION-MAP.id.md) for a diagram of the dashboard and public-profile menu structure and what each menu does.
+
+Lihat [NAVIGATION-MAP.id.md](NAVIGATION-MAP.id.md) untuk diagram struktur menu dashboard dan public profile beserta fungsi setiap menu.
+
 ## Adding a language / Menambah bahasa
 
 1. Copy `locales/en.json` to a new file, for example `locales/ja.json`.
