@@ -33,6 +33,7 @@ Open / Buka:
 - Analytics / Analitik
 - Settings: profile, appearance, language, security / Pengaturan: profil, tampilan, bahasa, keamanan
 - Public personal digital home / Personal digital home publik
+- Embedded YouTube videos on the public profile (privacy-enhanced `youtube-nocookie.com` iframe) / Video YouTube tersemat pada public profile (iframe privacy-enhanced `youtube-nocookie.com`)
 
 ## Navigation map / Peta navigasi
 
@@ -69,4 +70,5 @@ Untuk menambah bahasa, salin `en.json`, terjemahkan value tanpa mengubah key, da
 - Elements use `data-i18n`, `data-i18n-placeholder`, and `data-i18n-aria-label` attributes.
 - User-controlled values must be inserted as text, never as untranslated HTML.
 - The data shown here is fictional and is not connected to the FPDP backend.
+- The Video section on the public profile embeds two real, openly embeddable YouTube videos as sample data (`jNQXAC9IVRw`, `YE7VzlLtp-4`) via `https://www.youtube-nocookie.com/embed/{videoId}`; see [NAVIGATION-MAP](NAVIGATION-MAP.en.md) and the [content aggregation guide](../CONTENT-AGGREGATION-GUIDE.en.md#68-youtube) for how this maps to the RSS/Atom connector.
 

@@ -21,39 +21,58 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 
 ## 5. User Stories
 ### 5.1 Personal Website
+- Sebagai pengguna, saya ingin mendaftar dan langsung mendapatkan node, akun owner, dan profil saya dalam satu langkah.
 - Sebagai pengguna, saya ingin memiliki halaman profil saya sendiri di domain saya.
 - Sebagai pengguna, saya ingin menulis blog atau post di node saya.
 
-### 5.2 External Feed Integration
+### 5.2 Personalisasi
+- Sebagai owner, saya ingin memilih tema dan layout untuk tampilan publik saya.
+- Sebagai owner, saya ingin mengganti styling dengan custom CSS saya sendiri, tanpa membahayakan keamanan pengunjung.
+- Sebagai owner, saya ingin mengatur bahasa default node saya dan memilih bahasa apa saja yang tersedia untuk pengunjung.
+
+### 5.3 External Feed Integration
 - Sebagai pengguna, saya ingin menghubungkan Instagram, LinkedIn, RSS, dan X ke timeline saya.
 - Sebagai pengguna, saya ingin melihat sumber asli dari setiap konten.
 
-### 5.3 Payment
+### 5.4 Payment
 - Sebagai admin, saya ingin memilih gateway pembayaran yang aktif di node saya.
 - Sebagai pengguna, saya ingin checkout menggunakan gateway yang telah disetujui node saya.
 
-### 5.4 Federation
+### 5.5 Federation
 - Sebagai node, saya ingin mengenali kemampuan node lain.
 - Sebagai pengguna, saya ingin melihat konten federasi dengan jelas sumbernya.
 
 ## 6. Functional Requirements
-### 6.1 Authentication
-- PHP Session-based auth untuk web app
-- Bearer token untuk REST API
-- OAuth 2.0 untuk provider eksternal
+### 6.1 Identity dan Autentikasi
+- Registrasi owner langsung menyediakan node, user owner, dan profil publik dalam satu langkah; password di-hash, tidak pernah disimpan atau di-log dalam bentuk plain text.
+- Bearer token mengautentikasi REST API. Token di-hash saat disimpan, punya masa berlaku, dan dapat dicabut eksplisit saat logout.
+- Registrasi dan login dibatasi rate-nya per IP client untuk menahan credential stuffing dan pembuatan akun spam.
+- Session-based auth untuk owner dashboard berbasis browser masih direncanakan, belum diimplementasikan; API saat ini hanya bearer-token.
+- OAuth 2.0 masih direncanakan untuk menghubungkan content provider eksternal (Instagram, LinkedIn, dll), bukan untuk login owner.
 
-### 6.2 Content
+### 6.2 Profiles
+- Setiap user punya tepat satu profil: handle, display name, bio, avatar, links, dan canonical URL di domain node-nya.
+- Visibility profil adalah `PUBLIC`, `UNLISTED`, atau `PRIVATE`; profil private tidak disajikan lewat endpoint baca publik.
+- Owner meng-update profilnya sendiri; field tidak dikenal dan nilai tidak valid ditolak dengan error validasi per field.
+
+### 6.3 Personalization
+- Setiap owner node dapat mengatur tema, pilihan layout, dan override custom CSS untuk tampilan publiknya.
+- Custom CSS disanitasi di sisi server sebelum pernah dirender balik ke pengunjung (tidak boleh `@import`, injeksi script, atau panjang tak terbatas).
+- Setiap node punya locale default dan daftar bahasa yang aktif; language switcher di UI mengikuti daftar ini.
+- Tema dan locale bawaan yang aman selalu jadi fallback saat setting-nya kosong atau tidak valid.
+
+### 6.4 Content
 - Local post, federated post, dan external post harus dibedakan.
 - Setiap item harus memiliki source_type, source_provider, dan canonical_url.
 - User bisa memilih visibility dan tampilkan di profile atau timeline.
 
-### 6.3 Payment
+### 6.5 Payment
 - Payment adapter sesuai interface
 - Factory memilih provider dinamai
 - Webhook generic dengan normalized event
 - Idempotency untuk webhook duplicate
 
-### 6.4 External Connector
+### 6.6 External Connector
 - Connector harus menggunakan abstraction layer
 - RSS/Atom/custom API MVP didukung
 - OAuth connector dapat ditambahkan pada fase berikutnya
@@ -66,7 +85,10 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 - Monitoring logs for payment and integration only without leaking credentials
 
 ## 8. Acceptance Criteria
-- User dapat membuat profile di node sendiri.
+- User dapat registrasi akun, autentikasi dengan bearer token, dan membaca context-nya sendiri lewat `/me`.
+- User dapat membuat dan meng-update profile di node sendiri, dengan aturan visibility ditegakkan pada pembacaan publik.
+- Registrasi dan login menolak percobaan berlebihan dari client yang sama dengan error rate-limit.
+- User dapat mengustomisasi tema, layout, custom CSS, dan bahasa default/aktif node-nya (direncanakan; belum diimplementasikan).
 - User dapat menambahkan RSS atau feed custom.
 - Admin dapat mengaktifkan gateway default.
 - Payment flow hanya bergantung pada interface, bukan provider tertentu.
@@ -80,7 +102,7 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 ## 10. Prioritas Produk
 ### Phase 1
 - Personal website
-- Local profile and posts
+- Local profile and posts (identity, registrasi, autentikasi, dan manajemen profil sudah selesai; post, personalisasi, dan UI publik belum dibangun)
 
 ### Phase 2
 - Social feed and timeline

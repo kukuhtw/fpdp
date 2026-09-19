@@ -201,6 +201,7 @@
   "public.navHome": "Home",
   "public.navWriting": "Writing",
   "public.navProjects": "Projects",
+  "public.navVideo": "Video",
   "public.navShop": "Shop",
   "public.heroEyebrow": "Designer · Researcher · Independent web builder",
   "public.heroTitle": "Hello, I’m Maya.",
@@ -218,5 +219,13 @@
   "public.footer": "This site is an independent FPDP node.",
   "public.sourceLocal": "LOCAL · MAYA.ID",
   "public.sourceRss": "EXTERNAL · STUDIO NOTES RSS",
-  "public.sourceFed": "FEDERATED · ARINODE.ID"
+  "public.sourceFed": "FEDERATED · ARINODE.ID",
+  "public.videoTitle": "Embedded video",
+  "public.videoSubtitle": "Videos from a connected YouTube channel, synced through the channel's official RSS feed and shown as a privacy-enhanced embed (youtube-nocookie.com).",
+  "public.sourceYoutube": "EXTERNAL · YOUTUBE",
+  "public.video1Title": "Me at the zoo",
+  "public.video1Body": "Example of a public video embed auto-synced from a connected YouTube channel.",
+  "public.video2Title": "Big Buck Bunny (Blender Foundation)",
+  "public.video2Body": "A second example: an open-source, Creative Commons-licensed video used as embed sample data.",
+  "public.watchOnYoutube": "Watch on YouTube ↗"
 }

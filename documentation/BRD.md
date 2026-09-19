@@ -53,24 +53,31 @@ Membuat personal internet node untuk setiap individu, sehingga user tidak bergan
 - User harus bisa memilih, menghubungkan, dan melepaskan koneksi eksternal secara mandiri.
 
 ## 7. Functional Requirements
-### 7.1 Payment
+### 7.1 Identity dan Akses
+- Setiap pemilik domain dapat mendaftar akun, yang langsung menyediakan node, user owner, dan profil publiknya sekaligus.
+- Password di-hash; akses API memakai bearer token yang di-hash saat disimpan, punya masa berlaku, dan dapat dicabut eksplisit saat logout.
+- Registrasi dan login dibatasi rate-nya per client untuk menahan credential stuffing dan pembuatan akun spam.
+- Owner mengontrol profil publiknya (display name, bio, avatar, links) dan visibility-nya (public, unlisted, atau private).
+- Setiap owner node dapat mempersonalisasi tampilan node-nya: tema, layout, custom CSS, dan bahasa default/aktif, dengan fallback bawaan yang aman saat setting kosong atau tidak valid.
+
+### 7.2 Payment
 - Sistem dapat memilih gateway secara dinamis.
 - Admin dapat menambah, mengaktifkan, dan menonaktifkan gateway.
 - Sistem memerlukan abstraction interface agar business logic tidak tergantung provider.
 - Webhook harus dikonfirmasi dan diolah dengan idempotency.
 
-### 7.2 Integrasi Eksternal
+### 7.3 Integrasi Eksternal
 - User dapat menambah feed RSS, Atom, atau API custom.
 - Semua konten eksternal harus di-normalisasi.
 - Sistem harus menampilkan origin provider dan canonical URL.
 - Sync harus dilakukan secara asinkron.
 
-### 7.3 Social & Timeline
+### 7.4 Social & Timeline
 - Timeline dapat menampilkan local, federated, dan external content.
 - User dapat memilih sumber yang ditampilkan.
 - Konten eksternal harus memiliki mode tampilan dan privasi.
 
-### 7.4 Federation
+### 7.5 Federation
 - Node harus dapat mengungkapkan capability discovery.
 - Node dapat memproses activity dan remote object.
 - Federated commerce harus memisahkan owner data lokal, federated, dan eksternal.
@@ -86,6 +93,7 @@ Membuat personal internet node untuk setiap individu, sehingga user tidak bergan
 
 ## 9. Kriteria Keberhasilan
 - Sistem dapat berjalan sebagai independent node.
+- User dapat mendaftar, autentikasi, dan mengelola profil publiknya secara mandiri dengan kontrol visibility.
 - User dapat memiliki domain Personal Digital Home-nya sendiri.
 - Payment dapat dipilih sesuai gateway pilihan.
 - Feed eksternal dapat terkoneksi dan ditampilkan dengan atribusi.

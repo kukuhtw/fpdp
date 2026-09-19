@@ -67,7 +67,7 @@ Outside the sidebar, the topbar provides a search box, a language picker, notifi
 
 ## 3. Public Profile (Personal Digital Home)
 
-The public profile is a single scrolling page (`public-profile.html`). The top nav holds 4 anchor links to the 4 sections below it, in scroll order, plus one owner-only button back to the dashboard.
+The public profile is a single scrolling page (`public-profile.html`). The top nav holds 5 anchor links to the 5 sections below it, in scroll order, plus one owner-only button back to the dashboard.
 
 ```mermaid
 flowchart TD
@@ -75,14 +75,15 @@ flowchart TD
     NAV -->|click| S1["① Home · #home"]
     NAV -->|click| S2["② Writing · #writing"]
     NAV -->|click| S3["③ Projects · #project"]
-    NAV -->|click| S4["④ Shop · #shop"]
+    NAV -->|click| S4["④ Video · #video"]
+    NAV -->|click| S5["⑤ Shop · #shop"]
     NAV -.->|owner only| DB["↗ Dashboard · index.html"]
 
-    S1 --> S2 --> S3 --> S4 --> F["Footer"]
+    S1 --> S2 --> S3 --> S4 --> S5 --> F["Footer"]
 
     classDef pub fill:#e3efe9,stroke:#185f48,color:#17211b;
     classDef owner fill:#dde8f1,stroke:#2f5a82,color:#17211b,stroke-dasharray: 3 3;
-    class NAV,S1,S2,S3,S4,F pub;
+    class NAV,S1,S2,S3,S4,S5,F pub;
     class DB owner;
 ```
 
@@ -91,7 +92,8 @@ flowchart TD
 | ① Home | Introductory hero: name, tagline, short bio, "Follow this node" and "Contact me" buttons. |
 | ② Writing | A grid of recent writing from three sources at once — local, external RSS import, and federation — each with a source label and origin link. |
 | ③ Projects | A showcase of one featured project with a description and an "Explore project" link. |
-| ④ Shop | A banner inviting collaboration (workshops, digital guides, review sessions) that links to the Products menu in the dashboard. |
+| ④ Video | Embedded YouTube videos (`youtube-nocookie.com` iframe, 16:9, lazy-loaded) synced from the owner's YouTube channel official Atom feed via the RSS/Atom connector — see [Content aggregation guide § 6.8 YouTube](../CONTENT-AGGREGATION-GUIDE.en.md#68-youtube). |
+| ⑤ Shop | A banner inviting collaboration (workshops, digital guides, review sessions) that links to the Products menu in the dashboard. |
 
 The "Dashboard" button in the top-right corner of the public nav is only relevant for a logged-in owner; it is not part of the page's scroll order but an exit link to `index.html`.
 

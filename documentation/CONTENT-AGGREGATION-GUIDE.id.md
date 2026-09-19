@@ -128,6 +128,8 @@ Gunakan integration health screen untuk memeriksa:
 
 Tidak ditemukan first-party account RSS yang didukung untuk tujuh platform sosial/commerce tersebut. Jangan membuat RSS URL tidak resmi atau melakukan scraping HTML publik. Gunakan official API atau fallback aman.
 
+YouTube adalah pengecualian: setiap channel publik memiliki official Atom feed (`youtube.com/feeds/videos.xml?channel_id=...`) tanpa memerlukan OAuth, sehingga dapat memakai connector RSS/Atom yang sudah tersedia pada FPDP. Lihat [6.8 YouTube](#68-youtube).
+
 | Platform | Metode FPDP terbaik | Konten yang dapat tampil | Batasan penting | Fallback aman |
 |---|---|---|---|---|
 | Facebook | Facebook Login/Graph API untuk penggunaan Page yang disetujui | Profil Page dan konten Page yang diizinkan | Login token saja tidak menjamin akses Page post; review dan Page role berlaku | Canonical card pilihan owner atau official embed |
@@ -137,6 +139,7 @@ Tidak ditemukan first-party account RSS yang didukung untuk tujuh platform sosia
 | Instagram | Instagram API with Instagram Login | Professional profile dan media yang memenuhi syarat | Berfokus pada use case Business/Creator dan permission yang direview | Official embed atau permalink card terkurasi |
 | X | OAuth 2.0 PKCE/API v2 jika didukung | Authorized user identity dan post | API access, pricing, scope, dan rate limit berlaku | Canonical post card atau official embed |
 | Threads | Threads API authorization | Authorized profile dan thread; publishing jika disetujui | Flow token/permission Threads terpisah; App Review berlaku | Permalink card atau official embed |
+| YouTube | Official channel Atom feed via connector RSS/Atom (tanpa OAuth); Data API v3 opsional untuk metadata tambahan | Video publik dari channel/playlist yang didaftarkan owner | Feed hanya memuat upload publik terbaru; video private/unlisted/age-restricted tidak muncul; Data API v3 dikenai quota | Owner menempelkan satu YouTube URL secara manual sebagai embed tunggal |
 
 Lihat [panduan integrasi sosial dan commerce](SOCIAL-COMMERCE-INTEGRATIONS.id.md) untuk arsitektur authorization dan referensi resmi.
 
@@ -237,7 +240,43 @@ Hubungkan Threads → Threads authorization
 
 Jangan menganggap token Instagram valid untuk Threads. Simpan koneksi provider secara terpisah meskipun keduanya dioperasikan Meta.
 
-### 6.8 Blog, podcast, video channel, newsletter, dan “lainnya”
+### 6.8 YouTube
+
+Penggunaan terbaik: hubungkan channel YouTube publik owner melalui official Atom feed milik channel tersebut, lalu tampilkan setiap video sebagai embed privacy-enhanced pada public profile (bukan sekadar canonical link).
+
+```text
+Hubungkan YouTube → Dashboard → Integrasi → Hubungkan sumber → pilih RSS/Atom
+→ isi source_url = https://www.youtube.com/feeds/videos.xml?channel_id=UCxxxxxxxx
+→ preview video terbaru channel → pilih destination Video/Portfolio
+→ sinkronisasi berkala mengambil upload publik terbaru
+```
+
+Cara kerja teknis:
+
+1. Setiap channel dan playlist YouTube publik memiliki official Atom feed tanpa API key atau OAuth: `https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID` (atau `?playlist_id=PLAYLIST_ID`). Owner dapat menemukan `channel_id` dari halaman **About** channel miliknya.
+2. Connector `ATOM` yang sudah ada pada FPDP (`App\Services\External\AtomConnector`) mem-parsing feed ini. Setiap `<entry>` YouTube memuat elemen `<yt:videoId>` dan thumbnail pada `<media:group>`; connector membaca keduanya secara langsung, tanpa perlu menebak video ID dari teks.
+3. Video ID dinormalisasi menjadi descriptor embed oleh `App\Services\External\YouTubeEmbedResolver`, disimpan pada `media_json` dengan bentuk:
+   ```json
+   {
+     "type": "VIDEO",
+     "provider": "YOUTUBE",
+     "video_id": "jNQXAC9IVRw",
+     "embed_url": "https://www.youtube-nocookie.com/embed/jNQXAC9IVRw",
+     "thumbnail_url": "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg"
+   }
+   ```
+   Item dengan embed video ditandai `post_type = MEDIA`; item Atom biasa tanpa video tetap `ARTICLE`.
+4. Public profile me-render `embed_url` sebagai `<iframe>` di dalam kontainer `aspect-ratio: 16/9`, memakai domain privacy-enhanced `youtube-nocookie.com` (bukan `youtube.com`) agar visitor yang belum memutar video tidak langsung diprofilkan oleh YouTube, dan `loading="lazy"` agar iframe tidak memuat sebelum discroll ke bagian Video. Lihat contoh berjalan pada [mockup public profile, bagian “Video”](mockup/public-profile.html#video) dan [peta navigasi mockup](mockup/NAVIGATION-MAP.id.md).
+5. Owner tetap dapat menempelkan satu YouTube URL secara manual (tanpa menghubungkan seluruh channel) untuk video tunggal; gunakan mode publikasi **Embed** pada tabel Bagian 3 dan simpan sebagai satu `external_post` dengan `source_provider = YOUTUBE`.
+
+Batasan yang perlu diketahui owner:
+
+- Feed channel hanya memuat upload publik terbaru (biasanya ±15 item terbaru); video private, unlisted, atau age-restricted tidak akan muncul.
+- Jangan mengunduh atau me-rehost file video; hanya video ID, judul, canonical URL, dan thumbnail yang disimpan FPDP. Pemutaran tetap terjadi di infrastruktur YouTube melalui iframe.
+- Untuk kebutuhan lanjutan (statistik, caption, atau video dari beberapa channel sekaligus dalam satu request), gunakan YouTube Data API v3 dengan API key dan hormati quota harian; ini bersifat opsional dan tidak diperlukan untuk embed dasar.
+- Selalu pertahankan `canonical_url` menuju halaman watch YouTube asli agar atribusi kreator tetap terlihat jelas di samping embed.
+
+### 6.9 Blog, podcast, video channel, newsletter, dan “lainnya”
 
 Gunakan prioritas berikut untuk provider tambahan:
 

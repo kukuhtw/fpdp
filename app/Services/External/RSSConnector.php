@@ -54,14 +54,18 @@ final class RSSConnector implements ExternalContentProviderInterface
 
         $items = [];
         foreach ($xml->channel->item ?? [] as $item) {
+            $canonicalUrl = (string) ($item->link ?? '');
+            $embed = YouTubeEmbedResolver::describe($canonicalUrl);
+            $media = $embed !== null ? [$embed] : [];
+
             $items[] = [
                 'source' => 'RSS',
                 'external_id' => (string) ($item->guid ?? $item->link ?? uniqid('rss-', true)),
                 'author' => ['username' => 'rss', 'display_name' => (string) ($xml->channel->title ?? 'RSS Feed')],
-                'type' => 'ARTICLE',
+                'type' => $media === [] ? 'ARTICLE' : 'MEDIA',
                 'text' => (string) ($item->description ?? $item->title ?? ''),
-                'media' => [],
-                'canonical_url' => (string) ($item->link ?? ''),
+                'media' => $media,
+                'canonical_url' => $canonicalUrl,
                 'published_at' => (string) ($item->pubDate ?? gmdate('c')),
             ];
         }

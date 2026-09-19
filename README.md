@@ -43,14 +43,14 @@ The intended product combines:
 | HTTP entry point | Public front controller (`public/index.php`), `Router` with static and `{param}` routes, JSON success/error envelopes, sanitized exception mapping to a 500 envelope |
 | Configuration | `Config` loader with defaults, optional `.env` file, real environment override, and fail-fast validation (`.env.example` provided) |
 | REST handlers | `GET /api/v1/health` and the identity/profile endpoints below; other routes not yet implemented |
-| Identity & authentication | Owner registration, login, logout, and `/me`; bcrypt password hashing, bearer tokens hashed at rest, node/user/profile creation on register |
+| Identity & authentication | Owner registration, login, logout, and `/me`; bcrypt password hashing, bearer tokens hashed at rest, node/user/profile creation on register; per-IP rate limiting on register/login (`429 RATE_LIMITED`) |
 | Profiles | Public profile read by handle and authenticated profile update (`PATCH /me/profile`), with visibility rules |
 | Payments | Interface, service, factory, and functional dummy gateway |
 | Payment lifecycle | Dummy create, status, cancel, refund, and webhook normalization |
 | External content | RSS, Atom, and Custom API connector adapters |
 | Data model | Initial MySQL tables for gateways, payments, external sources/posts, and integration queue |
 | Database layer | `Database` PDO connection manager and `MigrationRunner`; ordered migrations under `database/migrations/` with foreign keys and indexes, run via `database/migrate.php` |
-| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, and a full auth/profile HTTP flow test |
+| Tests | MVP smoke test, MVC rendering test, router test, front-controller route test, config loader/validation test, migration runner test, database connection test, factory fallback-rejection test, a full auth/profile HTTP flow test, and rate limiter unit/endpoint tests |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 The following areas are **designed but not yet implemented end-to-end**:
@@ -143,7 +143,10 @@ tests/
 ├── MigrationRunnerTest.php  Migration ordering, tracking, and idempotency test
 ├── DatabaseTest.php         Database connection wiring test
 ├── FactoryFallbackTest.php  Payment/connector factories reject unsupported codes
-└── AuthEndpointsTest.php    Full HTTP flow: register, login, /me, profile read/update, logout
+├── AuthEndpointsTest.php    Full HTTP flow: register, login, /me, profile read/update, logout
+├── RateLimitTest.php        RateLimiter unit test: window counting and per-key isolation
+├── RateLimitEndpointTest.php Login endpoint returns 429 once the configured limit is exceeded
+└── YouTubeEmbedResolverTest.php Video-ID extraction and RSS/Atom YouTube embed normalization
 ```
 
 ### Requirements
@@ -182,6 +185,9 @@ tests/
    php tests/DatabaseTest.php
    php tests/FactoryFallbackTest.php
    php tests/AuthEndpointsTest.php
+   php tests/RateLimitTest.php
+   php tests/RateLimitEndpointTest.php
+   php tests/YouTubeEmbedResolverTest.php
    ```
 
 4. Create a MySQL database and set `DB_*` credentials in `.env`, then run migrations:
@@ -340,14 +346,14 @@ Produk yang dituju menggabungkan:
 | HTTP entry point | Front controller publik (`public/index.php`), `Router` dengan rute statis dan `{param}`, JSON envelope sukses/error, exception mapping tersanitasi ke envelope 500 |
 | Konfigurasi | `Config` loader dengan default, file `.env` opsional, override dari environment asli, dan validasi fail-fast (`.env.example` tersedia) |
 | REST handler | `GET /api/v1/health` dan endpoint identity/profile di bawah; rute lain belum diimplementasikan |
-| Identity & autentikasi | Registrasi owner, login, logout, dan `/me`; password hashing bcrypt, bearer token di-hash saat disimpan, pembuatan node/user/profile saat register |
+| Identity & autentikasi | Registrasi owner, login, logout, dan `/me`; password hashing bcrypt, bearer token di-hash saat disimpan, pembuatan node/user/profile saat register; rate limiting per-IP di register/login (`429 RATE_LIMITED`) |
 | Profil | Baca profil publik berdasarkan handle dan update profil terautentikasi (`PATCH /me/profile`), dengan aturan visibility |
 | Pembayaran | Interface, service, factory, dan dummy gateway yang berfungsi |
 | Siklus pembayaran | Dummy create, status, cancel, refund, dan normalisasi webhook |
 | Konten eksternal | Adapter connector RSS, Atom, dan Custom API |
 | Model data | Tabel MySQL awal untuk gateway, payment, sumber/post eksternal, dan integration queue |
 | Database layer | `Database` PDO connection manager dan `MigrationRunner`; migration terurut di `database/migrations/` dengan foreign key dan index, dijalankan lewat `database/migrate.php` |
-| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, dan test alur auth/profile HTTP lengkap |
+| Pengujian | MVP smoke test, test render MVC, test router, test rute front controller, test config loader/validasi, test migration runner, test koneksi database, test penolakan fallback factory, test alur auth/profile HTTP lengkap, dan test unit/endpoint rate limiter |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Area berikut **sudah dirancang tetapi belum diimplementasikan secara end-to-end**:
@@ -440,7 +446,10 @@ tests/
 ├── MigrationRunnerTest.php  Test urutan, tracking, dan idempotency migration
 ├── DatabaseTest.php         Test wiring koneksi database
 ├── FactoryFallbackTest.php  Factory payment/connector menolak kode yang tidak didukung
-└── AuthEndpointsTest.php    Alur HTTP lengkap: register, login, /me, baca/update profil, logout
+├── AuthEndpointsTest.php    Alur HTTP lengkap: register, login, /me, baca/update profil, logout
+├── RateLimitTest.php        Test unit RateLimiter: penghitungan window dan isolasi per-key
+├── RateLimitEndpointTest.php Endpoint login mengembalikan 429 setelah limit terlampaui
+└── YouTubeEmbedResolverTest.php Ekstraksi video ID dan normalisasi embed YouTube dari RSS/Atom
 ```
 
 ### Kebutuhan sistem
@@ -479,6 +488,9 @@ tests/
    php tests/DatabaseTest.php
    php tests/FactoryFallbackTest.php
    php tests/AuthEndpointsTest.php
+   php tests/RateLimitTest.php
+   php tests/RateLimitEndpointTest.php
+   php tests/YouTubeEmbedResolverTest.php
    ```
 
 4. Buat database MySQL, isi kredensial `DB_*` di `.env`, lalu jalankan migration:

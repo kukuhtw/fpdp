@@ -201,6 +201,7 @@
   "public.navHome": "Beranda",
   "public.navWriting": "Tulisan",
   "public.navProjects": "Proyek",
+  "public.navVideo": "Video",
   "public.navShop": "Toko",
   "public.heroEyebrow": "Desainer · Peneliti · Pembangun independent web",
   "public.heroTitle": "Halo, saya Maya.",
@@ -218,5 +219,13 @@
   "public.footer": "Situs ini merupakan node FPDP independen.",
   "public.sourceLocal": "LOKAL · MAYA.ID",
   "public.sourceRss": "EKSTERNAL · STUDIO NOTES RSS",
-  "public.sourceFed": "FEDERASI · ARINODE.ID"
+  "public.sourceFed": "FEDERASI · ARINODE.ID",
+  "public.videoTitle": "Video tersemat",
+  "public.videoSubtitle": "Video dari channel YouTube yang terhubung, disinkronkan lewat feed RSS resmi channel dan ditampilkan sebagai embed privacy-enhanced (youtube-nocookie.com).",
+  "public.sourceYoutube": "EKSTERNAL · YOUTUBE",
+  "public.video1Title": "Me at the zoo",
+  "public.video1Body": "Contoh embed video publik yang disinkronkan otomatis dari channel YouTube terhubung.",
+  "public.video2Title": "Big Buck Bunny (Blender Foundation)",
+  "public.video2Body": "Contoh kedua: video open-source berlisensi Creative Commons yang dipakai sebagai sample embed.",
+  "public.watchOnYoutube": "Tonton di YouTube ↗"
 }

@@ -67,7 +67,7 @@ Di luar sidebar, topbar menyediakan kotak pencarian, pemilih bahasa, notifikasi,
 
 ## 3. Halaman Publik (Personal Digital Home)
 
-Halaman publik adalah satu halaman scroll tunggal (`public-profile.html`). Nav atas berisi 4 tautan anchor menuju 4 bagian di bawahnya sesuai urutan scroll, ditambah satu tombol khusus pemilik untuk kembali ke dashboard.
+Halaman publik adalah satu halaman scroll tunggal (`public-profile.html`). Nav atas berisi 5 tautan anchor menuju 5 bagian di bawahnya sesuai urutan scroll, ditambah satu tombol khusus pemilik untuk kembali ke dashboard.
 
 ```mermaid
 flowchart TD
@@ -75,14 +75,15 @@ flowchart TD
     NAV -->|klik| S1["① Beranda · #home"]
     NAV -->|klik| S2["② Tulisan · #writing"]
     NAV -->|klik| S3["③ Proyek · #project"]
-    NAV -->|klik| S4["④ Toko · #shop"]
+    NAV -->|klik| S4["④ Video · #video"]
+    NAV -->|klik| S5["⑤ Toko · #shop"]
     NAV -.->|khusus pemilik| DB["↗ Dashboard · index.html"]
 
-    S1 --> S2 --> S3 --> S4 --> F["Footer"]
+    S1 --> S2 --> S3 --> S4 --> S5 --> F["Footer"]
 
     classDef pub fill:#e3efe9,stroke:#185f48,color:#17211b;
     classDef owner fill:#dde8f1,stroke:#2f5a82,color:#17211b,stroke-dasharray: 3 3;
-    class NAV,S1,S2,S3,S4,F pub;
+    class NAV,S1,S2,S3,S4,S5,F pub;
     class DB owner;
 ```
 
@@ -91,7 +92,8 @@ flowchart TD
 | ① Beranda | Hero perkenalan: nama, tagline, deskripsi singkat pemilik, tombol "Ikuti node ini" dan "Hubungi saya". |
 | ② Tulisan | Grid tulisan terbaru dari tiga sumber sekaligus — lokal, hasil impor RSS eksternal, dan federasi — masing-masing dengan label sumber dan tautan asal. |
 | ③ Proyek | Showcase satu proyek unggulan pemilik lengkap dengan deskripsi dan tautan "Jelajahi proyek". |
-| ④ Toko | Banner ajakan kerja sama (workshop, panduan digital, sesi review) yang tautannya menuju menu Produk di dashboard. |
+| ④ Video | Embed video YouTube (iframe `youtube-nocookie.com`, 16:9, lazy-loaded) yang disinkronkan dari official Atom feed channel YouTube owner lewat connector RSS/Atom — lihat [Panduan agregasi konten § 6.8 YouTube](../CONTENT-AGGREGATION-GUIDE.id.md#68-youtube). |
+| ⑤ Toko | Banner ajakan kerja sama (workshop, panduan digital, sesi review) yang tautannya menuju menu Produk di dashboard. |
 
 Tombol "Dashboard" di pojok kanan atas nav publik hanya relevan untuk pemilik yang sedang login; tombol ini bukan bagian dari urutan scroll halaman, melainkan tautan keluar menuju `index.html`.
 

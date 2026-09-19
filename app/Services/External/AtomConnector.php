@@ -54,19 +54,54 @@ final class AtomConnector implements ExternalContentProviderInterface
 
         $items = [];
         foreach ($xml->entry ?? [] as $entry) {
+            $canonicalUrl = (string) ($entry->link['href'] ?? '');
+            $media = $this->describeVideoEmbed($entry, $canonicalUrl);
+
             $items[] = [
                 'source' => 'ATOM',
                 'external_id' => (string) ($entry->id ?? uniqid('atom-', true)),
                 'author' => ['username' => 'atom', 'display_name' => (string) ($entry->author->name ?? 'Atom Feed')],
-                'type' => 'ARTICLE',
+                'type' => $media === [] ? 'ARTICLE' : 'MEDIA',
                 'text' => (string) ($entry->summary ?? $entry->title ?? ''),
-                'media' => [],
-                'canonical_url' => (string) ($entry->link['href'] ?? ''),
+                'media' => $media,
+                'canonical_url' => $canonicalUrl,
                 'published_at' => (string) ($entry->published ?? gmdate('c')),
             ];
         }
 
         return ['items' => $items, 'next_cursor' => null];
+    }
+
+    /**
+     * YouTube channel/playlist feeds (`youtube.com/feeds/videos.xml`) are Atom
+     * feeds carrying a `yt:videoId` element and a `media:group` thumbnail.
+     * Other Atom feeds fall back to detecting a YouTube link in the entry URL.
+     *
+     * @return list<array{type: string, provider: string, video_id: string, embed_url: string, thumbnail_url: string}>
+     */
+    private function describeVideoEmbed(\SimpleXMLElement $entry, string $canonicalUrl): array
+    {
+        $yt = $entry->children('http://www.youtube.com/xml/schemas/2015');
+        $videoId = isset($yt->videoId) ? (string) $yt->videoId : YouTubeEmbedResolver::extractVideoId($canonicalUrl);
+
+        if ($videoId === null) {
+            return [];
+        }
+
+        $thumbnailUrl = null;
+        $mediaGroup = $entry->children('http://search.yahoo.com/mrss/')->group;
+        if (isset($mediaGroup->thumbnail)) {
+            $attributes = $mediaGroup->thumbnail->attributes();
+            $thumbnailUrl = isset($attributes['url']) ? (string) $attributes['url'] : null;
+        }
+
+        return [[
+            'type' => 'VIDEO',
+            'provider' => 'YOUTUBE',
+            'video_id' => $videoId,
+            'embed_url' => YouTubeEmbedResolver::embedUrl($videoId),
+            'thumbnail_url' => $thumbnailUrl ?? YouTubeEmbedResolver::thumbnailUrl($videoId),
+        ]];
     }
 
     public function fetchSinglePost(array $account, string $externalPostId): array

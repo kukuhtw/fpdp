@@ -27,8 +27,15 @@ Individuals currently depend on large platforms for identity, content, transacti
 
 ### Personal website
 
+- As a user, I want to register and get my own node, owner account, and profile in one step.
 - As a user, I want a profile page on my own domain.
 - As a user, I want to publish posts from my node.
+
+### Personalization
+
+- As an owner, I want to choose a theme and layout for my public presentation.
+- As an owner, I want to override styling with my own custom CSS, without risking my visitors' security.
+- As an owner, I want to set my node's default language and choose which languages are available to visitors.
 
 ### External feeds
 
@@ -49,9 +56,24 @@ Individuals currently depend on large platforms for identity, content, transacti
 
 ### Authentication
 
-- PHP session authentication for the web application
-- Bearer tokens for the REST API
-- OAuth 2.0 for external providers
+- Owner registration provisions a node, owner user, and public profile in one step; passwords are hashed, never stored or logged in plain text.
+- Bearer tokens authenticate the REST API. Tokens are hashed at rest, carry an expiration, and can be explicitly revoked on logout.
+- Registration and login are rate-limited per client IP to resist credential stuffing and spam account creation.
+- Session-based authentication for a browser owner dashboard is planned but not yet implemented; today's API is bearer-token only.
+- OAuth 2.0 remains planned for connecting external content providers (Instagram, LinkedIn, etc.), not for owner login.
+
+### Profiles
+
+- Each user has exactly one profile: handle, display name, bio, avatar, links, and a canonical URL on the node's domain.
+- Profile visibility is `PUBLIC`, `UNLISTED`, or `PRIVATE`; private profiles are not served by the public read endpoint.
+- Owners update their own profile; unknown fields and invalid values are rejected with field-level validation errors.
+
+### Personalization
+
+- Each node owner can set a theme, layout choice, and custom CSS override for their public presentation.
+- Custom CSS is sanitized server-side before it is ever rendered back to a visitor (no `@import`, script injection, or unbounded length).
+- Each node has a default locale and a list of enabled languages; the UI's language switcher is driven by this list.
+- A safe built-in theme and locale are always the fallback when a setting is missing or invalid.
 
 ### Content
 
@@ -82,7 +104,10 @@ Individuals currently depend on large platforms for identity, content, transacti
 
 ## 8. Acceptance criteria
 
-- A user can create a profile on their node.
+- A user can register an account, authenticate with a bearer token, and read their own context via `/me`.
+- A user can create and update a profile on their node, with visibility rules enforced for public reads.
+- Registration and login reject excessive attempts from the same client with a rate-limit error.
+- A user can customize their node's theme, layout, custom CSS, and default/available languages (planned; not yet implemented).
 - A user can add an RSS or custom feed.
 - An administrator can activate a default gateway.
 - Payment flows depend on the common interface, not a specific provider.
@@ -96,7 +121,7 @@ Individuals currently depend on large platforms for identity, content, transacti
 
 ## 10. Product phases
 
-1. Personal website, local profile, and posts
+1. Personal website, local profile, and posts (identity, registration, authentication, and profile management are delivered; posts, personalization, and the public-facing UI are not yet built)
 2. Social feed, timeline, and external aggregation
 3. Federation and remote actors
 4. Marketplace and payment abstraction

@@ -128,6 +128,8 @@ Use the integration health screen to review:
 
 No supported first-party account RSS feed was found for the seven named social/commerce platforms. Do not construct unofficial RSS URLs or scrape public HTML. Use the official API where available, or a safe fallback.
 
+YouTube is the exception: every public channel exposes an official Atom feed (`youtube.com/feeds/videos.xml?channel_id=...`) with no OAuth required, so it can use the RSS/Atom connector FPDP already has. See [6.8 YouTube](#68-youtube).
+
 | Platform | Best FPDP method | What can appear on FPDP | Important limitation | Safe fallback |
 |---|---|---|---|---|
 | Facebook | Facebook Login/Graph API for approved Page use | Page profile and approved Page content | Login token alone does not guarantee Page-post access; review and Page roles apply | Owner-curated canonical cards or official embeds |
@@ -137,6 +139,7 @@ No supported first-party account RSS feed was found for the seven named social/c
 | Instagram | Instagram API with Instagram Login | Eligible professional profile and media | Designed around supported Business/Creator use cases and reviewed permissions | Official embeds or curated permalink cards |
 | X | OAuth 2.0 PKCE/API v2 where supported | Authorized user identity and posts | API access, pricing, scopes, and rate limits apply | Canonical post cards or official embeds |
 | Threads | Threads API authorization | Authorized profile and threads; publishing if approved | Separate Threads permissions/token flow; App Review applies | Curated permalink cards or official embeds |
+| YouTube | Official channel Atom feed via the RSS/Atom connector (no OAuth); optional Data API v3 for extra metadata | Public videos from the channel/playlist the owner registers | The feed only lists the latest public uploads; private, unlisted, and age-restricted videos never appear; Data API v3 is quota-limited | Owner manually pastes one YouTube URL as a single embed |
 
 See the detailed [social and commerce integration guide](SOCIAL-COMMERCE-INTEGRATIONS.en.md) for authorization architecture and official references.
 
@@ -237,7 +240,43 @@ Connect Threads → Threads authorization
 
 Do not assume an Instagram token is valid for Threads. Store provider connections separately even if both are operated by Meta.
 
-### 6.8 Blogs, podcasts, video channels, newsletters, and “etc.”
+### 6.8 YouTube
+
+Best for FPDP: connect the owner's public YouTube channel through its official Atom feed, then render each video as a privacy-enhanced embed on the public profile — not just a canonical link.
+
+```text
+Connect YouTube → Dashboard → Integrations → Connect a source → choose RSS/Atom
+→ set source_url = https://www.youtube.com/feeds/videos.xml?channel_id=UCxxxxxxxx
+→ preview the channel's latest videos → choose destination Video/Portfolio
+→ periodic sync picks up new public uploads
+```
+
+How it works:
+
+1. Every public YouTube channel and playlist has an official Atom feed that needs no API key or OAuth: `https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID` (or `?playlist_id=PLAYLIST_ID`). Owners can find their `channel_id` on their channel's **About** page.
+2. FPDP's existing `ATOM` connector (`App\Services\External\AtomConnector`) parses this feed. Each YouTube `<entry>` carries a `<yt:videoId>` element and a thumbnail inside `<media:group>`; the connector reads both directly instead of guessing a video ID from text.
+3. The video ID is normalized into an embed descriptor by `App\Services\External\YouTubeEmbedResolver` and stored in `media_json` as:
+   ```json
+   {
+     "type": "VIDEO",
+     "provider": "YOUTUBE",
+     "video_id": "jNQXAC9IVRw",
+     "embed_url": "https://www.youtube-nocookie.com/embed/jNQXAC9IVRw",
+     "thumbnail_url": "https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg"
+   }
+   ```
+   Items with a video embed are tagged `post_type = MEDIA`; plain Atom entries without a video stay `ARTICLE`.
+4. The public profile renders `embed_url` as an `<iframe>` inside an `aspect-ratio: 16/9` container, using the privacy-enhanced `youtube-nocookie.com` domain (not `youtube.com`) so a visitor who never plays the video isn't immediately profiled by YouTube, and `loading="lazy"` so the iframe doesn't load before the visitor scrolls to the Video section. See it working in the [mockup public profile's "Video" section](mockup/public-profile.html#video) and the [mockup navigation map](mockup/NAVIGATION-MAP.en.md).
+5. Owners can also paste a single YouTube URL manually (without connecting a whole channel) for a one-off video; use the **Embed** publication mode from the table in Section 3 and store it as one `external_post` with `source_provider = YOUTUBE`.
+
+Limitations owners should know about:
+
+- The channel feed only lists the latest public uploads (typically the most recent ~15 items); private, unlisted, and age-restricted videos never appear.
+- Never download or re-host the video file; FPDP stores only the video ID, title, canonical URL, and thumbnail. Playback still happens on YouTube's own infrastructure through the iframe.
+- For advanced needs (view counts, captions, or pulling videos from several channels in one request), use the YouTube Data API v3 with an API key and respect its daily quota; this is optional and not required for basic embeds.
+- Always keep `canonical_url` pointing at the original YouTube watch page so creator attribution stays visible next to the embed.
+
+### 6.9 Blogs, podcasts, video channels, newsletters, and “etc.”
 
 Use this priority order for any additional provider:
 

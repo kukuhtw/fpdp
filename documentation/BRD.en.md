@@ -65,6 +65,14 @@ Create a personal internet node for every individual so that identity, content, 
 
 ## 7. Functional requirements
 
+### Identity and access
+
+- Every domain owner can register an account, which provisions their node, owner user, and public profile together.
+- Passwords are hashed; API access uses bearer tokens that are hashed at rest, expire, and can be explicitly revoked on logout.
+- Registration and login are rate-limited per client to resist credential stuffing and spam account creation.
+- Owners control their public profile (display name, bio, avatar, links) and its visibility (public, unlisted, or private).
+- Each node owner can personalize their node's presentation: theme, layout, custom CSS, and default/available languages, with a safe built-in fallback when a setting is missing or invalid.
+
 ### Payments
 
 - Select gateways dynamically.
@@ -104,6 +112,7 @@ Create a personal internet node for every individual so that identity, content, 
 ## 9. Success criteria
 
 - The system operates as an independent node.
+- A user can independently register, authenticate, and manage a public profile with visibility controls.
 - A user has a Personal Digital Home on their domain.
 - A node can select its payment gateway.
 - External feeds connect and display with attribution.
