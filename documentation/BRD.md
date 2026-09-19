@@ -107,3 +107,97 @@ Membuat personal internet node untuk setiap individu, sehingga user tidak bergan
 
 ## 11. Kesimpulan
 BRD ini menetapkan arah bisnis yang menempatkan user sebagai pemilik digital identity dan data. Platform bukan sekadar media sosial baru, tetapi personal internet node yang menghubungkan website, sosial, federasi, marketplace, dan pembayaran secara mandiri.
+
+## 12. Addendum: Interaksi AI dan Monetisasi (2026-09-19)
+
+Addendum ini memperluas BRD dengan AI chat yang dapat dikonfigurasi owner, akses konten berbayar, identity visitor wajib untuk fitur interaktif, analitik traffic, dan marketplace iklan. Addendum ini menambah lapisan revenue dan engagement di atas personal digital home yang didefinisikan di Bagian 1–11; lihat [`AI-MONETIZATION-STRATEGY.id.md`](AI-MONETIZATION-STRATEGY.id.md) untuk data model dan rencana delivery yang detail.
+
+### 12.1 Rasional Bisnis
+
+- Owner dapat memonetisasi keahlian dan atensinya secara langsung, tanpa potongan atau algoritma platform pihak ketiga.
+- Asisten profil bertenaga AI meningkatkan engagement visitor dan memberi owner cara yang scalable untuk menjawab pertanyaan berulang (soal CV, layanan, atau ketersediaan) tanpa memakai waktu mereka sendiri.
+- Iklan di level node mengubah traffic visitor menjadi sumber revenue yang sepenuhnya dikontrol owner.
+
+### 12.2 Persona Baru dan yang Diperluas
+
+- **Visitor (baru):** sesi browser anonim yang menjadi visitor teridentifikasi hanya saat ingin berinteraksi — melihat konten berbayar, chatting, atau booking iklan. Visitor login dengan Google; FPDP tidak pernah menyimpan password terpisah untuk visitor.
+- **Pemilik domain (diperluas):** juga mengonfigurasi LLM provider dan model pilihannya sendiri, mengatur harga akses CV dan sesi chatbot, serta mengelola ad slot dan harganya.
+- **Advertiser (baru):** perorangan atau bisnis yang menyewa ad slot dari owner node untuk periode tertentu.
+
+### 12.3 Tujuan Bisnis
+
+- Memungkinkan owner memakai LLM provider pilihan mereka (OpenAI, Anthropic, atau lainnya) tanpa FPDP bergantung pada satu provider saja.
+- Memungkinkan owner mengenakan biaya untuk konten premium (CV/resume mereka) dan interaksi premium (percakapan chatbot), dengan fee sepenuhnya dikontrol owner, termasuk gratis.
+- Mewajibkan identity visitor terverifikasi (Google OAuth) sebelum aksi berbayar atau interaktif apa pun, sehingga payment dan riwayat chat dapat diatribusikan dan sengketa dapat diselesaikan.
+- Memberi owner visibilitas atas traffic mereka sendiri (unique visitor dan page view per hari) tanpa bergantung pada analytics pihak ketiga.
+- Memungkinkan owner menjual inventory iklan mereka sendiri (harian, mingguan, atau bulanan) langsung ke advertiser.
+
+### 12.4 Penambahan Scope
+
+Dalam scope addendum ini:
+
+- Konfigurasi LLM provider per node (provider, model, credential).
+- Akses CV/resume berbayar.
+- Sesi chatbot berbayar yang grounded pada profil dan konten CV owner sendiri.
+- Google OAuth sebagai identity visitor wajib untuk aksi berbayar atau interaktif apa pun.
+- Laporan traffic harian dan unique-visitor untuk owner.
+- Definisi ad slot, pricing (harian/mingguan/bulanan), dan booking oleh advertiser.
+
+Di luar MVP addendum ini:
+
+- LLM provider di luar set adapter awal (mulai dari OpenAI dan Anthropic; provider lain menyusul lewat interface yang sama).
+- Real-time ad bidding atau programmatic ad exchange.
+- Moderasi otomatis untuk jawaban chatbot atau creative iklan di luar langkah approval manual owner.
+- Billing multi-currency di luar yang sudah didukung abstraction payment gateway saat ini.
+
+### 12.5 Functional Requirements
+
+**Konfigurasi AI provider**
+
+- Owner dapat memilih LLM provider (OpenAI, Anthropic, atau adapter lain yang didukung), memasukkan credential API miliknya sendiri, dan memilih model.
+- Credential dienkripsi saat disimpan dan tidak pernah ditampilkan penuh di response API atau log, konsisten dengan penanganan credential payment gateway yang sudah ada.
+- Kode provider yang tidak didukung ditolak secara eksplisit, konsisten dengan pola factory yang sudah dipakai untuk payment dan external connector.
+
+**Akses CV/resume berbayar**
+
+- Owner dapat mengunggah CV/resume dan mengatur fee aksesnya, termasuk gratis.
+- Visitor wajib autentikasi dengan Google dan menyelesaikan payment sebelum dokumen disajikan.
+- Access grant dicatat sehingga visitor yang sudah bayar tidak dikenakan biaya lagi untuk dokumen yang sama.
+
+**Interaksi chatbot berbayar**
+
+- Owner dapat mengaktifkan chatbot di profil publiknya yang menjawab pertanyaan berdasarkan profil dan konten CV-nya sendiri.
+- Owner mengatur model fee untuk akses chatbot; visitor wajib autentikasi dengan Google dan membayar sebelum chatting.
+- Percakapan dicatat per visitor untuk keperluan support, audit, dan review penyalahgunaan.
+
+**Autentikasi visitor**
+
+- Melihat profil secara pasif tetap terbuka untuk visitor anonim.
+- Aksi interaktif atau berbayar apa pun (melihat CV berbayar, memulai chat, booking iklan) mewajibkan visitor login dengan Google terlebih dahulu.
+- FPDP hanya menyimpan data profil visitor minimal yang diperlukan (identifier, email, display name) untuk mengatribusikan payment dan interaksi.
+
+**Analitik traffic**
+
+- Owner dapat melihat jumlah unique visitor harian dan jumlah page view harian untuk node-nya.
+- Analytics diagregasi tanpa menyimpan identifier visitor mentah lebih lama dari yang diperlukan untuk rollup harian.
+
+**Marketplace ad banner**
+
+- Owner dapat mendefinisikan satu atau lebih ad slot di profilnya, masing-masing dengan harga harian (24 jam), mingguan, atau bulanan yang independen.
+- Advertiser melakukan booking dan membayar slot untuk periode pilihannya; owner dapat mereview creative sebelum tayang.
+- Jendela aktif booking ditegakkan otomatis; booking yang sudah expired berhenti tayang tanpa perlu aksi manual owner.
+
+### 12.6 Non-Functional Requirements
+
+- Penggunaan API LLM dibatasi rate dan cost per node untuk mencegah tagihan membengkak akibat misconfiguration atau penyalahgunaan.
+- Semua flow monetisasi memakai ulang abstraction `PaymentGatewayInterface` yang sudah ada; tidak ada fitur yang hardcode ke payment provider tertentu.
+- Data pribadi visitor (dari Google OAuth) ditangani dengan prinsip secret-hygiene dan audit-logging yang sama seperti yang sudah diwajibkan untuk credential owner.
+- Respons chatbot diatribusikan dengan jelas sebagai otomatis dan tidak pernah ditampilkan seolah-olah balasan real-time owner sendiri.
+
+### 12.7 Risiko
+
+- Cost API LLM tidak terkendali jika chatbot owner di-spam atau di-scrape.
+- Risiko reputasi jika chatbot memberi jawaban tidak akurat atau tidak pantas saat mewakili owner.
+- Sengketa payment untuk barang intangible (sesi chat, view CV) lebih sulit diselesaikan dibanding order produk fisik.
+- Celah moderasi konten iklan bisa mengekspos halaman owner ke creative yang tidak pantas jika langkah review manual dilewati.
+- PII visitor dari Google OAuth memperbesar permukaan privacy dan compliance platform.

@@ -127,3 +127,86 @@ Individuals currently depend on large platforms for identity, content, transacti
 4. Marketplace and payment abstraction
 5. Advanced connectors and plugin ecosystem
 
+## 11. Addendum: AI interaction and monetization (2026-09-19)
+
+This addendum adds an AI-assisted, monetizable visitor experience on top of the core personal digital home. See [`AI-MONETIZATION-STRATEGY.en.md`](AI-MONETIZATION-STRATEGY.en.md) for the detailed data model and phased implementation plan.
+
+### 11.1 Additional target users
+
+6. Visitors who want to read an owner's CV or chat with their profile assistant
+7. Advertisers who want to rent ad space on a node
+
+### 11.2 Additional user stories
+
+**AI configuration**
+
+- As an owner, I want to connect my own OpenAI or Anthropic account so my profile assistant uses the model I choose.
+- As an owner, I want my LLM credentials stored securely and never shown back to me or anyone else in full.
+
+**Paid CV access**
+
+- As an owner, I want to upload my CV and charge visitors a fee I choose to view it, including free.
+- As a visitor, I want to pay once and view the CV without paying again on a later visit.
+
+**Paid chatbot**
+
+- As an owner, I want visitors to be able to ask my profile assistant questions about my background and services.
+- As an owner, I want to charge for chatbot access so the feature doesn't become a free, unlimited API endpoint for anyone.
+- As a visitor, I want to know clearly that I'm chatting with an automated assistant, not the owner directly.
+
+**Visitor identity**
+
+- As a visitor, I want to sign in with my Google account instead of creating a new password just to read a CV or start a chat.
+- As an owner, I want every paid interaction tied to a real, identifiable visitor so I can resolve disputes.
+
+**Analytics**
+
+- As an owner, I want to see how many unique visitors and how much traffic my node gets each day.
+
+**Ad marketplace**
+
+- As an owner, I want to define ad slots on my profile and set my own daily, weekly, or monthly price.
+- As an advertiser, I want to book and pay for an ad slot for a specific period and know exactly when it starts and ends.
+
+### 11.3 Additional functional requirements
+
+**LLM abstraction**
+
+- Define an `LLMProviderInterface` analogous to the existing payment and external-content interfaces.
+- Support at least OpenAI and Anthropic adapters at launch; reject unconfigured or unsupported provider codes explicitly.
+- Store provider, model, and encrypted credentials per node.
+
+**Monetized content and interaction**
+
+- CV documents and chatbot sessions are gated by a payment created through the existing `PaymentGatewayInterface`.
+- Access grants (for CV) and session records (for chat) prevent re-charging an already-paying visitor within the access terms the owner defines.
+
+**Visitor identity**
+
+- Google OAuth 2.0 is the only supported visitor sign-in method for this addendum.
+- A visitor identity is distinct from an owner/user account and is not granted any node-management permission.
+
+**Analytics**
+
+- Record page views with enough information to compute daily unique visitors and daily traffic, without retaining raw identifiers indefinitely.
+
+**Ad marketplace**
+
+- Ad slots carry independent daily, weekly, and monthly prices set by the owner.
+- Bookings have an explicit start and end time and an approval state before a creative is shown publicly.
+
+### 11.4 Additional acceptance criteria
+
+- An owner can select and configure an LLM provider and see it take effect on their chatbot without code changes.
+- A visitor cannot view a paid CV or send a chat message without first signing in with Google and completing payment where required.
+- A previously paying visitor is not re-charged for the same CV within the access terms the owner set.
+- An owner's daily dashboard shows unique visitors and page views for the previous day at minimum.
+- An advertiser can book an available ad slot for a chosen period and see it go live only after the owner approves the creative.
+
+### 11.5 Additional out of scope
+
+- LLM providers beyond the initial OpenAI/Anthropic adapters (same extensible pattern, added later).
+- Real-time ad bidding, programmatic exchanges, or automated creative moderation.
+- Visitor sign-in methods other than Google OAuth.
+- Multi-currency ad and chat billing beyond what the payment abstraction already supports.
+

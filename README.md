@@ -620,4 +620,13 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 
 No license file is currently included. Add an explicit license before distributing or accepting external contributions.
 
+---
+
+## Author / Penulis
+
+- **Kukuh TW**
+- Email: [kukuhtw@gmail.com](mailto:kukuhtw@gmail.com)
+- Phone / WhatsApp: +62 812-9893-706
+- LinkedIn: [linkedin.com/in/kukuhtw](https://linkedin.com/in/kukuhtw)
+
 Belum ada file lisensi dalam repository ini. Tambahkan lisensi eksplisit sebelum melakukan distribusi atau menerima kontribusi eksternal.

@@ -116,3 +116,86 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 
 ### Phase 5
 - Advanced connectors and plugin ecosystem
+
+## 11. Addendum: Interaksi AI dan Monetisasi (2026-09-19)
+
+Addendum ini menambahkan pengalaman visitor berbasis AI yang dapat dimonetisasi di atas personal digital home inti. Lihat [`AI-MONETIZATION-STRATEGY.id.md`](AI-MONETIZATION-STRATEGY.id.md) untuk data model detail dan rencana implementasi bertahap.
+
+### 11.1 Target Pengguna Tambahan
+
+6. Visitor yang ingin membaca CV owner atau chat dengan asisten profilnya
+7. Advertiser yang ingin menyewa ruang iklan di sebuah node
+
+### 11.2 User Stories Tambahan
+
+**Konfigurasi AI**
+
+- Sebagai owner, saya ingin menghubungkan akun OpenAI atau Anthropic saya sendiri agar asisten profil saya memakai model pilihan saya.
+- Sebagai owner, saya ingin credential LLM saya disimpan secara aman dan tidak pernah ditampilkan penuh kembali ke saya atau siapa pun.
+
+**Akses CV berbayar**
+
+- Sebagai owner, saya ingin mengunggah CV saya dan mengenakan fee pilihan saya ke visitor untuk melihatnya, termasuk gratis.
+- Sebagai visitor, saya ingin membayar sekali dan bisa melihat CV tanpa membayar lagi di kunjungan berikutnya.
+
+**Chatbot berbayar**
+
+- Sebagai owner, saya ingin visitor bisa bertanya ke asisten profil saya soal latar belakang dan layanan saya.
+- Sebagai owner, saya ingin mengenakan biaya untuk akses chatbot supaya fitur ini tidak jadi endpoint API gratis tak terbatas untuk siapa saja.
+- Sebagai visitor, saya ingin tahu dengan jelas bahwa saya sedang chat dengan asisten otomatis, bukan langsung dengan owner.
+
+**Identity visitor**
+
+- Sebagai visitor, saya ingin login dengan akun Google saya alih-alih membuat password baru hanya untuk membaca CV atau memulai chat.
+- Sebagai owner, saya ingin setiap interaksi berbayar terikat ke visitor yang nyata dan teridentifikasi supaya saya bisa menyelesaikan sengketa.
+
+**Analytics**
+
+- Sebagai owner, saya ingin melihat berapa banyak unique visitor dan traffic yang didapat node saya setiap hari.
+
+**Ad marketplace**
+
+- Sebagai owner, saya ingin mendefinisikan ad slot di profil saya dan mengatur harga harian, mingguan, atau bulanan saya sendiri.
+- Sebagai advertiser, saya ingin booking dan membayar ad slot untuk periode tertentu dan tahu persis kapan mulai dan berakhirnya.
+
+### 11.3 Functional Requirements Tambahan
+
+**LLM abstraction**
+
+- Definisikan `LLMProviderInterface` yang analog dengan interface payment dan external-content yang sudah ada.
+- Dukung minimal adapter OpenAI dan Anthropic saat launch; tolak kode provider yang belum dikonfigurasi atau tidak didukung secara eksplisit.
+- Simpan provider, model, dan credential terenkripsi per node.
+
+**Konten dan interaksi berbayar**
+
+- Dokumen CV dan sesi chatbot digerbang oleh payment yang dibuat lewat `PaymentGatewayInterface` yang sudah ada.
+- Access grant (untuk CV) dan catatan sesi (untuk chat) mencegah visitor yang sudah bayar dikenakan biaya lagi dalam masa akses yang ditentukan owner.
+
+**Identity visitor**
+
+- Google OAuth 2.0 adalah satu-satunya metode sign-in visitor yang didukung untuk addendum ini.
+- Identity visitor berbeda dari akun owner/user dan tidak diberi permission manajemen node apa pun.
+
+**Analytics**
+
+- Catat page view dengan informasi yang cukup untuk menghitung unique visitor harian dan traffic harian, tanpa menyimpan identifier mentah selamanya.
+
+**Ad marketplace**
+
+- Ad slot punya harga harian, mingguan, dan bulanan yang independen, diatur oleh owner.
+- Booking punya waktu mulai dan berakhir yang eksplisit serta status approval sebelum creative ditampilkan ke publik.
+
+### 11.4 Acceptance Criteria Tambahan
+
+- Owner dapat memilih dan mengonfigurasi LLM provider dan melihatnya berlaku pada chatbot-nya tanpa perubahan kode.
+- Visitor tidak dapat melihat CV berbayar atau mengirim pesan chat tanpa login Google dan menyelesaikan payment terlebih dahulu saat diperlukan.
+- Visitor yang sudah pernah bayar tidak dikenakan biaya lagi untuk CV yang sama dalam masa akses yang ditentukan owner.
+- Dashboard harian owner menampilkan minimal unique visitor dan page view untuk hari sebelumnya.
+- Advertiser dapat booking ad slot yang tersedia untuk periode pilihannya dan melihatnya tayang hanya setelah owner menyetujui creative-nya.
+
+### 11.5 Out of Scope Tambahan
+
+- LLM provider di luar adapter awal OpenAI/Anthropic (pola yang sama extensible, ditambahkan belakangan).
+- Real-time ad bidding, programmatic exchange, atau moderasi creative otomatis.
+- Metode sign-in visitor selain Google OAuth.
+- Billing multi-currency untuk iklan dan chat di luar yang sudah didukung payment abstraction.
