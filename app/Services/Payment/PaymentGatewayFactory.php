@@ -9,7 +9,7 @@ use App\Core\Exceptions\UnsupportedProviderException;
 
 final class PaymentGatewayFactory
 {
-    private const SUPPORTED_CODES = ['DUMMY'];
+    private const SUPPORTED_CODES = ['DUMMY', 'PAYWUZ'];
 
     /**
      * @param array<string, mixed> $configuration
@@ -20,6 +20,7 @@ final class PaymentGatewayFactory
 
         return match ($normalizedCode) {
             'DUMMY' => new DummyPaymentGateway($configuration),
+            'PAYWUZ' => new PaywuzGateway($configuration),
             default => throw UnsupportedProviderException::forCode(
                 'payment gateway',
                 $normalizedCode,

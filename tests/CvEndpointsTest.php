@@ -165,6 +165,39 @@ $connection->exec('
         UNIQUE (cv_document_id, visitor_id)
     )
 ');
+$connection->exec('
+    CREATE TABLE payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        uuid TEXT NOT NULL UNIQUE,
+        order_id TEXT NOT NULL,
+        gateway_code TEXT NOT NULL,
+        external_transaction_id TEXT,
+        payment_method TEXT,
+        currency TEXT NOT NULL DEFAULT "IDR",
+        amount REAL NOT NULL DEFAULT 0,
+        fee REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT "PENDING",
+        payment_url TEXT,
+        metadata TEXT,
+        expired_at TIMESTAMP,
+        paid_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+');
+$connection->exec('
+    CREATE TABLE payment_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        payment_id INTEGER NOT NULL,
+        provider TEXT NOT NULL,
+        external_id TEXT,
+        event_type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        payload TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (provider, external_id)
+    )
+');
 
 // Register a real owner via the real AuthService (exercises Phase 1 code, not a shortcut).
 $authService = new AuthService(

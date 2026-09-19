@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Cv;
 
+use App\Core\Config;
 use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\PaymentRequiredException;
 use App\Repositories\CvAccessGrantRepository;
@@ -15,18 +16,17 @@ use RuntimeException;
  * Visitor-facing side of paid CV/resume access: pricing, payment, grants,
  * and reading the stored file for a visitor who already has access.
  *
- * Payment integration note: PaymentService::createPayment() does not yet
- * persist a `payments` row (Phase 5 of the main roadmap has not built that
- * layer), so `payment_reference` stores the gateway's returned payment_id
- * string rather than a foreign key. The only gateway implemented today is
- * DUMMY, which has no asynchronous confirmation step, so a successful
- * createPayment() call is treated as confirmed for this MVP; a real
- * production gateway must switch this to webhook-driven confirmation
- * before going live (see AI-MONETIZATION-STRATEGY.en.md Section 10).
+ * Payment integration note: the gateway is picked via the CV_PAYMENT_GATEWAY
+ * env var (default DUMMY). DUMMY has no asynchronous confirmation step, so
+ * grantAccess() still confirms it synchronously for local dev/tests. Any
+ * other configured gateway (e.g. PAYWUZ) is asynchronous: grantAccess()
+ * only creates a PENDING payment and returns `granted: false`; the actual
+ * grant happens later, when PaymentController::webhook() verifies the
+ * gateway's payment-confirmation webhook and calls confirmPayment().
  */
 final class CvAccessService
 {
-    private const GATEWAY_CODE = 'DUMMY';
+    private const SYNCHRONOUS_GATEWAY = 'DUMMY';
 
     public function __construct(
         private readonly CvDocumentRepository $documents,
@@ -87,17 +87,39 @@ final class CvAccessService
             return ['granted' => true, 'payment' => null];
         }
 
-        $payment = $this->payments->createPayment(self::GATEWAY_CODE, [
+        $gatewayCode = self::gatewayCode();
+        $payment = $this->payments->createPayment($gatewayCode, [
             'order_id' => sprintf('CV-%d-%d-%d', $documentId, $visitorId, time()),
             'amount' => $priceAmount,
             'currency' => $document['price_currency'],
             'description' => 'CV access: ' . $document['title'],
             'payer_email' => $visitorEmail,
+            'metadata' => ['purpose' => 'cv_access', 'document_id' => $documentId, 'visitor_id' => $visitorId],
         ]);
 
-        $this->grants->grant($documentId, $visitorId, (string) ($payment['payment_id'] ?? ''));
+        if ($gatewayCode === self::SYNCHRONOUS_GATEWAY) {
+            $this->grants->grant($documentId, $visitorId, (string) ($payment['payment_id'] ?? ''));
 
-        return ['granted' => true, 'payment' => $payment];
+            return ['granted' => true, 'payment' => $payment];
+        }
+
+        // Asynchronous gateway: access is granted later by confirmPayment(),
+        // once PaymentController::webhook() verifies the payment succeeded.
+        return ['granted' => false, 'payment' => $payment];
+    }
+
+    /**
+     * Called by PaymentController::webhook() once a payment for this CV has
+     * been confirmed as PAID. Idempotent via CvAccessGrantRepository::grant().
+     */
+    public function confirmPayment(int $documentId, int $visitorId, ?string $paymentReference): void
+    {
+        $this->grants->grant($documentId, $visitorId, $paymentReference);
+    }
+
+    private static function gatewayCode(): string
+    {
+        return strtoupper(Config::get('CV_PAYMENT_GATEWAY', self::SYNCHRONOUS_GATEWAY) ?? self::SYNCHRONOUS_GATEWAY);
     }
 
     /**

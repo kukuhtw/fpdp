@@ -11,6 +11,7 @@ use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
 use App\Controllers\ExternalContentController;
 use App\Controllers\MarketplaceController;
+use App\Controllers\PaymentController;
 use App\Controllers\PostController;
 use App\Controllers\VisitorAuthController;
 use App\Core\Config;
@@ -32,6 +33,7 @@ use App\Repositories\ExternalFeedSourceRepository;
 use App\Repositories\ExternalPostRepository;
 use App\Repositories\OrderItemRepository;
 use App\Repositories\OrderRepository;
+use App\Repositories\PaymentRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
@@ -118,7 +120,18 @@ $buildVisitorAuthController = static function () use ($buildVisitorAuthService):
 
 $cvStorageDirectory = dirname(__DIR__) . '/storage/cv';
 
-$buildCvController = static function () use ($buildAuthService, $buildVisitorAuthService, $cvStorageDirectory): CvController {
+$buildCvAccessService = static function () use ($cvStorageDirectory): CvAccessService {
+    $connection = Database::connection();
+
+    return new CvAccessService(
+        new CvDocumentRepository($connection),
+        new CvAccessGrantRepository($connection),
+        new PaymentService(payments: new PaymentRepository($connection)),
+        $cvStorageDirectory,
+    );
+};
+
+$buildCvController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildCvAccessService, $cvStorageDirectory): CvController {
     $connection = Database::connection();
 
     return new CvController(
@@ -126,12 +139,16 @@ $buildCvController = static function () use ($buildAuthService, $buildVisitorAut
         new ProfileService(new ProfileRepository($connection)),
         $buildVisitorAuthService(),
         new CvDocumentService(new CvDocumentRepository($connection), new CvAccessGrantRepository($connection), $cvStorageDirectory),
-        new CvAccessService(
-            new CvDocumentRepository($connection),
-            new CvAccessGrantRepository($connection),
-            new PaymentService(),
-            $cvStorageDirectory,
-        ),
+        $buildCvAccessService(),
+    );
+};
+
+$buildPaymentController = static function () use ($buildCvAccessService): PaymentController {
+    $connection = Database::connection();
+
+    return new PaymentController(
+        new PaymentService(payments: new PaymentRepository($connection)),
+        $buildCvAccessService(),
     );
 };
 $buildFederationController = static function () use ($buildAuthService): FederationController {
@@ -266,6 +283,10 @@ $router->post('/api/v1/profiles/{handle}/cv/access', function (Request $request,
 
 $router->get('/api/v1/profiles/{handle}/cv/download', function (Request $request, array $params) use ($buildCvController): Response {
     return $buildCvController()->download($request, $params);
+});
+
+$router->post('/api/v1/payments/webhook/{gateway}', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->webhook($request, $params);
 });
 
 $router->get('/api/v1/profiles/{handle}/federated-connections', function (Request $request, array $params) use ($buildFederationController): Response {
