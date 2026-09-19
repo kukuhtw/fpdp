@@ -385,7 +385,9 @@ public/
 .env.example             Contoh file environment yang aman (tanpa secret)
 
 database/
-└── schema.sql          Skema awal MySQL
+├── schema.sql          Snapshot referensi skema saat ini (lihat migrations untuk versi yang otoritatif dan bisa dieksekusi)
+├── migrations/         Migration SQL terurut dan repeatable dengan foreign key dan index
+└── migrate.php         CLI runner: menjalankan migration yang masih pending
 
 documentation/
 ├── README.md           Indeks dokumentasi bilingual
@@ -401,7 +403,9 @@ tests/
 ├── MvcHomeTest.php          Test render landing view
 ├── RouterTest.php           Test pencocokan rute dan fallback
 ├── FrontControllerTest.php  Test wiring rute dan envelope health
-└── ConfigTest.php           Test default config, override .env, dan validasi
+├── ConfigTest.php           Test default config, override .env, dan validasi
+├── MigrationRunnerTest.php  Test urutan, tracking, dan idempotency migration
+└── DatabaseTest.php         Test wiring koneksi database
 ```
 
 ### Kebutuhan sistem
@@ -409,7 +413,8 @@ tests/
 - PHP 8.2 atau lebih baru
 - Composer
 - Ekstensi PHP SimpleXML untuk parsing RSS dan Atom
-- MySQL 8 atau lebih baru jika memakai skema database yang tersedia
+- Ekstensi PHP pdo_mysql (pdo_sqlite hanya dipakai oleh test suite)
+- MySQL 8 atau lebih baru saat menjalankan migration ke database sungguhan
 - Akses jaringan saat menguji feed eksternal nyata
 
 ### Menjalankan proyek
@@ -435,6 +440,8 @@ tests/
    php tests/RouterTest.php
    php tests/FrontControllerTest.php
    php tests/ConfigTest.php
+   php tests/MigrationRunnerTest.php
+   php tests/DatabaseTest.php
    ```
 
 4. Jalankan front controller dan coba lewat browser atau curl:
@@ -444,11 +451,14 @@ tests/
    curl http://localhost:8080/api/v1/health
    ```
 
-5. Opsional: buat database MySQL dan impor skema awal:
+5. Buat database MySQL, isi kredensial `DB_*` di `.env`, lalu jalankan migration:
 
    ```bash
-   mysql -u root -p fpdp < database/schema.sql
+   mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS fpdp"
+   php database/migrate.php
    ```
+
+   Runner ini mencatat migration yang sudah diterapkan di tabel `migrations`, jadi menjalankannya berkali-kali aman dan hanya menerapkan yang masih pending.
 
 `public/index.php` adalah front controller HTTP; request diteruskan melalui `App\Core\Router` menggunakan tabel rute di `app/routes.php`. Baru `GET /` (landing page) dan `GET /api/v1/health` yang sudah tersambung — operasi `/api/v1` lainnya pada [kontrak API](documentation/API-CONTRACT.id.md) masih sebatas desain.
 
