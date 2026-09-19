@@ -4,9 +4,18 @@
 
 **Per tanggal:** 19 September 2026, diverifikasi langsung terhadap kode, migration, test, dan route pada repository ini (bukan hanya terhadap dokumen perencanaan).
 
-FPDP sudah memiliki **fondasi engineering** yang berfungsi dan **alur identitas/autentikasi** yang berfungsi (Phase 0 dan sebagian besar Phase 1 pada [roadmap](ROADMAP.id.md)). **Interface** payment dan konten eksternal sudah ada, masing-masing dengan satu set dummy/adapter yang fungsional. **Konten lokal (post), federasi, marketplace, dan administration dashboard belum memiliki implementasi backend** — semuanya baru berupa dokumen desain, dan khusus untuk dashboard/public profile, berupa mockup HTML interaktif statis.
+FPDP sudah memiliki **fondasi engineering** dan sebagian besar fase produk sudah diimplementasikan. Repository kini mencakup:
 
-Laporan ini disilangkan dengan [Work Breakdown Structure](WBS-TASK.en.md) (workstream 1.0–10.0) dan [Roadmap](ROADMAP.id.md) (phase 0–7) agar progres dapat dibaca terhadap kedua rencana tersebut.
+- Alur **identitas/autentikasi** lengkap (Phase 1)
+- **CRUD post lokal** dengan media, timeline, visibilitas (Phase 2)
+- **Konektor konten eksternal** dengan HTTP client anti-SSRF dan sync worker (Phase 3)
+- **Audit trail** terhubung ke semua service dan **GitHub Actions CI** (Phase 4)
+- **Marketplace** dengan produk, order, dan order items (Phase 5)
+- **Federated connections API** pada profil publik (Phase 6)
+
+Yang tersisa: adapter payment sungguhan, federasi penuh, marketplace lanjutan (checkout), dan backend dashboard administrasi.
+
+Laporan ini mengacu pada [Work Breakdown Structure](WBS-TASK.md) dan [Roadmap](ROADMAP.id.md) agar progres dapat dibaca terhadap kedua rencana tersebut.
 
 ## 2. Status singkat
 
