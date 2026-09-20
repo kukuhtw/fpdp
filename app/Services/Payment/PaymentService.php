@@ -150,14 +150,21 @@ final class PaymentService
     /**
      * Owner-facing list of every supported gateway, whether it has SANDBOX/
      * LIVE credentials configured, and which environment is active. Never
-     * includes a decrypted secret.
+     * includes a decrypted secret. Also returns the node's currently selected
+     * active gateway (if any) and each gateway's webhook callback URL.
      *
-     * @return array<int, array<string, mixed>>
+     * @return array{active_gateway: string|null, gateways: array<int, array<string, mixed>>}
      */
-    public function listGatewaySettings(): array
+    public function listGatewaySettings(?int $nodeId = null): array
     {
         $configs = $this->getGatewayConfigRepository();
         $gateways = [];
+        $domain = null;
+
+        if ($nodeId !== null) {
+            $node = $this->getNodeRepo()->findById($nodeId);
+            $domain = $node !== null ? (string) ($node['domain'] ?? '') : null;
+        }
 
         foreach ($configs->findAllGateways() as $gateway) {
             $gatewayId = (int) $gateway['id'];
@@ -170,15 +177,53 @@ final class PaymentService
                 $environments[$env]['configured_keys'][] = (string) $row['config_key'];
             }
 
+            $code = (string) $gateway['code'];
+            $webhookUrl = null;
+            if ($domain !== null) {
+                $webhookUrl = "https://{$domain}/api/v1/payments/webhook/{$code}";
+            }
+
             $gateways[] = [
-                'code' => $gateway['code'],
+                'code' => $code,
                 'name' => $gateway['name'],
-                'allowed_config_keys' => self::ALLOWED_CONFIG_KEYS[strtoupper((string) $gateway['code'])] ?? [],
+                'allowed_config_keys' => self::ALLOWED_CONFIG_KEYS[strtoupper($code)] ?? [],
+                'webhook_url' => $webhookUrl,
                 'environments' => array_values($environments),
             ];
         }
 
-        return $gateways;
+        $activeGateway = $nodeId !== null ? $this->getNodeRepo()->getActiveGateway($nodeId) : null;
+
+        return ['active_gateway' => $activeGateway, 'gateways' => $gateways];
+    }
+
+    /**
+     * Sets which payment gateway is the node's default for all checkout flows
+     * (orders, CV access, etc.). Pass null to clear the selection.
+     *
+     * @return array{active_gateway: string|null}
+     */
+    public function setActiveGateway(int $nodeId, ?string $gatewayCode): array
+    {
+        if ($gatewayCode !== null) {
+            $normalized = strtoupper($gatewayCode);
+            $gateway = $this->getGatewayConfigRepository()->findGatewayByCode($normalized);
+            if ($gateway === null) {
+                throw new ValidationException([['field' => 'gateway', 'reason' => 'unknown_gateway']]);
+            }
+        }
+
+        $this->getNodeRepo()->setActiveGateway($nodeId, $gatewayCode !== null ? strtoupper($gatewayCode) : null);
+
+        return ['active_gateway' => $gatewayCode !== null ? strtoupper($gatewayCode) : null];
+    }
+
+    private function getNodeRepo(): NodeRepository
+    {
+        if ($this->nodes === null) {
+            $this->nodes = new NodeRepository(\App\Core\Database::connection());
+        }
+        return $this->nodes;
     }
 
     /**
