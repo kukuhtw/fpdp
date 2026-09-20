@@ -39,6 +39,157 @@
     api_url: 'API URL',
     server_key: 'Server Key',
     client_id: 'Client ID',
+const renderGatewayList = (gateways) => {
+    gatewayList.replaceChildren();
+    gateways.forEach((gw) => {
+      const card = document.createElement('article');
+      card.className = 'gateway-card';
+      const envInfo = gw.environments.map((e) =>
+        `${envLabels[e.environment] || e.environment}: ${e.configured_keys.length > 0 ? '✅ Configured' : '❌ Not configured'}`
+      ).join(' | ') || 'Not configured';
+
+      card.innerHTML = `
+        <div class="gateway-card-head">
+          <strong>${gw.name}</strong> <span class="muted">(${gw.code})</span>
+        </div>
+        <p class="muted">${envInfo}</p>
+        <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${JSON.stringify(gw.allowed_config_keys)}'>Configure</button>
+      `;
+      gatewayList.append(card);
+    });
+  };
+
+  const loadGateways = async () => {
+    try {
+      const result = await api('/api/v1/me/payment-gateways');
+      renderGatewayList(result.data.gateways || []);
+    } catch (error) {
+      showStatus(error.message, true);
+    }
+  };
+
+  const buildFormFields = (keys) => {
+    gatewayFields.replaceChildren();
+    if (keys.length === 0) {
+      const p = document.createElement('p');
+      p.className = 'muted';
+      p.textContent = 'This gateway has no configuration fields needed.';
+      gatewayFields.append(p);
+      return;
+    }
+    keys.forEach((key) => {
+      const label = document.createElement('label');
+      label.textContent = fieldLabels[key] || key;
+      const input = document.createElement('input');
+      input.name = key;
+      input.type = key.includes('secret') || key === 'api_key' || key === 'server_key' ? 'password' : 'text';
+      input.value = '';
+      input.placeholder = 'Enter ' + (fieldLabels[key] || key);
+      label.append(input);
+      gatewayFields.append(label);
+    });
+  };
+
+  gatewayList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.configure-btn');
+    if (!btn) return;
+    const code = btn.dataset.code;
+    const keys = JSON.parse(btn.dataset.keys || '[]');
+    gatewayForm.elements.code.value = code;
+    configSubtitle.textContent = 'Configuring: ' + code;
+    buildFormFields(keys);
+    gatewayForm.classList.remove('hidden');
+    showStatus('');
+  });
+
+  gatewayForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = gatewayForm.elements.code.value;
+    const environment = gatewayForm.elements.environment.value;
+    const config = {};
+    const inputs = gatewayFields.querySelectorAll('input[name]');
+    let hasValue = false;
+    inputs.forEach((input) => {
+      if (input.value) {
+        config[input.name] = input.value;
+        hasValue = true;
+      }
+    });
+    if (!hasValue) {
+      showStatus('Fill in at least one field.', true);
+      return;
+    }
+    try {
+      await api('/api/v1/me/payment-gateways/' + encodeURIComponent(code), {
+        method: 'PATCH',
+        body: JSON.stringify({ environment, config }),
+      });
+      showStatus(code + ' configuration saved.');
+      await loadGateways();
+    } catch (error) {
+      showStatus(error.message, true);
+    }
+  });
+
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const fields = new FormData(loginForm);
+    try {
+      const result = await api('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: fields.get('email'), password: fields.get('password') }),
+      });
+      sessionStorage.setItem(tokenKey, result.data.token.access_token);
+      loginForm.reset();
+      if (await verifySession()) {
+        showStatus('Signed in successfully.');
+        loadGateways();
+      } else {
+        showStatus('Session verification failed. Please try again.', true);
+      }
+    } catch (error) { showStatus(error.message, true); }
+  });
+
+  logoutButton.addEventListener('click', async () => {
+    try { await api('/api/v1/auth/logout', { method: 'POST' }); } catch (_) { }
+    sessionStorage.removeItem(tokenKey);
+    setAuthenticated(false);
+    gatewayForm.classList.add('hidden');
+    gatewayList.replaceChildren();
+    showStatus('Signed out.');
+  });
+
+  const verifySession = async () => {
+    if (!token()) { setAuthenticated(false); return false; }
+    try {
+      const result = await api('/api/v1/me');
+      setAuthenticated(true, result.data.profile.handle);
+      return true;
+    } catch (error) {
+      sessionStorage.removeItem(tokenKey);
+      setAuthenticated(false);
+      console.error('verifySession failed:', error);
+      return false;
+    }
+  };
+
+  (async () => {
+    if (await verifySession()) {
+      await loadGateways();
+    }
+  })();
+})();
+
+document.querySelectorAll('.toggle-password').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const wrapper = btn.closest('.password-wrapper');
+    const input = wrapper.querySelector('input');
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.textContent = isPassword ? btn.dataset.hide : btn.dataset.show;
+    btn.setAttribute('aria-label', (isPassword ? 'Hide' : 'Show') + ' password');
+  });
+});
     client_secret: 'Client Secret',
     webhook_id: 'Webhook ID',
   };

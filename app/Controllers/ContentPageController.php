@@ -69,6 +69,10 @@ final class ContentPageController
     {
         return View::render('dashboard-integrations', ['title' => 'Integrations · FPDP']);
     }
+public function settings(): string
+    {
+        return View::render('dashboard-settings', ['title' => 'Settings · FPDP']);
+    }
 
     public function cvManager(): string
     {
