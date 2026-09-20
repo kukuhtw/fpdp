@@ -23,14 +23,16 @@ final class PostRepository
 
     public function create(string $publicId, int $userId, int $profileId, array $fields): array
     {
+        $slug = self::generateSlug($fields['title'] ?? '');
         $this->connection->beginTransaction();
         try {
             $statement = $this->connection->prepare(
-                'INSERT INTO posts (public_id, user_id, profile_id, title, content, post_type, visibility, published_at)
-                 VALUES (:public_id, :user_id, :profile_id, :title, :content, :post_type, :visibility, :published_at)',
+                'INSERT INTO posts (public_id, slug, user_id, profile_id, title, content, post_type, visibility, published_at)
+                 VALUES (:public_id, :slug, :user_id, :profile_id, :title, :content, :post_type, :visibility, :published_at)',
             );
             $statement->execute([
                 'public_id' => $publicId,
+                'slug' => $slug,
                 'user_id' => $userId,
                 'profile_id' => $profileId,
                 'title' => $fields['title'],
@@ -148,6 +150,25 @@ final class PostRepository
         ];
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findBySlug(int $numericId, string $slug): ?array
+    {
+        $statement = $this->connection->prepare(
+            self::SELECT . ' WHERE posts.id = :id AND posts.slug = :slug AND posts.deleted_at IS NULL',
+        );
+        $statement->execute(['id' => $numericId, 'slug' => $slug]);
+        $row = $statement->fetch();
+
+        if ($row === false) {
+            return null;
+        }
+
+        $row['media'] = $this->mediaForPostIds([(int) $row['id']])[(int) $row['id']] ?? [];
+        return $row;
+    }
+
     public function update(string $publicId, array $fields): array
     {
         $assignments = [];
@@ -157,6 +178,11 @@ final class PostRepository
                 $assignments[] = $column . ' = :' . $column;
                 $parameters[$column] = $fields[$column];
             }
+        }
+        // Regenerate slug when title changes
+        if (array_key_exists('title', $fields)) {
+            $assignments[] = 'slug = :slug';
+            $parameters['slug'] = self::generateSlug($fields['title'] ?? '');
         }
         $this->connection->beginTransaction();
         try {
