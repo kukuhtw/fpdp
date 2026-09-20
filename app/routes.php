@@ -8,6 +8,7 @@ use App\Controllers\CvController;
 use App\Controllers\ContentPageController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
+use App\Controllers\MediaController;
 use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
 use App\Controllers\ExternalContentController;
@@ -52,6 +53,7 @@ use App\Services\Cv\CvAccessService;
 use App\Services\Cv\CvDocumentService;
 use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
+use App\Services\Content\MediaUploadService;
 use App\Services\Content\PostService;
 use App\Services\External\SyncWorker;
 use App\Services\Marketplace\MarketplaceService;
@@ -131,6 +133,11 @@ $buildVisitorAuthController = static function () use ($buildVisitorAuthService):
 };
 
 $cvStorageDirectory = dirname(__DIR__) . '/storage/cv';
+$mediaStorageDirectory = dirname(__DIR__) . '/storage/media';
+
+$buildMediaController = static function () use ($buildAuthService, $mediaStorageDirectory): MediaController {
+    return new MediaController($buildAuthService(), new MediaUploadService($mediaStorageDirectory));
+};
 
 $buildPaymentService = static function (): PaymentService {
     $connection = Database::connection();
@@ -341,6 +348,14 @@ $router->post('/api/v1/profiles/{handle}/cv/access', function (Request $request,
 
 $router->get('/api/v1/profiles/{handle}/cv/download', function (Request $request, array $params) use ($buildCvController): Response {
     return $buildCvController()->download($request, $params);
+});
+
+$router->post('/api/v1/me/media', function (Request $request, array $params) use ($buildMediaController): Response {
+    return $buildMediaController()->upload($request);
+});
+
+$router->get('/api/v1/media/{key}', function (Request $request, array $params) use ($buildMediaController): Response {
+    return $buildMediaController()->show($params);
 });
 
 $router->post('/api/v1/payments/webhook/{gateway}', function (Request $request, array $params) use ($buildPaymentController): Response {

@@ -249,3 +249,15 @@
 
   verifySession();
 })();
+
+/* ── Toggle password visibility ── */
+document.querySelectorAll('.toggle-password').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const wrapper = btn.closest('.password-wrapper');
+    const input = wrapper.querySelector('input');
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.textContent = isPassword ? btn.dataset.hide : btn.dataset.show;
+    btn.setAttribute('aria-label', (isPassword ? 'Hide' : 'Show') + ' password');
+  });
+});

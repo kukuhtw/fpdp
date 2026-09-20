@@ -7,10 +7,20 @@
   const status = document.querySelector('#editor-status');
   const savedPost = document.querySelector('#saved-post');
 
+  const mediaFileInput = document.querySelector('#media-file-input');
+  const mediaUploadButton = document.querySelector('#media-upload-button');
+  const mediaUploadStatus = document.querySelector('#media-upload-status');
+  const mediaUrlInput = postForm.elements.media_url;
+  const mediaTypeSelect = postForm.elements.media_type;
+
   const token = () => sessionStorage.getItem(tokenKey);
   const showStatus = (message, error = false) => {
     status.textContent = message;
     status.className = `status ${error ? 'error' : 'success'}`;
+  };
+  const showMediaStatus = (message, error = false) => {
+    mediaUploadStatus.textContent = message;
+    mediaUploadStatus.className = `status ${error ? 'error' : 'success'}`;
   };
   const setAuthenticated = (authenticated, label = '') => {
     loginForm.classList.toggle('hidden', authenticated);
@@ -90,5 +100,63 @@
   document.querySelector('#reset-button').addEventListener('click', () => {
     postForm.reset(); postForm.elements.post_id.value = ''; savedPost.classList.add('hidden'); showStatus('Ready for a new draft.');
   });
+
+  const mediaCategoryFor = (mimeType) => {
+    if (mimeType.startsWith('image/')) return 'IMAGE';
+    if (mimeType.startsWith('video/')) return 'VIDEO';
+    if (mimeType.startsWith('audio/')) return 'AUDIO';
+    if (mimeType === 'application/pdf') return 'FILE';
+    return null;
+  };
+  const readAsBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Could not read the selected file.'));
+    reader.readAsDataURL(file);
+  });
+
+  mediaFileInput.addEventListener('change', () => {
+    mediaUploadButton.disabled = mediaFileInput.files.length === 0;
+    showMediaStatus('');
+  });
+
+  mediaUploadButton.addEventListener('click', async () => {
+    if (!token()) return showMediaStatus('Sign in before uploading media.', true);
+    const file = mediaFileInput.files[0];
+    if (!file) return;
+
+    const guessedType = mediaCategoryFor(file.type);
+    const mediaType = guessedType || mediaTypeSelect.value;
+
+    mediaUploadButton.disabled = true;
+    showMediaStatus('Uploading…');
+    try {
+      const contentBase64 = await readAsBase64(file);
+      const result = await api('/api/v1/me/media', {
+        method: 'POST',
+        body: JSON.stringify({ media_type: mediaType, content_base64: contentBase64 }),
+      });
+      mediaUrlInput.value = result.data.url;
+      if (guessedType) mediaTypeSelect.value = guessedType;
+      showMediaStatus('Uploaded. URL filled in below — save the post to attach it.');
+    } catch (error) {
+      showMediaStatus(error.message, true);
+    } finally {
+      mediaUploadButton.disabled = mediaFileInput.files.length === 0;
+    }
+  });
+
   verifySession();
 })();
+
+/* ── Toggle password visibility ── */
+document.querySelectorAll('.toggle-password').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const wrapper = btn.closest('.password-wrapper');
+    const input = wrapper.querySelector('input');
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    btn.textContent = isPassword ? btn.dataset.hide : btn.dataset.show;
+    btn.setAttribute('aria-label', (isPassword ? 'Hide' : 'Show') + ' password');
+  });
+});

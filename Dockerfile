@@ -13,7 +13,7 @@ COPY docker/entrypoint.sh /usr/local/bin/fpdp-entrypoint
 COPY . /var/www/html
 
 RUN chmod +x /usr/local/bin/fpdp-entrypoint \
-    && mkdir -p /var/www/html/storage/cv /var/www/html/storage/logs /var/www/html/storage/tmp \
+    && mkdir -p /var/www/html/storage/cv /var/www/html/storage/media /var/www/html/storage/logs /var/www/html/storage/tmp \
     && chown -R www-data:www-data /var/www/html/storage
 
 WORKDIR /var/www/html

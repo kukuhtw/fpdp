@@ -50,6 +50,24 @@ final class Response
         ], $content);
     }
 
+    /**
+     * Publicly embeddable content (e.g. uploaded post media) served inline
+     * rather than force-downloaded, with `nosniff` so the browser never
+     * reinterprets it as a different content type than the one this
+     * server-verified. Cached aggressively since storage keys are random
+     * and content at a given key never changes.
+     */
+    public static function media(string $content, string $contentType): self
+    {
+        return new self(200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'inline',
+            'Content-Length' => (string) strlen($content),
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+            'X-Content-Type-Options' => 'nosniff',
+        ], $content);
+    }
+
     public function send(): void
     {
         http_response_code($this->status);

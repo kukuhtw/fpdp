@@ -14,7 +14,12 @@
         <p id="auth-summary" class="muted">Sign in to view your dashboard.</p>
         <form id="login-form" class="stack">
             <label>Email<input name="email" type="email" autocomplete="email" required></label>
-            <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+            <label class="password-field">Password
+                <span class="password-wrapper">
+                    <input name="password" type="password" autocomplete="current-password" required>
+                    <button type="button" class="toggle-password" aria-label="Show password" data-show="Show" data-hide="Hide">Show</button>
+                </span>
+            </label>
             <button type="submit">Sign in</button>
         </form>
         <button id="logout-button" class="secondary hidden" type="button">Sign out</button>

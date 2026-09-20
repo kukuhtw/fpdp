@@ -21,7 +21,7 @@ if [ "${APP_ENV:-production}" = "production" ]; then
     fi
 fi
 
-mkdir -p storage/cv storage/logs storage/tmp
+mkdir -p storage/cv storage/media storage/logs storage/tmp
 chown -R www-data:www-data storage
 
 if [ "${DB_CONNECTION:-mysql}" = "mysql" ]; then

@@ -14,7 +14,12 @@
         <p id="auth-summary" class="muted">Sign in to create and manage local posts.</p>
         <form id="login-form" class="stack">
             <label>Email<input name="email" type="email" autocomplete="email" required></label>
-            <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+            <label class="password-field">Password
+                <span class="password-wrapper">
+                    <input name="password" type="password" autocomplete="current-password" required>
+                    <button type="button" class="toggle-password" aria-label="Show password" data-show="Show" data-hide="Hide">Show</button>
+                </span>
+            </label>
             <button type="submit">Sign in</button>
         </form>
         <button id="logout-button" class="secondary hidden" type="button">Sign out</button>
@@ -26,6 +31,11 @@
             <label>Content<textarea name="content" rows="12" maxlength="100000" required></textarea></label>
             <fieldset class="media-fields"><legend>Media attachment <span class="muted">optional</span></legend>
                 <div class="field-row"><label>Type<select name="media_type"><option>IMAGE</option><option>VIDEO</option><option>AUDIO</option><option>FILE</option></select></label><label>HTTPS URL<input name="media_url" type="url" inputmode="url" placeholder="https://cdn.example.com/media.jpg"></label></div>
+                <div class="field-row upload-row">
+                    <label class="upload-picker">Or upload a file<input id="media-file-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,audio/mpeg,audio/ogg,audio/wav,application/pdf"></label>
+                    <button id="media-upload-button" class="secondary" type="button" disabled>Upload</button>
+                </div>
+                <p id="media-upload-status" class="status" role="status" aria-live="polite"></p>
                 <label>Alternative text<input name="media_alt_text" maxlength="500" placeholder="Describe the media for accessibility"></label>
             </fieldset>
             <div class="field-row">
