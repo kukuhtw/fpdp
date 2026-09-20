@@ -1,5 +1,6 @@
 <?php
-$postUrl = '/posts/' . rawurlencode((string) $post['public_id']);
+$slug = ($post['slug'] ?? '') !== '' ? '-' . rawurlencode((string) $post['slug']) : '';
+$postUrl = '/posts/' . (int) $post['id'] . $slug;
 $profileUrl = '/@' . rawurlencode((string) $post['handle']);
 ?>
 <article class="post-card">

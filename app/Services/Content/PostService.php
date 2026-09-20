@@ -56,6 +56,19 @@ final class PostService
 
     public function get(string $publicId): array
     {
+        // Support both UUID and {id}-{slug} format
+        if (str_contains($publicId, '-') && !str_contains($publicId, '-') === false) {
+            $parts = explode('-', $publicId, 2);
+            if (ctype_digit($parts[0]) && isset($parts[1]) && $parts[1] !== '') {
+                $numericId = (int) $parts[0];
+                $slug = $parts[1];
+                $post = $this->posts->findBySlug($numericId, $slug);
+                if ($post !== null) {
+                    return $post;
+                }
+            }
+        }
+
         $post = $this->posts->findByPublicId($publicId);
         if ($post === null) {
             throw new NotFoundException('Post not found.');
@@ -66,6 +79,22 @@ final class PostService
 
     public function getOwn(string $publicId, array $context): array
     {
+        // Support both UUID and {id}-{slug} format
+        if (str_contains($publicId, '-')) {
+            $parts = explode('-', $publicId, 2);
+            if (ctype_digit($parts[0]) && isset($parts[1]) && $parts[1] !== '') {
+                $numericId = (int) $parts[0];
+                $slug = $parts[1];
+                $post = $this->posts->findBySlug($numericId, $slug);
+                if ($post !== null) {
+                    if ((int) $post['user_id'] !== (int) $context['user']['id']) {
+                        throw new NotFoundException('Post not found.');
+                    }
+                    return $post;
+                }
+            }
+        }
+
         $post = $this->posts->findByPublicId($publicId, true);
         if ($post === null) {
             throw new NotFoundException('Post not found.');
