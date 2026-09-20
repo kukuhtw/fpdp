@@ -285,6 +285,9 @@ $router->get('/posts/{postId}', function (Request $request, array $params) use (
     return Response::html($buildContentPageController()->post($params['postId']));
 });
 
+$router->get('/about', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->about());
+});
 $router->get('/dashboard/posts', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->editor());
 });
