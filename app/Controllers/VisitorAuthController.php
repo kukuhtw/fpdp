@@ -56,14 +56,23 @@ final class VisitorAuthController
         $profile = $this->profiles->getPublicProfile($handle);
         $result = $this->visitorAuth->handleCallback((int) $profile['node_id'], $code, $verified['redirect_uri']);
 
-        return JsonEnvelope::success([
+        $payload = [
             'visitor' => [
                 'id' => $result['visitor']['public_id'],
                 'email' => $result['visitor']['email'],
                 'display_name' => $result['visitor']['display_name'],
             ],
             'token' => $result['token'],
-        ]);
+        ];
+
+        if (str_contains(strtolower((string) ($request->header('accept') ?? '')), 'text/html')) {
+            $token = json_encode((string) $result['token']['access_token'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $target = json_encode('/@' . rawurlencode($handle) . '/cv', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
+            return Response::html('<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Login berhasil</title></head><body><p>Login berhasil. Mengalihkan…</p><script>sessionStorage.setItem("fpdp_visitor_token", ' . $token . ');location.replace(' . $target . ');</script></body></html>');
+        }
+
+        return JsonEnvelope::success($payload);
     }
 
     private static function callbackUrl(Request $request, string $handle): string

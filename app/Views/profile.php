@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
-<nav class="topbar"><a class="brand" href="/">FPDP</a><a href="/timeline">Timeline</a></nav>
+<nav class="topbar"><a class="brand" href="/">FPDP</a><a href="/@<?= rawurlencode((string) $profile['handle']) ?>/cv">CV / Resume</a><a href="/timeline">Timeline</a></nav>
 <main class="shell">
     <header class="profile-hero">
         <div class="avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr((string) $profile['display_name'], 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>

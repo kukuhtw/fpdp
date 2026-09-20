@@ -94,11 +94,13 @@ DB_HOST=db
 DB_PORT=3306
 ```
 
-Google visitor login memerlukan `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`. Daftarkan callback:
+Google visitor login memerlukan `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`. Daftarkan callback dengan mengganti `HANDLE` menjadi handle owner yang sebenarnya:
 
 ```text
-https://profile.example.com/api/v1/profiles/{handle}/visitor-auth/google/callback
+https://profile.example.com/api/v1/profiles/HANDLE/visitor-auth/google/callback
 ```
+
+Google tidak mendukung wildcard pada redirect URI. Panduan pembuatan credential, consent screen, callback lokal/production, dan troubleshooting tersedia di [Konfigurasi Google OAuth](GOOGLE-OAUTH-SETUP.id.md).
 
 ## 6. Domain dan HTTPS
 

@@ -278,8 +278,16 @@ $router->get('/dashboard/integrations', function (Request $request, array $param
     return Response::html($buildContentPageController()->integrations());
 });
 
+$router->get('/dashboard/cv', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->cvManager());
+});
+
 $router->get('/dashboard', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->dashboardOverview());
+});
+
+$router->get('/@{handle}/cv', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->publicCv($params['handle']));
 });
 
 $router->get('/api/v1/health', function (Request $request, array $params): Response {

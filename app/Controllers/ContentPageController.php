@@ -69,4 +69,16 @@ final class ContentPageController
     {
         return View::render('dashboard-integrations', ['title' => 'Integrations · FPDP']);
     }
+
+    public function cvManager(): string
+    {
+        return View::render('dashboard-cv', ['title' => 'CV & Resume · FPDP']);
+    }
+
+    public function publicCv(string $handle): string
+    {
+        $profile = $this->profiles->getPublicProfile($handle);
+
+        return View::render('public-cv', ['title' => 'CV ' . $profile['display_name'] . ' · FPDP', 'profile' => $profile]);
+    }
 }
