@@ -26,6 +26,7 @@ final class PaymentService
         'DUMMY' => [],
         'PAYWUZ' => ['api_key', 'api_url'],
         'MIDTRANS' => ['server_key'],
+        'PAYPAL' => ['client_id', 'client_secret', 'webhook_id'],
     ];
 
     public function __construct(

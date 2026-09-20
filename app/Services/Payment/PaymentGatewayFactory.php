@@ -9,7 +9,7 @@ use App\Core\Exceptions\UnsupportedProviderException;
 
 final class PaymentGatewayFactory
 {
-    private const SUPPORTED_CODES = ['DUMMY', 'PAYWUZ', 'MIDTRANS'];
+    private const SUPPORTED_CODES = ['DUMMY', 'PAYWUZ', 'MIDTRANS', 'PAYPAL'];
 
     /**
      * @param array<string, mixed> $configuration
@@ -22,6 +22,7 @@ final class PaymentGatewayFactory
             'DUMMY' => new DummyPaymentGateway($configuration),
             'PAYWUZ' => new PaywuzGateway($configuration),
             'MIDTRANS' => new MidtransGateway($configuration),
+            'PAYPAL' => new PayPalGateway($configuration),
             default => throw UnsupportedProviderException::forCode(
                 'payment gateway',
                 $normalizedCode,
