@@ -41,9 +41,10 @@
       const result = await api('/api/v1/me');
       setAuthenticated(true, result.data.profile.handle);
       return true;
-    } catch (_) {
+    } catch (error) {
       sessionStorage.removeItem(tokenKey);
       setAuthenticated(false);
+      console.error('verifySession failed:', error);
       return false;
     }
   };

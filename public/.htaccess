@@ -6,6 +6,12 @@
 
 RewriteEngine On
 
+# Pass the Authorization header through to PHP (Apache/mod_rewrite may strip it
+# otherwise, even with mod_php; this rule re-injects it as an environment
+# variable so PHP sees it in $_SERVER['HTTP_AUTHORIZATION']).
+RewriteCond %{HTTP:Authorization} ^(.+)$
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # Serve existing files and directories (css/js/images, install.php itself) as-is.
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
