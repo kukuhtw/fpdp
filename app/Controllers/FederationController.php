@@ -138,6 +138,29 @@ final class FederationController
         return JsonEnvelope::success($node);
     }
 
+    /**
+     * POST /api/v1/me/federation/discover
+     *
+     * Manually trigger discovery of a remote domain. Fetches and caches
+     * the remote node's capability document and public key, then returns
+     * the discovered node metadata. If the domain is already known and
+     * its key cache is still fresh this returns the existing record
+     * without an outbound request.
+     *
+     * @param array<string, string> $params
+     */
+    public function discoverRemoteNode(Request $request, array $params): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        $input = $request->json() ?? [];
+        $domain = (string) ($input['domain'] ?? '');
+
+        $node = $this->federation->discoverRemoteNode($domain);
+
+        return JsonEnvelope::success($node, 201);
+    }
+
     // ---- Follow / Accept / Reject / Block ----
 
     public function sendFollow(Request $request): Response

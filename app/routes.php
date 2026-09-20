@@ -460,6 +460,10 @@ $router->patch('/api/v1/me/federation/remote-nodes/{domain}/trust', function (Re
     return $buildFederationController()->updateRemoteNodeTrust($request, $params);
 });
 
+$router->post('/api/v1/me/federation/discover', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->discoverRemoteNode($request, $params);
+});
+
 $router->get('/api/v1/federation/capability', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->capability($request);
 });
