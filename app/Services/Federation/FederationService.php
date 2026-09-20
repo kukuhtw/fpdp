@@ -230,14 +230,32 @@ final class FederationService
     }
 
     /**
-     * Moderation view: every remote node we have seen, so the owner can
-     * decide which domains to trust or block before it affects delivery.
+     * Moderation view: every remote node we have seen, enriched with the
+     * cached public key and actor count so the owner can decide which
+     * domains to trust or block before it affects delivery.
      *
      * @return array<int, array<string, mixed>>
      */
     public function listRemoteNodesForModeration(): array
     {
-        return $this->nodes->findAll();
+        $nodes = $this->nodes->findAll();
+        $keys = $this->getRemoteNodeKeyRepo();
+
+        return array_map(function (array $node) use ($keys): array {
+            $key = $keys->findByRemoteNodeId((int) $node['id']);
+
+            return [
+                'id' => $node['public_id'],
+                'domain' => $node['domain'],
+                'name' => $node['name'],
+                'status' => $node['status'],
+                'trust_state' => $node['trust_state'],
+                'public_key_fingerprint' => $key['fingerprint'] ?? null,
+                'key_fetched_at' => $key['fetched_at'] ?? null,
+                'actor_count' => $this->actors->countByRemoteNodeId((int) $node['id']),
+                'last_seen_at' => $node['last_seen_at'],
+            ];
+        }, $nodes);
     }
 
     /**
