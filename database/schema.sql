@@ -220,6 +220,9 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT NULL,
     price DECIMAL(18,2) NOT NULL DEFAULT 0,
     currency CHAR(3) NOT NULL DEFAULT 'IDR',
+product_type VARCHAR(32) NOT NULL DEFAULT 'PHYSICAL' COMMENT 'PHYSICAL, DIGITAL, SERVICE',
+    digital_asset_url VARCHAR(2048) NULL COMMENT 'Download URL for digital goods',
+    digital_asset_metadata JSON NULL COMMENT 'File size, format, preview URL, etc.',
     status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
     visibility VARCHAR(32) NOT NULL DEFAULT 'PUBLIC',
     media JSON NULL,
@@ -227,6 +230,7 @@ CREATE TABLE IF NOT EXISTS products (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_product_public_id (public_id),
     KEY idx_products_node (node_id, status, visibility)
+KEY idx_products_type (product_type),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS orders (

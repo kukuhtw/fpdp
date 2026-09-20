@@ -14,8 +14,9 @@ use App\Repositories\ProductRepository;
 
 final class MarketplaceService
 {
-    private const PRODUCT_FIELDS = ['title', 'description', 'price', 'currency', 'status', 'visibility', 'media'];
+    private const PRODUCT_FIELDS = ['title', 'description', 'price', 'currency', 'product_type', 'digital_asset_url', 'digital_asset_metadata', 'status', 'visibility', 'media'];
     private const VISIBILITIES = ['PUBLIC', 'UNLISTED', 'PRIVATE'];
+    private const PRODUCT_TYPES = ['PHYSICAL', 'DIGITAL', 'SERVICE'];
     private const ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
 
     public function __construct(
@@ -29,7 +30,18 @@ final class MarketplaceService
     {
         $errors = $this->validateProductInput($input, false);
         if ($errors !== []) throw new ValidationException($errors);
-        return $this->products->create(Uuid::v4(), $nodeId, $input['title'], $input['description'] ?? null, (string) ($input['price'] ?? '0'), $input['currency'] ?? 'IDR', $input['media'] ?? null);
+        return $this->products->create(
+            Uuid::v4(),
+            $nodeId,
+            $input['title'],
+            $input['description'] ?? null,
+            (string) ($input['price'] ?? '0'),
+            $input['currency'] ?? 'IDR',
+            $input['media'] ?? null,
+            $input['product_type'] ?? 'PHYSICAL',
+            $input['digital_asset_url'] ?? null,
+            $input['digital_asset_metadata'] ?? null,
+        );
     }
 
     public function getProduct(string $publicId): array

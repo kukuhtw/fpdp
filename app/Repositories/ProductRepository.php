@@ -18,11 +18,11 @@ final class ProductRepository
     {
     }
 
-    public function create(string $publicId, int $nodeId, string $title, ?string $description, string $price, string $currency = 'IDR', ?array $media = null): array
+    public function create(string $publicId, int $nodeId, string $title, ?string $description, string $price, string $currency = 'IDR', ?array $media = null, string $productType = 'PHYSICAL', ?string $digitalAssetUrl = null, ?array $digitalAssetMetadata = null): array
     {
         $statement = $this->connection->prepare(
-            'INSERT INTO products (public_id, node_id, title, description, price, currency, media)
-             VALUES (:public_id, :node_id, :title, :description, :price, :currency, :media)',
+            'INSERT INTO products (public_id, node_id, title, description, price, currency, product_type, digital_asset_url, digital_asset_metadata, media)
+             VALUES (:public_id, :node_id, :title, :description, :price, :currency, :product_type, :digital_asset_url, :digital_asset_metadata, :media)',
         );
         $statement->execute([
             'public_id' => $publicId,
@@ -31,6 +31,9 @@ final class ProductRepository
             'description' => $description,
             'price' => $price,
             'currency' => $currency,
+            'product_type' => $productType,
+            'digital_asset_url' => $digitalAssetUrl,
+            'digital_asset_metadata' => $digitalAssetMetadata !== null ? json_encode($digitalAssetMetadata) : null,
             'media' => $media !== null ? json_encode($media) : null,
         ]);
 
@@ -92,10 +95,10 @@ final class ProductRepository
         $assignments = [];
         $parameters = ['public_id' => $publicId];
 
-        foreach (['title', 'description', 'price', 'currency', 'status', 'visibility', 'media'] as $column) {
+        foreach (['title', 'description', 'price', 'currency', 'product_type', 'digital_asset_url', 'digital_asset_metadata', 'status', 'visibility', 'media'] as $column) {
             if (array_key_exists($column, $fields)) {
                 $assignments[] = $column . ' = :' . $column;
-                $parameters[$column] = $column === 'media' ? json_encode($fields[$column]) : $fields[$column];
+                $parameters[$column] = in_array($column, ['media', 'digital_asset_metadata'], true) ? json_encode($fields[$column]) : $fields[$column];
             }
         }
 
