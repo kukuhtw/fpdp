@@ -13,6 +13,31 @@
   const mediaUrlInput = postForm.elements.media_url;
   const mediaTypeSelect = postForm.elements.media_type;
 
+  const getParam = (name) => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name) || '';
+  };
+  const loadPost = async (postId) => {
+    try {
+      const result = await api(`/api/v1/posts/${encodeURIComponent(postId)}`);
+      const post = result.data;
+      postForm.elements.post_id.value = post.id;
+      postForm.elements.title.value = post.title || '';
+      postForm.elements.content.value = post.content || '';
+      postForm.elements.post_type.value = post.post_type || 'NOTE';
+      postForm.elements.visibility.value = post.visibility || 'PUBLIC';
+      postForm.elements.publish.checked = post.published_at !== null;
+      if ((post.media || []).length > 0) {
+        mediaUrlInput.value = post.media[0].url || '';
+        mediaTypeSelect.value = post.media[0].type || 'IMAGE';
+        postForm.elements.media_alt_text.value = post.media[0].alt_text || '';
+      }
+      showStatus(`Editing post "${post.title || 'untitled'}".`);
+    } catch (error) {
+      showStatus(error.message, true);
+    }
+  };
+
   const token = () => sessionStorage.getItem(tokenKey);
   const showStatus = (message, error = false) => {
     status.textContent = message;
@@ -149,7 +174,12 @@
     }
   });
 
-  verifySession();
+  const editId = getParam('edit');
+  (async () => {
+    if (await verifySession()) {
+      if (editId) await loadPost(editId);
+    }
+  })();
 })();
 
 /* ── Toggle password visibility ── */
