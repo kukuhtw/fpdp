@@ -152,6 +152,31 @@ public function getOrder(string $publicId): array
             $price = (string) $input['price'];
             if (!is_numeric($price) || (float) $price < 0) $errors[] = ['field' => 'price', 'reason' => 'invalid_value'];
         }
+        if (array_key_exists('product_type', $input)) {
+            if (!in_array($input['product_type'], self::PRODUCT_TYPES, true)) {
+                $errors[] = ['field' => 'product_type', 'reason' => 'invalid_value'];
+            }
+            if ($input['product_type'] === 'DIGITAL') {
+                // Digital goods require a download URL
+                if (empty($input['digital_asset_url'])) {
+                    $errors[] = ['field' => 'digital_asset_url', 'reason' => 'required_for_digital'];
+                }
+            }
+        }
+        if (array_key_exists('digital_asset_url', $input) && $input['digital_asset_url'] !== null) {
+            $url = (string) $input['digital_asset_url'];
+            $parts = parse_url($url);
+            if (strlen($url) > 2048 || filter_var($url, FILTER_VALIDATE_URL) === false
+                || !in_array(strtolower((string) ($parts['scheme'] ?? '')), ['https', 'http'], true)
+                || ($parts['host'] ?? '') === '' || isset($parts['user']) || isset($parts['pass'])) {
+                $errors[] = ['field' => 'digital_asset_url', 'reason' => 'invalid_format'];
+            }
+        }
+        if (array_key_exists('digital_asset_metadata', $input) && $input['digital_asset_metadata'] !== null) {
+            if (!is_array($input['digital_asset_metadata'])) {
+                $errors[] = ['field' => 'digital_asset_metadata', 'reason' => 'invalid_value'];
+            }
+        }
         if (array_key_exists('visibility', $input) && !in_array($input['visibility'], self::VISIBILITIES, true)) $errors[] = ['field' => 'visibility', 'reason' => 'invalid_value'];
         if ($input === [] && !$partial) $errors[] = ['field' => '_', 'reason' => 'empty_update'];
         return $errors;
