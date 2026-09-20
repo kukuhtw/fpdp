@@ -252,6 +252,7 @@ $accessService = new CvAccessService(
     new CvDocumentRepository($connection),
     new CvAccessGrantRepository($connection),
     new PaymentService(),
+    new NodeRepository($connection),
     $storageDir,
 );
 $controller = new CvController($authService, $profileService, $visitorAuthService, $documentService, $accessService);
@@ -338,6 +339,15 @@ assert_that($pricedMetaData['has_access'] === false, 'Priced CV was incorrectly 
 
 $deniedDownload = $router->dispatch(new Request('GET', '/api/v1/profiles/alice/cv/download', [], null, bearer($visitorToken)));
 assert_that($deniedDownload->status === 402, "Download without a grant did not return 402, got {$deniedDownload->status}");
+
+// 9b. Regression guard: with no gateway activated for the node yet, buying
+// access to a priced CV must be refused (409) rather than silently granted
+// for free — this is the bug CvAccessService::resolveGatewayCode() closes.
+$noGatewayAccess = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], null, bearer($visitorToken)));
+assert_that($noGatewayAccess->status === 409, "Priced CV access with no active gateway did not return 409, got {$noGatewayAccess->status}");
+
+// The owner activates a gateway — mirrors PUT /api/v1/me/payment-gateways/{code}/activate.
+(new NodeRepository($connection))->setActiveGateway((int) $registered['node']['id'], 'DUMMY');
 
 // 10. Visitor pays (dummy gateway) and is granted access, then can download.
 $paidAccess = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], null, bearer($visitorToken)));
