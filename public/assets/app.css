@@ -19,9 +19,9 @@ a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:under
 .node-status h2{margin:0;font:700 1.5rem Georgia,serif;}
 .status-badge{padding:4px 10px;border-radius:999px;background:#e3efe9;color:var(--accent);font-weight:750;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;}
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;}
-.kpi-tile{padding:18px 20px;}
+.kpi-tile{padding:18px 20px;min-width:0;}
 .kpi-tile .kpi-label{margin:0 0 6px;color:var(--muted);font-size:.82rem;font-weight:650;}
-.kpi-tile .kpi-value{margin:0;font:650 1.85rem/1.1 system-ui,-apple-system,"Segoe UI",sans-serif;}
+.kpi-tile .kpi-value{margin:0;font:650 1.85rem/1.15 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-wrap:break-word;}
 .kpi-tile .kpi-note{margin:4px 0 0;color:var(--muted);font-size:.8rem;}
 .chart-card h2,.two-col h2{margin:0 0 14px;font:700 1.3rem Georgia,serif;}
 .chart-legend{display:flex;gap:18px;margin-bottom:6px;font-size:.85rem;color:var(--muted);}
