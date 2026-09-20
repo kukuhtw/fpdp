@@ -81,7 +81,35 @@
 
   /* ── Keep hidden input in sync ── */
   editorContent.addEventListener('input', syncContent);
-  editorContent.addEventListener('paste', () => setTimeout(syncContent, 50));
+  editorContent.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    const html = e.clipboardData.getData('text/html');
+    if (html) {
+      // Strip Word/external HTML mess — keep only basic formatting
+      const cleaned = html
+        .replace(/<meta[^>]*>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<xml[^>]*>[\s\S]*?<\/xml>/gi, '')
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<o:[^>]*>[\s\S]*?<\/o:[^>]*>/gi, '')
+        .replace(/class=["'][^"']*["']/gi, '')
+        .replace(/style=["'][^"']*["']/gi, '')
+        .replace(/<span[^>]*>/gi, '')
+        .replace(/<\/span>/gi, '')
+        .replace(/<font[^>]*>/gi, '')
+        .replace(/<\/font>/gi, '')
+        .trim();
+      if (cleaned) {
+        document.execCommand('insertHTML', false, cleaned);
+      } else {
+        document.execCommand('insertText', false, text);
+      }
+    } else if (text) {
+      document.execCommand('insertText', false, text);
+    }
+    syncContent();
+  });
 
   const token = () => sessionStorage.getItem(tokenKey);
   const showStatus = (message, error = false) => {

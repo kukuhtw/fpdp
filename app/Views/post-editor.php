@@ -10,7 +10,7 @@
       .editor-toolbar button{flex:0 0 auto;border:0;background:transparent;color:var(--ink);padding:4px 9px;border-radius:6px;font-size:.9rem;font-weight:700;cursor:pointer;}
       .editor-toolbar button:hover{background:#eaebe3;}
       .editor-toolbar button.active{background:var(--accent);color:white;}
-      #editor-content{min-height:280px;padding:12px 14px;border:1px solid var(--line);border-radius:0 0 9px 9px;background:white;color:var(--ink);outline:0;overflow-y:auto;line-height:1.6;}
+      #editor-content{min-height:280px;padding:12px 14px;border:1px solid var(--line);border-radius:0 0 9px 9px;background:white;color:var(--ink);outline:0;overflow-y:auto;line-height:1.6;font-weight:400;}
       #editor-content:focus{border-color:var(--accent);}
       #editor-content h1,#editor-content h2,#editor-content h3{font-family:Georgia,serif;margin:.5em 0 .25em;}
       #editor-content img{max-width:100%;height:auto;border-radius:8px;}
