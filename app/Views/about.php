@@ -89,7 +89,7 @@
       <h2>How to Connect</h2>
       <p>To connect with other FPDP nodes or ActivityPub-compatible platforms (like Mastodon, Pixelfed):</p>
       <ol>
-        <li><strong>Get a node</strong> — Deploy FPDP on your own domain (see <a href="https://github.com/fpdp/fpdp">GitHub</a>).</li>
+        <li><strong>Get a node</strong> — Deploy FPDP on your own domain (see <a href="https://github.com/kukuhtw/fpdp">GitHub</a>).</li>
         <li><strong>Set up your profile</strong> — Create your handle, display name, and bio.</li>
         <li><strong>Find other users</strong> — Each FPDP profile is accessible at <code>/@{handle}</code> on its domain.</li>
         <li><strong>Connect</strong> — Send a follow request to another user's federated address (<code>@user@domain</code>).</li>
@@ -119,7 +119,7 @@
   <article class="about-card">
     <div class="icon">📖</div>
     <h2>Technical Documentation</h2>
-    <p>For developers and node operators, the full technical documentation is available in the <a href="https://github.com/fpdp/fpdp">FPDP repository</a>:</p>
+    <p>For developers and node operators, the full technical documentation is available in the <a href="https://github.com/kukuhtw/fpdp">FPDP repository</a>:</p>
     <ul>
       <li><a href="/documentation/FEDERATION-CONCEPT.en.md">Federation Concept</a> — Detailed federation protocol design.</li>
       <li><a href="/documentation/API-CONTRACT.en.md">API Contract</a> — Complete API specification.</li>
