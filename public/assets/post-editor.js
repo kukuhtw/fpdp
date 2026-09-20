@@ -36,13 +36,15 @@
     return payload;
   };
   const verifySession = async () => {
-    if (!token()) return setAuthenticated(false);
+    if (!token()) { setAuthenticated(false); return false; }
     try {
       const result = await api('/api/v1/me');
       setAuthenticated(true, result.data.profile.handle);
+      return true;
     } catch (_) {
       sessionStorage.removeItem(tokenKey);
       setAuthenticated(false);
+      return false;
     }
   };
 
@@ -53,8 +55,8 @@
       const result = await api('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ email: fields.get('email'), password: fields.get('password') }) });
       sessionStorage.setItem(tokenKey, result.data.token.access_token);
       loginForm.reset();
-      await verifySession();
-      showStatus('Signed in successfully.');
+      if (await verifySession()) showStatus('Signed in successfully.');
+      else showStatus('Session verification failed. Please try again.', true);
     } catch (error) { showStatus(error.message, true); }
   });
   logoutButton.addEventListener('click', async () => {
