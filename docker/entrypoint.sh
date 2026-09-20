@@ -27,6 +27,7 @@ chown -R www-data:www-data storage
 if [ "${DB_CONNECTION:-mysql}" = "mysql" ]; then
     attempts=0
     until mysqladmin ping \
+        --skip-ssl \
         --host="${DB_HOST:-db}" \
         --port="${DB_PORT:-3306}" \
         --user="${DB_USERNAME:-fpdp}" \
