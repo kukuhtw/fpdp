@@ -424,6 +424,10 @@ $router->patch('/api/v1/me/payment-gateways/{code}', function (Request $request,
     return $buildPaymentController()->updateGateway($request, $params);
 });
 
+$router->put('/api/v1/me/payment-gateways/{code}/activate', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->activateGateway($request, $params);
+});
+
 $router->get('/api/v1/me/dashboard/analytics', function (Request $request, array $params) use ($buildAnalyticsController): Response {
     return $buildAnalyticsController()->summary($request);
 });
