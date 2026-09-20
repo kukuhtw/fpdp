@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
-<nav class="topbar"><a class="brand" href="/">FPDP</a><a href="/timeline">View timeline</a></nav>
+<nav class="topbar"><a class="brand" href="/">FPDP</a><a href="/dashboard/posts/list">My posts</a><a href="/timeline">View timeline</a></nav>
 <main class="shell editor-grid">
     <section class="panel">
         <p class="eyebrow">Owner dashboard</p><h1>Post editor</h1>

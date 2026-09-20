@@ -274,6 +274,10 @@ $router->get('/dashboard/posts/list', function (Request $request, array $params)
     return Response::html($buildContentPageController()->postsList());
 });
 
+$router->get('/dashboard/integrations', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->integrations());
+});
+
 $router->get('/dashboard', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->dashboardOverview());
 });

@@ -59,8 +59,14 @@ final class ContentPageController
     {
         return View::render('dashboard-overview', ['title' => 'Dashboard · FPDP']);
     }
-}
-public function postsList(): string
+
+    public function postsList(): string
     {
         return View::render('posts-list', ['title' => 'My Posts · FPDP']);
     }
+
+    public function integrations(): string
+    {
+        return View::render('dashboard-integrations', ['title' => 'Integrations · FPDP']);
+    }
+}

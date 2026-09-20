@@ -66,8 +66,21 @@ public function listExternalPosts(Request $request): Response
         if (empty($input['provider'])) $errors[] = ['field' => 'provider', 'reason' => 'required'];
         if (empty($input['source_url'])) $errors[] = ['field' => 'source_url', 'reason' => 'required'];
         if (empty($input['source_type'])) $errors[] = ['field' => 'source_type', 'reason' => 'required'];
-        if (!in_array($input['provider'] ?? null, ['RSS', 'ATOM', 'CUSTOM_API'], true)) {
+        $provider = strtoupper(trim((string) ($input['provider'] ?? '')));
+        if (!in_array($provider, ['RSS', 'ATOM', 'CUSTOM_API', 'YOUTUBE'], true)) {
             $errors[] = ['field' => 'provider', 'reason' => 'invalid_value'];
+        }
+
+        $sourceUrl = trim((string) ($input['source_url'] ?? ''));
+        if ($provider === 'YOUTUBE' && $sourceUrl !== '') {
+            $sourceUrl = $this->youtubeFeedUrl($sourceUrl);
+            if ($sourceUrl === '') {
+                $errors[] = ['field' => 'source_url', 'reason' => 'youtube_channel_id_required'];
+            }
+        }
+
+        if ($sourceUrl !== '' && filter_var($sourceUrl, FILTER_VALIDATE_URL) === false) {
+            $errors[] = ['field' => 'source_url', 'reason' => 'invalid_url'];
         }
 
         if ($errors !== []) {
@@ -76,14 +89,41 @@ public function listExternalPosts(Request $request): Response
 
         $id = $this->feedSources->create(
             (int) $context['user']['id'],
-            strtoupper((string) $input['provider']),
+            $provider,
             (string) $input['source_type'],
-            (string) $input['source_url'],
+            $sourceUrl,
             isset($input['external_account_id']) ? (int) $input['external_account_id'] : null,
             (int) ($input['sync_interval'] ?? 3600),
         );
 
         return JsonEnvelope::success(['id' => $id], 201);
+    }
+
+    private function youtubeFeedUrl(string $value): string
+    {
+        if (preg_match('/^UC[A-Za-z0-9_-]{20,}$/', $value) === 1) {
+            return 'https://www.youtube.com/feeds/videos.xml?channel_id=' . rawurlencode($value);
+        }
+
+        $parts = parse_url($value);
+        if (!is_array($parts) || !isset($parts['host'])) {
+            return '';
+        }
+
+        $host = strtolower((string) $parts['host']);
+        if (!in_array($host, ['youtube.com', 'www.youtube.com', 'm.youtube.com'], true)) {
+            return '';
+        }
+
+        parse_str((string) ($parts['query'] ?? ''), $query);
+        $channelId = isset($query['channel_id']) ? (string) $query['channel_id'] : '';
+        if ($channelId === '' && preg_match('#^/channel/(UC[A-Za-z0-9_-]{20,})/?$#', (string) ($parts['path'] ?? ''), $matches) === 1) {
+            $channelId = $matches[1];
+        }
+
+        return preg_match('/^UC[A-Za-z0-9_-]{20,}$/', $channelId) === 1
+            ? 'https://www.youtube.com/feeds/videos.xml?channel_id=' . rawurlencode($channelId)
+            : '';
     }
 
     public function triggerSync(Request $request): Response
