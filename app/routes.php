@@ -297,6 +297,10 @@ $router->get('/dashboard/integrations', function (Request $request, array $param
     return Response::html($buildContentPageController()->integrations());
 });
 
+$router->get('/dashboard/settings', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->settings());
+});
+
 $router->get('/dashboard/cv', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->cvManager());
 });
