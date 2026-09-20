@@ -42,9 +42,26 @@
     client_secret: 'Client Secret',
     webhook_id: 'Webhook ID',
   };
+  let activeGateway = null;
 
-  const renderGatewayList = (gateways) => {
+  const renderGatewayList = (data) => {
+    activeGateway = data.active_gateway;
+    const gateways = data.gateways || [];
     gatewayList.replaceChildren();
+
+    // Show active gateway badge
+    if (activeGateway) {
+      const badge = document.createElement('p');
+      badge.className = 'status success';
+      badge.textContent = 'Active gateway: ' + activeGateway;
+      gatewayList.append(badge);
+    } else {
+      const badge = document.createElement('p');
+      badge.className = 'muted';
+      badge.textContent = 'No gateway is currently set as active for checkout.';
+      gatewayList.append(badge);
+    }
+
     gateways.forEach((gw) => {
       const card = document.createElement('article');
       card.className = 'gateway-card';
@@ -52,12 +69,19 @@
         `${envLabels[e.environment] || e.environment}: ${e.configured_keys.length > 0 ? '✅ Configured' : '❌ Not configured'}`
       ).join(' | ') || 'Not configured';
 
+      const isActive = activeGateway === gw.code;
+
       card.innerHTML = `
         <div class="gateway-card-head">
           <strong>${gw.name}</strong> <span class="muted">(${gw.code})</span>
+          ${isActive ? '<span class="status-tag" style="background:#e3efe9;color:#185f48">ACTIVE</span>' : ''}
         </div>
         <p class="muted">${envInfo}</p>
-        <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${JSON.stringify(gw.allowed_config_keys)}'>Configure</button>
+        ${gw.webhook_url ? `<p class="small"><strong>Webhook URL:</strong> <code style="font-size:.8rem;word-break:break-all">${gw.webhook_url}</code></p>` : ''}
+        <div class="gateway-actions" style="display:flex;gap:.5rem;margin-top:.5rem">
+          <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${JSON.stringify(gw.allowed_config_keys)}'>Configure</button>
+          ${!isActive ? `<button class="button small activate-btn" data-code="${gw.code}">Set Active</button>` : ''}
+        </div>
       `;
       gatewayList.append(card);
     });
