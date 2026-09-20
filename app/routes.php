@@ -545,6 +545,10 @@ $router->get('/api/v1/orders/{orderId}', function (Request $request, array $para
 $router->patch('/api/v1/orders/{orderId}/status', function (Request $request, array $params) use ($buildMarketplaceController): Response {
     return $buildMarketplaceController()->updateOrderStatus($request, $params);
 });
+
+$router->get('/api/v1/products/{productId}/download', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->getDigitalDownload($request, $params);
+});
 $router->post('/api/v1/federation/send-follow', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->sendFollow($request);
 });

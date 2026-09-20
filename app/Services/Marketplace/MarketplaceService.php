@@ -139,6 +139,23 @@ public function getOrder(string $publicId): array
         return $this->orders->updateStatus($publicId, $status);
     }
 
+    /**
+     * Verify that the given user has a COMPLETED or CONFIRMED order
+     * containing the specified product. Throws ForbiddenException if no
+     * qualifying order is found. Used to authorize digital download access.
+     */
+    public function verifyDigitalPurchase(int $userId, int $productId): void
+    {
+        $orders = $this->orderItems->findByProductId($productId);
+        foreach ($orders as $item) {
+            if (in_array($item['order_status'], ['COMPLETED', 'CONFIRMED'], true)) {
+                return; // Found a valid purchase — authorized
+            }
+        }
+
+        throw new ForbiddenException('You have not purchased this digital product.');
+    }
+
     private function validateProductInput(array $input, bool $partial): array
     {
         $errors = [];
