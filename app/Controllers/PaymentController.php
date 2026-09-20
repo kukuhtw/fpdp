@@ -41,9 +41,9 @@ final class PaymentController
      */
     public function listGateways(Request $request): Response
     {
-        $this->auth->authenticate($request->bearerToken());
+        $context = $this->auth->authenticate($request->bearerToken());
 
-        return JsonEnvelope::success(['gateways' => $this->payments->listGatewaySettings()]);
+        return JsonEnvelope::success($this->payments->listGatewaySettings((int) $context['node']['id']));
     }
 
     /**
@@ -64,6 +64,24 @@ final class PaymentController
 
         return JsonEnvelope::success(
             $this->payments->updateGatewaySettings((string) ($params['code'] ?? ''), $environment, $config),
+        );
+    }
+
+    /**
+     * PUT /api/v1/me/payment-gateways/{code}/activate
+     *
+     * Set a configured gateway as the node's default for all checkout flows
+     * (orders, CV access, etc.). The gateway must already have credentials
+     * stored via updateGateway. Pass code=null in the body to clear.
+     *
+     * @param array<string, string> $params
+     */
+    public function activateGateway(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success(
+            $this->payments->setActiveGateway((int) $context['node']['id'], (string) ($params['code'] ?? null) ?: null),
         );
     }
 
