@@ -2,8 +2,11 @@
 * { box-sizing:border-box; }
 body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
 a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
-.topbar { min-height:64px; padding:0 max(24px,calc((100vw - 1080px)/2)); display:flex; align-items:center; justify-content:space-between; background:var(--card); border-bottom:1px solid var(--line); }
-.brand { color:var(--ink); font-weight:900; letter-spacing:.12em; }
+.topbar { min-height:64px; padding:0 max(24px,calc((100vw - 1080px)/2)); display:flex; align-items:center; gap:12px; background:var(--card); border-bottom:1px solid var(--line); }
+.brand { color:var(--ink); font-weight:900; letter-spacing:.12em; margin-right:auto; }
+.nav-links { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.nav-links a { font-size:.88rem; font-weight:600; padding:6px 10px; border-radius:7px; transition:background .1s; }
+.nav-links a:hover { background:#eaebe3; text-decoration:none; }
 .shell { width:min(760px,calc(100% - 32px)); margin:56px auto; }.shell.narrow{width:min(680px,calc(100% - 32px));}
 .page-heading,.profile-hero { margin-bottom:32px; }.page-heading h1,.profile-hero h1,.panel h1{font:700 clamp(2rem,6vw,3.5rem)/1.05 Georgia,serif;margin:.15em 0;}
 .eyebrow { margin:0; color:var(--accent); font-size:.75rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
