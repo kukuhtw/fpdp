@@ -47,10 +47,12 @@
     mediaUploadStatus.textContent = message;
     mediaUploadStatus.className = `status ${error ? 'error' : 'success'}`;
   };
+  const showOwnerNav = () => document.querySelectorAll('.owner-nav').forEach((el) => el.classList.remove('hidden'));
   const setAuthenticated = (authenticated, label = '') => {
     loginForm.classList.toggle('hidden', authenticated);
     logoutButton.classList.toggle('hidden', !authenticated);
     authSummary.textContent = authenticated ? `Signed in${label ? ` as ${label}` : ''}.` : 'Sign in to create and manage local posts.';
+    if (authenticated) showOwnerNav();
   };
   const api = async (path, options = {}) => {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };

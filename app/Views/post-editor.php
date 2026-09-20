@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
-<nav class="topbar"><a class="brand" href="/">FPDP</a><a href="/dashboard/posts/list">My posts</a><a href="/timeline">View timeline</a></nav>
+<nav class="topbar"><a class="brand" href="/">FPDP</a><span class="nav-links"><a href="/dashboard">Dashboard</a><a href="/dashboard/posts" class="owner-nav hidden">Post editor</a><a href="/dashboard/posts/list" class="owner-nav hidden">My posts</a><a href="/dashboard/cv" class="owner-nav hidden">CV &amp; Resume</a><a href="/dashboard/integrations" class="owner-nav hidden">Integrations</a><a href="/timeline">Timeline</a></span></nav>
 <main class="shell editor-grid">
     <section class="panel">
         <p class="eyebrow">Owner dashboard</p><h1>Post editor</h1>
