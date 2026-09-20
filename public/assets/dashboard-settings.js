@@ -70,6 +70,7 @@
       ).join(' | ') || 'Not configured';
 
       const isActive = activeGateway === gw.code;
+      const activeEnv = (gw.environments.find((e) => e.is_active) || {}).environment || 'SANDBOX';
 
       card.innerHTML = `
         <div class="gateway-card-head">
@@ -79,7 +80,7 @@
         <p class="muted">${envInfo}</p>
         ${gw.webhook_url ? `<p class="small"><strong>Webhook URL:</strong> <code style="font-size:.8rem;word-break:break-all">${gw.webhook_url}</code></p>` : ''}
         <div class="gateway-actions" style="display:flex;gap:.5rem;margin-top:.5rem">
-          <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${JSON.stringify(gw.allowed_config_keys)}'>Configure</button>
+          <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${JSON.stringify(gw.allowed_config_keys)}' data-active-env="${activeEnv}">Configure</button>
           ${!isActive ? `<button class="button small activate-btn" data-code="${gw.code}">Set Active</button>` : ''}
         </div>
       `;
@@ -123,8 +124,10 @@
     if (btn) {
       const code = btn.dataset.code;
       const keys = JSON.parse(btn.dataset.keys || '[]');
+      const activeEnv = btn.dataset.activeEnv || 'SANDBOX';
       gatewayForm.elements.code.value = code;
-      configSubtitle.textContent = 'Configuring: ' + code;
+      gatewayForm.elements.environment.value = activeEnv;
+      configSubtitle.textContent = `Configuring: ${code} (${envLabels[activeEnv] || activeEnv})`;
       buildFormFields(keys);
       gatewayForm.classList.remove('hidden');
       showStatus('');
@@ -165,7 +168,7 @@
         method: 'PATCH',
         body: JSON.stringify({ environment, config }),
       });
-      showStatus(code + ' configuration saved.');
+      showStatus(`${code} (${envLabels[environment] || environment}) configuration saved.`);
       await loadGateways();
     } catch (error) {
       showStatus(error.message, true);
