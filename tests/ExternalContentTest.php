@@ -54,10 +54,17 @@ $token = json_decode($r->body, true)['data']['token']['access_token'];
 $r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'RSS', 'source_type' => 'rss', 'source_url' => 'https://example.com/feed.xml'], $token);
 ext_assert($r->status === 201, 'Add feed source failed');
 
+// YouTube channel URLs are normalized to the official public Atom feed.
+$youtubeId = 'UC_x5XG1OV2P6uZZ5FSM9Ttw';
+$r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'YOUTUBE', 'source_type' => 'youtube_channel', 'source_url' => 'https://www.youtube.com/channel/' . $youtubeId], $token);
+ext_assert($r->status === 201, 'Add YouTube source failed');
+
 // List feed sources
 $r = $dispatch('GET', '/api/v1/me/feed-sources', null, $token);
 $body = json_decode($r->body, true);
-ext_assert($r->status === 200 && count($body['data']['sources']) === 1, 'Expected 1 feed source');
+ext_assert($r->status === 200 && count($body['data']['sources']) === 2, 'Expected 2 feed sources');
+$youtubeSources = array_values(array_filter($body['data']['sources'], static fn(array $source): bool => $source['provider'] === 'YOUTUBE'));
+ext_assert(count($youtubeSources) === 1 && $youtubeSources[0]['source_url'] === 'https://www.youtube.com/feeds/videos.xml?channel_id=' . $youtubeId, 'YouTube URL was not normalized');
 
 // External posts endpoint
 $r = $dispatch('GET', '/api/v1/external/posts');
