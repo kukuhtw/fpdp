@@ -2,27 +2,19 @@
 
 declare(strict_types=1);
 
-/**
- * Documentation renderer for /documentation/* paths.
- *
- * Reads markdown files from the project's documentation/ directory,
- * parses basic Markdown to HTML, and renders them in a consistent
- * Bootstrap 5 layout with a sidebar table of contents.
- */
-
 require_once __DIR__ . '/../vendor/autoload.php';
 
-// ---- Resolve the requested documentation path ----
+// ---- Resolve request ----
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($requestUri, PHP_URL_PATH);
 $relativePath = preg_replace('#^/documentation/#', '', $path);
-$relativePath = trim($relativePath, '/');
+$relativePath = ltrim($relativePath, '/');
 
-if ($relativePath === '' || $relativePath === 'index') {
+if ($relativePath === '' || stripos($relativePath, 'index') === 0) {
     $relativePath = 'README.md';
 }
 
-// Security: prevent directory traversal
+// Security
 $relativePath = str_replace('..', '', $relativePath);
 $relativePath = ltrim($relativePath, '/');
 
