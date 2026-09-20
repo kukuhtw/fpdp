@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Cv;
 
-use App\Core\Config;
+use App\Core\Exceptions\ConflictException;
 use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\PaymentRequiredException;
 use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
+use App\Repositories\NodeRepository;
 use App\Services\Payment\PaymentService;
 use RuntimeException;
 
@@ -16,13 +17,16 @@ use RuntimeException;
  * Visitor-facing side of paid CV/resume access: pricing, payment, grants,
  * and reading the stored file for a visitor who already has access.
  *
- * Payment integration note: the gateway is picked via the CV_PAYMENT_GATEWAY
- * env var (default DUMMY). DUMMY has no asynchronous confirmation step, so
- * grantAccess() still confirms it synchronously for local dev/tests. Any
- * other configured gateway (e.g. PAYWUZ) is asynchronous: grantAccess()
- * only creates a PENDING payment and returns `granted: false`; the actual
- * grant happens later, when PaymentController::webhook() verifies the
- * gateway's payment-confirmation webhook and calls confirmPayment().
+ * Payment integration note: the gateway used is the node's active gateway
+ * (set via PUT /api/v1/me/payment-gateways/{code}/activate, the same
+ * selection used for orders elsewhere). A priced CV cannot be sold until
+ * the owner has activated one — see resolveGatewayCode(). DUMMY, if
+ * explicitly activated, has no asynchronous confirmation step, so
+ * grantAccess() still confirms it synchronously (for local dev/tests). Any
+ * other gateway (e.g. PAYWUZ) is asynchronous: grantAccess() only creates a
+ * PENDING payment and returns `granted: false`; the actual grant happens
+ * later, when PaymentController::webhook() verifies the gateway's
+ * payment-confirmation webhook and calls confirmPayment().
  */
 final class CvAccessService
 {
@@ -32,6 +36,7 @@ final class CvAccessService
         private readonly CvDocumentRepository $documents,
         private readonly CvAccessGrantRepository $grants,
         private readonly PaymentService $payments,
+        private readonly NodeRepository $nodes,
         private readonly string $storageDirectory,
     ) {
     }
@@ -87,7 +92,7 @@ final class CvAccessService
             return ['granted' => true, 'payment' => null];
         }
 
-        $gatewayCode = self::gatewayCode();
+        $gatewayCode = $this->resolveGatewayCode($nodeId);
         $payment = $this->payments->createPayment($gatewayCode, [
             'order_id' => sprintf('CV-%d-%d-%d', $documentId, $visitorId, time()),
             'amount' => $priceAmount,
@@ -117,9 +122,23 @@ final class CvAccessService
         $this->grants->grant($documentId, $visitorId, $paymentReference);
     }
 
-    private static function gatewayCode(): string
+    /**
+     * The gateway to charge for this node's priced CV: whichever one the
+     * owner has activated (PaymentService::setActiveGateway(), the same
+     * selection orders use). Refuses to fall back to a default — without an
+     * explicitly activated gateway there is nothing that can actually
+     * collect payment, so "buy access" must not be allowed to proceed.
+     */
+    private function resolveGatewayCode(int $nodeId): string
     {
-        return strtoupper(Config::get('CV_PAYMENT_GATEWAY', self::SYNCHRONOUS_GATEWAY) ?? self::SYNCHRONOUS_GATEWAY);
+        $gatewayCode = $this->nodes->getActiveGateway($nodeId);
+        if ($gatewayCode === null || $gatewayCode === '') {
+            throw new ConflictException(
+                'This CV is priced, but no payment gateway is active yet. Activate one under Settings > Payments before it can be sold.',
+            );
+        }
+
+        return strtoupper($gatewayCode);
     }
 
     /**
