@@ -68,6 +68,25 @@ final class NodeRepository
         $statement->execute(['capabilities' => json_encode(array_values($capabilities)), 'id' => $id]);
     }
 
+    public function getActiveGateway(int $id): ?string
+    {
+        $statement = $this->connection->prepare(
+            'SELECT active_gateway FROM nodes WHERE id = :id',
+        );
+        $statement->execute(['id' => $id]);
+        $value = $statement->fetchColumn();
+
+        return $value === false ? null : (string) $value;
+    }
+
+    public function setActiveGateway(int $id, ?string $gatewayCode): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE nodes SET active_gateway = :gateway WHERE id = :id',
+        );
+        $statement->execute(['gateway' => $gatewayCode, 'id' => $id]);
+    }
+
     /**
      * Returns the first locally-hosted node. FPDP deployments currently host
      * a single owner node, so this is used to resolve "our own node" for

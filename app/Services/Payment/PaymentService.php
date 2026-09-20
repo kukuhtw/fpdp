@@ -9,6 +9,7 @@ use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\UnauthorizedException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
+use App\Repositories\NodeRepository;
 use App\Repositories\PaymentGatewayConfigRepository;
 use App\Repositories\PaymentRepository;
 
@@ -33,6 +34,7 @@ final class PaymentService
         private readonly PaymentGatewayFactory $factory = new PaymentGatewayFactory(),
         private ?PaymentRepository $payments = null,
         private ?PaymentGatewayConfigRepository $gatewayConfigs = null,
+        private ?NodeRepository $nodes = null,
     ) {
     }
 
