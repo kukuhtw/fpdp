@@ -42,7 +42,7 @@ flowchart LR
 | Identity & profile | **Selesai untuk MVP** | Register/login/logout/`me`, token hash, rate limit, profile visibility, Google OAuth visitor |
 | Konten lokal | **Selesai untuk MVP** | CRUD, draft/publish, visibility, soft-delete, media, canonical URL, cursor timeline, UI |
 | External aggregation | **Selesai untuk MVP** | RSS/Atom/Custom API, anti-SSRF HTTP client, sync worker, dedup, persistence, timeline merge |
-| Operasional & hardening | **Sebagian** | CI, audit dasar, Dokploy config tersedia; staging recovery dan production validation belum selesai |
+| Operasional & hardening | **Sebagian** | CI, audit dasar tersedia; staging Dokploy sudah live dan tervalidasi (migration, health check, bootstrap owner); backup/restore recovery exercise belum selesai |
 | Marketplace | **Sebagian besar** | Product dan order tersedia; checkout visitor + payment belum tersambung end-to-end |
 | Payment | **Sebagian besar** | Dummy, Paywuz, Midtrans, encrypted config, webhook/idempotency; sandbox nyata dan reconciliation belum selesai |
 | Federasi | **Sebagian besar backend** | Keys, discovery, signed inbox/outbox, follow lifecycle, moderation, delivery retry; cross-server/UI belum selesai |
@@ -135,9 +135,8 @@ flowchart LR
 
 ### 4.1 Production validation
 
-- Docker image belum dibangun pada workspace ini karena Docker CLI tidak tersedia.
-- Dokploy staging deployment belum dijalankan.
-- Seluruh migration belum diuji end-to-end pada MySQL 8 disposable dalam test suite repository.
+- Docker image tidak dibangun pada workspace pengembangan ini karena Docker CLI tidak tersedia di sini, tetapi build image dan deployment ke staging Dokploy sudah dijalankan di server dan dikonfirmasi berhasil oleh pemilik project (19 September 2026): seluruh migration jalan bersih, health check lulus, bootstrap owner berhasil membuat akun pertama, dan domain/TLS aktif.
+- Seluruh migration belum diuji end-to-end pada MySQL 8 disposable dalam test suite repository (CI); validasi migration sejauh ini berasal dari staging run di atas, bukan dari job CI otomatis.
 - Backup/restore/rollback baru terdokumentasi, belum diuji lewat recovery exercise.
 - Availability extension `sodium` pada image hasil build perlu diverifikasi eksplisit.
 
@@ -201,7 +200,7 @@ flowchart LR
 
 Urutan rekomendasi:
 
-1. Deploy satu staging node melalui Dokploy dan validasi build, health check, volume, bootstrap, serta seluruh migration pada MySQL 8.
+1. ~~Deploy satu staging node melalui Dokploy dan validasi build, health check, volume, bootstrap, serta seluruh migration pada MySQL 8.~~ **Selesai** — staging Dokploy live dan tervalidasi (19 September 2026).
 2. Uji Paywuz dan Midtrans terhadap sandbox sungguhan.
 3. Sambungkan public checkout → order → payment → webhook → fulfillment/refund.
 4. Ubah dashboard mockup menjadi UI live, dimulai dari Overview, Payments, Analytics, dan Federation yang API-nya sudah ada.
@@ -226,7 +225,7 @@ Urutan rekomendasi:
 - PHP syntax untuk konfigurasi dan owner bootstrap lulus.
 - Bootstrap owner tervalidasi terhadap database SQLite test.
 - `git diff --check` lulus.
-- Docker build/Compose rendering belum dijalankan karena Docker CLI tidak tersedia pada workspace; ini menjadi acceptance step pertama pada staging.
+- Docker build/Compose rendering tidak dijalankan pada workspace pengembangan ini karena Docker CLI tidak tersedia di sini; acceptance step ini sudah dijalankan langsung di server Dokploy dan dikonfirmasi berhasil oleh pemilik project.
 - `ExternalContentTest` lulus tetapi Windows sempat memberi warning cleanup file SQLite yang masih terbuka; bukan kegagalan fungsi, tetapi test cleanup dapat diperbaiki.
 
 ## 9. Referensi

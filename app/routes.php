@@ -263,6 +263,10 @@ $router->get('/dashboard/posts', function (Request $request, array $params) use 
     return Response::html($buildContentPageController()->editor());
 });
 
+$router->get('/dashboard', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->dashboardOverview());
+});
+
 $router->get('/api/v1/health', function (Request $request, array $params): Response {
     return (new HealthController())->show();
 });

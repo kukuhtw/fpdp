@@ -42,7 +42,7 @@ flowchart LR
 | Identity & profile | **MVP complete** | Register/login/logout/`me`, hashed tokens, rate limiting, profile visibility, Google visitor OAuth |
 | Local content | **MVP complete** | CRUD, draft/publish, visibility, soft delete, media, canonical URLs, cursor timeline, UI |
 | External aggregation | **MVP complete** | RSS/Atom/Custom API, SSRF-safe HTTP, sync worker, deduplication, persistence, timeline merge |
-| Operations & hardening | **Partial** | CI, base audit, and Dokploy config exist; staging recovery and production validation remain |
+| Operations & hardening | **Partial** | CI, base audit exist; Dokploy staging is live and validated (migrations, health check, owner bootstrap); backup/restore recovery exercise remains |
 | Marketplace | **Mostly done** | Products and orders exist; public checkout and payment are not connected end to end |
 | Payments | **Mostly done** | Dummy, Paywuz, Midtrans, encrypted config, webhook/idempotency; real sandbox and reconciliation remain |
 | Federation | **Backend mostly done** | Keys, discovery, signed inbox/outbox, follow lifecycle, moderation, delivery retry; cross-server/UI remain |
@@ -123,9 +123,9 @@ flowchart LR
 
 ### 4.1 Production validation
 
-- The Docker image has not been built in this workspace because Docker CLI is unavailable.
-- No Dokploy staging deployment or recovery exercise has been run.
-- The full migration set is not exercised against disposable MySQL 8 by the repository test suite.
+- The Docker image was not built in this development workspace because Docker CLI is unavailable here, but the image build and Dokploy staging deployment were run on the server and confirmed successful by the project owner (2026-09-19): every migration ran cleanly, the health check passed, owner bootstrap created the first account, and the domain/TLS are live.
+- The full migration set is not exercised against disposable MySQL 8 by the repository test suite (CI); migration validation so far comes from the staging run above, not an automated CI job.
+- No recovery exercise (backup/restore/rollback) has been run.
 - `sodium` availability must be verified explicitly in the built production image.
 
 ### 4.2 Checkout and marketplace
@@ -183,7 +183,7 @@ flowchart LR
     E --> F["6. OAuth, AI,<br/>ads & ecosystem"]
 ```
 
-1. Deploy a staging node through Dokploy and validate image build, health checks, volumes, bootstrap, and every migration on MySQL 8.
+1. ~~Deploy a staging node through Dokploy and validate image build, health checks, volumes, bootstrap, and every migration on MySQL 8.~~ **Done** — Dokploy staging is live and validated (2026-09-19).
 2. Validate Paywuz and Midtrans against real sandboxes.
 3. Connect public checkout → order → payment → webhook → fulfillment/refund.
 4. Turn the dashboard mockup into a live UI, starting with APIs already available.
@@ -208,7 +208,7 @@ flowchart LR
 - PHP syntax checks passed for configuration and owner bootstrap.
 - Owner bootstrap passed its SQLite integration test.
 - `git diff --check` passed.
-- Docker build/Compose rendering could not run because Docker CLI is unavailable in this workspace; this is the first staging acceptance step.
+- Docker build/Compose rendering did not run in this development workspace because Docker CLI is unavailable here; this acceptance step was run directly on the Dokploy server and confirmed successful by the project owner.
 - `ExternalContentTest` passed but Windows emitted a temporary SQLite cleanup warning; functionality passed, while cleanup can be improved.
 
 ## 9. References

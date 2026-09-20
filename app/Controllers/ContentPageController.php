@@ -54,4 +54,9 @@ final class ContentPageController
     {
         return View::render('post-editor', ['title' => 'Post Editor · FPDP']);
     }
+
+    public function dashboardOverview(): string
+    {
+        return View::render('dashboard-overview', ['title' => 'Dashboard · FPDP']);
+    }
 }
