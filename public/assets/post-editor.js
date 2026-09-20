@@ -13,6 +13,10 @@
   const mediaUrlInput = postForm.elements.media_url;
   const mediaTypeSelect = postForm.elements.media_type;
 
+  const editorContent = document.querySelector('#editor-content');
+  const postContentInput = document.querySelector('#post-content');
+  const toolbar = document.querySelector('.editor-toolbar');
+
   const getParam = (name) => {
     const params = new URLSearchParams(window.location.search);
     return params.get(name) || '';
@@ -23,8 +27,7 @@
       const post = result.data;
       postForm.elements.post_id.value = post.id;
       postForm.elements.title.value = post.title || '';
-      const trixEditor = document.querySelector('trix-editor');
-      if (trixEditor) trixEditor.editor.loadHTML(post.content || '');
+      editorContent.innerHTML = post.content || '';
       postForm.elements.post_type.value = post.post_type || 'NOTE';
       postForm.elements.visibility.value = post.visibility || 'PUBLIC';
       postForm.elements.publish.checked = post.published_at !== null;
@@ -38,6 +41,47 @@
       showStatus(error.message, true);
     }
   };
+  const syncContent = () => { postContentInput.value = editorContent.innerHTML; };
+  const execFormat = (cmd, value) => {
+    document.execCommand(cmd, false, value || null);
+    syncContent();
+    editorContent.focus();
+  };
+
+  /* ── Toolbar buttons ── */
+  toolbar.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-cmd]');
+    if (!btn) return;
+    const cmd = btn.dataset.cmd;
+    if (cmd === 'createLink') {
+      const url = prompt('Enter link URL:', 'https://');
+      if (url) execFormat('createLink', url);
+    } else if (cmd === 'insertImage') {
+      const url = prompt('Enter image URL:', 'https://');
+      if (url) execFormat('insertImage', url);
+    } else if (cmd === 'insertVideo') {
+      const url = prompt('Enter video embed URL (YouTube):', 'https://www.youtube.com/watch?v=');
+      if (!url) return;
+      const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+      const iframe = match
+        ? `<iframe src="https://www.youtube-nocookie.com/embed/${match[1]}" frameborder="0" allowfullscreen></iframe>`
+        : `<iframe src="${url}" frameborder="0" allowfullscreen></iframe>`;
+      document.execCommand('insertHTML', false, iframe);
+      syncContent();
+    } else if (cmd === 'h1' || cmd === 'h2' || cmd === 'h3') {
+      document.execCommand('formatBlock', false, cmd.replace('h', 'H'));
+      syncContent();
+    } else if (cmd === 'pre') {
+      document.execCommand('formatBlock', false, 'PRE');
+      syncContent();
+    } else {
+      execFormat(cmd);
+    }
+  });
+
+  /* ── Keep hidden input in sync ── */
+  editorContent.addEventListener('input', syncContent);
+  editorContent.addEventListener('paste', () => setTimeout(syncContent, 50));
 
   const token = () => sessionStorage.getItem(tokenKey);
   const showStatus = (message, error = false) => {
