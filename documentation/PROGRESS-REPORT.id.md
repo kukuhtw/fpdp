@@ -2,18 +2,19 @@
 
 ## 1. Snapshot
 
-**Tanggal verifikasi:** 19 September 2026
+**Tanggal verifikasi:** 20 September 2026
 **Dasar verifikasi:** route, controller, service, repository, migration, UI, test, dan konfigurasi deployment pada repository—bukan hanya dokumen rencana.
 
-FPDP sudah melewati tahap prototype dasar. Identity, local publishing, external aggregation, marketplace dasar, payment abstraction, analytics, dan sebagian besar fondasi federasi tersedia sebagai kode yang dapat diuji. Fokus berikutnya bukan lagi membuat kerangka, tetapi menghubungkan flow komersial end-to-end, membangun dashboard sungguhan, memvalidasi integrasi eksternal terhadap sandbox/server nyata, dan mengeraskan operasional production.
+FPDP sudah melewati tahap prototype dasar. Identity, local publishing, external aggregation, marketplace dasar, payment abstraction, analytics, dan sebagian besar fondasi federasi tersedia sebagai kode yang dapat diuji. Staging Dokploy sudah live dan tervalidasi, halaman utama (`/`) kini menampilkan personal digital home pemilik node secara live, dan dashboard Overview owner sudah tersambung ke API sungguhan. Fokus berikutnya bukan lagi membuat kerangka, tetapi menghubungkan flow komersial end-to-end (termasuk mekanisme pemilihan payment gateway aktif), melengkapi panel dashboard lain, memvalidasi integrasi eksternal terhadap sandbox/server nyata, dan mengeraskan operasional production.
 
 Ringkasan repository saat laporan ini dibuat:
 
-- **39 migration MySQL** (`0001`–`0039`);
-- **29 test script**;
+- **40 migration MySQL** (`0001`–`0040`);
+- **30 test script**;
 - REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, marketplace, analytics, dan federation;
-- UI nyata untuk landing page, timeline lokal, profil publik, halaman post, dan post editor;
-- Dockerfile serta Docker Compose khusus Dokploy;
+- UI nyata untuk halaman utama (personal digital home live per node), timeline lokal, profil publik, halaman post, post editor, dan dashboard Overview owner;
+- 4 payment gateway adapter: Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2);
+- Dockerfile serta Docker Compose khusus Dokploy — sudah di-deploy dan tervalidasi di staging;
 - dokumentasi produk dan teknis bilingual.
 
 ## 2. Status fase
@@ -44,9 +45,9 @@ flowchart LR
 | External aggregation | **Selesai untuk MVP** | RSS/Atom/Custom API, anti-SSRF HTTP client, sync worker, dedup, persistence, timeline merge |
 | Operasional & hardening | **Sebagian** | CI, audit dasar tersedia; staging Dokploy sudah live dan tervalidasi (migration, health check, bootstrap owner); backup/restore recovery exercise belum selesai |
 | Marketplace | **Sebagian besar** | Product dan order tersedia; checkout visitor + payment belum tersambung end-to-end |
-| Payment | **Sebagian besar** | Dummy, Paywuz, Midtrans, encrypted config, webhook/idempotency; sandbox nyata dan reconciliation belum selesai |
+| Payment | **Sebagian besar** | Dummy, Paywuz, Midtrans, PayPal (Orders API v2), encrypted config, webhook/idempotency; sandbox nyata (semua provider) dan reconciliation belum selesai; belum ada mekanisme pilih gateway aktif untuk checkout |
 | Federasi | **Sebagian besar backend** | Keys, discovery, signed inbox/outbox, follow lifecycle, moderation, delivery retry; cross-server/UI belum selesai |
-| Dashboard | **Sebagian** | Overview, Payments, Analytics, Federation memiliki API; mockup belum menjadi dashboard live |
+| Dashboard | **Sebagian** | Overview owner sudah live (KPI, traffic chart, top content, recent activity) di `/dashboard`, menggunakan API yang sudah ada; Payments/Analytics/Federation belum jadi panel terpisah, node settings belum live |
 | AI & ads | **Direncanakan** | Dokumen strategi tersedia; LLM chat dan ad marketplace belum diimplementasikan |
 
 ## 3. Yang sudah tersedia
@@ -54,6 +55,7 @@ flowchart LR
 ### 3.1 Platform dan keamanan dasar
 
 - Front controller dan router mendukung route statis, parameter segment, dan canonical `/@handle`.
+- Halaman utama (`/`) menampilkan profil publik owner node secara live (personal digital home sesuai visi BRD) ketika node sudah punya owner dengan profile `PUBLIC`; fallback ke placeholder statis untuk instalasi baru atau profile non-public.
 - Config membaca default, `.env`, dan environment variable native container.
 - Password memakai hashing; bearer token di-hash saat disimpan dan dapat dicabut.
 - Register/login memiliki rate limiting.
@@ -97,11 +99,13 @@ flowchart LR
 
 - Product CRUD dan order dengan immutable product snapshot.
 - Order status lifecycle dan ownership validation.
-- `PaymentGatewayInterface`, factory, Dummy, Paywuz, dan Midtrans adapters.
+- `PaymentGatewayInterface`, factory, Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2) adapters.
+- Adapter PayPal menangani two-step capture (approve lalu capture) lewat lazy-capture di `getPaymentStatus()`, refund berdasarkan capture id (bukan order id), verifikasi webhook lewat API `verify-webhook-signature` PayPal (bukan HMAC lokal), dan menolak currency yang tidak didukung PayPal termasuk IDR secara eksplisit.
 - Payment dan transaction persistence.
 - Webhook verification serta duplicate-event handling.
 - Gateway credentials dapat disimpan terenkripsi AES-256-GCM melalui API dan tidak dikembalikan ke client.
 - Dashboard payment summary tersedia sebagai API.
+- **Catatan gap:** belum ada mekanisme untuk owner atau visitor memilih gateway aktif — gateway checkout masih ditentukan lewat parameter/env var eksplisit per fitur (mis. `CV_PAYMENT_GATEWAY` untuk akses CV), bukan pilihan di UI.
 
 ### 3.7 Federasi
 
@@ -116,12 +120,13 @@ flowchart LR
 - Delivery queue, retry, exponential backoff, deduplication, dan timestamp-window replay reduction.
 - Federation summary serta capability settings API.
 
-### 3.8 Analytics dan dashboard API
+### 3.8 Analytics dan dashboard
 
 - Privacy-conscious daily visitor hashing menggunakan HMAC dan `APP_KEY`; IP mentah tidak disimpan.
 - Profile view, post view, outbound click, dan shop-conversion events.
 - Ringkasan 7 hari, unique visitors, traffic chart, dan top content.
 - Dashboard overview mengagregasi post, timeline mix, products, orders, revenue, federation, analytics, dan recent activity.
+- **UI Overview owner live** di `/dashboard` (vanilla JS + PHP, tanpa framework, memakai `/api/v1/me/dashboard/overview` yang sudah ada): status node, 6 KPI tile (published posts, products, pending orders, revenue bulan ini, followers, unique visitors), grafik bar 7-hari (views vs unique visitors, palet warna tervalidasi colorblind-safe), daftar top content, dan recent activity. Terverifikasi lewat browser sungguhan (Playwright): login flow, render data live, hover tooltip pada chart, nol console error.
 
 ### 3.9 Deployment
 
