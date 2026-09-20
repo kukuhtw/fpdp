@@ -134,5 +134,3 @@
 </main>
 </body>
 </html>
-      <div class="fed-node"><div class="domain">arinode.id</div><div class="handle">@ari</div><div>Colleague</div></div>
-    </div>
