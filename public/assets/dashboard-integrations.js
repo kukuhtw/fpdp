@@ -26,9 +26,11 @@
     }
     return payload;
   };
+  const showOwnerNav = () => document.querySelectorAll('.owner-nav').forEach((el) => el.classList.remove('hidden'));
   const setAuthenticated = (authenticated, label = '') => {
     loginForm.classList.toggle('hidden', authenticated); logoutButton.classList.toggle('hidden', !authenticated); content.classList.toggle('hidden', !authenticated);
     authSummary.textContent = authenticated ? `Masuk sebagai ${label}.` : 'Masuk untuk mengelola sumber konten.';
+    if (authenticated) showOwnerNav();
   };
   const renderSources = (sources) => {
     sourceList.replaceChildren();
