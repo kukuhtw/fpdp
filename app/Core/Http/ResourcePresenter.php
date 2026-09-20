@@ -62,6 +62,8 @@ final class ResourcePresenter
 
     public static function post(array $post): array
     {
+        $slug = ($post['slug'] ?? '') !== '' ? '-' . $post['slug'] : '';
+
         return [
             'id' => $post['public_id'],
             'title' => $post['title'],
@@ -69,7 +71,7 @@ final class ResourcePresenter
             'post_type' => $post['post_type'],
             'source_type' => 'LOCAL',
             'source_provider' => 'FPDP',
-            'canonical_url' => sprintf('https://%s/posts/%s', $post['node_domain'], $post['public_id']),
+            'canonical_url' => sprintf('https://%s/posts/%d%s', $post['node_domain'], $post['id'], $slug),
             'author' => [
                 'handle' => $post['handle'],
                 'display_name' => $post['display_name'],

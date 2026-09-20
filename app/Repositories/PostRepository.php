@@ -251,4 +251,15 @@ final class PostRepository
 
         return $grouped;
     }
+private static function generateSlug(string $title): string
+    {
+        $slug = strtolower(trim($title));
+        $slug = preg_replace('/[^a-z0-9\\s-]/', '', $slug);
+        $slug = preg_replace('/[\\s-]+/', '-', $slug);
+        $slug = trim($slug, '-');
+        if ($slug === '' || $slug === '-') {
+            $slug = 'post';
+        }
+        return mb_substr($slug, 0, 200);
+    }
 }
