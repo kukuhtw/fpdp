@@ -13,6 +13,7 @@ use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
 use App\Controllers\ExternalContentController;
 use App\Controllers\FacebookIntegrationController;
+use App\Controllers\LinkedInIntegrationController;
 use App\Controllers\DashboardController;
 use App\Controllers\MarketplaceController;
 use App\Controllers\PaymentController;
@@ -59,6 +60,7 @@ use App\Services\Content\MediaUploadService;
 use App\Services\Content\PostService;
 use App\Services\External\SyncWorker;
 use App\Services\External\FacebookIntegrationService;
+use App\Services\External\LinkedInIntegrationService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Security\RateLimiter;
 use App\Services\Visitor\GoogleOAuthClient;
@@ -253,6 +255,10 @@ $buildFacebookIntegrationController = static function () use ($buildAuthService)
         $accounts,
         new OAuthStateSigner((string) Config::get('APP_KEY', '')),
     );
+};
+$buildLinkedInIntegrationController = static function () use ($buildAuthService): LinkedInIntegrationController {
+    $connection=Database::connection();$accounts=new ExternalAccountRepository($connection);
+    return new LinkedInIntegrationController($buildAuthService(),new LinkedInIntegrationService($accounts,new ExternalFeedSourceRepository($connection)),$accounts,new OAuthStateSigner((string)Config::get('APP_KEY','')));
 };
 
 $router->get('/', function (Request $request, array $params) use ($buildContentPageController): Response {
@@ -477,6 +483,10 @@ $router->get('/api/v1/integrations/facebook/callback', function (Request $reques
 $router->delete('/api/v1/me/integrations/facebook/{accountId}', function (Request $request, array $params) use ($buildFacebookIntegrationController): Response {
     return $buildFacebookIntegrationController()->disconnect($request,$params);
 });
+$router->get('/api/v1/me/integrations/linkedin', function(Request $request,array $params)use($buildLinkedInIntegrationController):Response{return $buildLinkedInIntegrationController()->status($request);});
+$router->post('/api/v1/me/integrations/linkedin/authorize', function(Request $request,array $params)use($buildLinkedInIntegrationController):Response{return $buildLinkedInIntegrationController()->authorize($request);});
+$router->get('/api/v1/integrations/linkedin/callback', function(Request $request,array $params)use($buildLinkedInIntegrationController):Response{return $buildLinkedInIntegrationController()->callback($request);});
+$router->delete('/api/v1/me/integrations/linkedin/{accountId}', function(Request $request,array $params)use($buildLinkedInIntegrationController):Response{return $buildLinkedInIntegrationController()->disconnect($request,$params);});
 
 $router->get('/api/v1/me/feed-sources', function (Request $request, array $params) use ($buildExternalContentController): Response {
     return $buildExternalContentController()->listFeedSources($request);

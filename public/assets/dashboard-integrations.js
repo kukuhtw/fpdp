@@ -11,6 +11,8 @@
   const syncButton = document.querySelector('#sync-button');
   const facebookConnect = document.querySelector('#facebook-connect');
   const facebookAccounts = document.querySelector('#facebook-accounts');
+  const linkedinConnect = document.querySelector('#linkedin-connect');
+  const linkedinAccounts = document.querySelector('#linkedin-accounts');
   const token = () => sessionStorage.getItem(tokenKey);
   const showStatus = (message, error = false) => { status.textContent = message; status.className = `status ${error ? 'error' : 'success'}`; };
   const api = async (path, options = {}) => {
@@ -47,9 +49,13 @@
     if (!result.data.accounts.length) { const empty=document.createElement('p'); empty.className='muted'; empty.textContent='Belum ada Facebook Page terhubung.'; facebookAccounts.append(empty); return; }
     result.data.accounts.forEach(account => { const row=document.createElement('article'); row.className='source-row'; const copy=document.createElement('div'); const name=document.createElement('strong'); name.textContent=account.display_name; const link=document.createElement('a'); link.href=account.profile_url; link.target='_blank'; link.rel='noopener noreferrer'; link.textContent=account.profile_url; copy.append(name,link); const remove=document.createElement('button'); remove.type='button'; remove.className='secondary'; remove.textContent='Putuskan'; remove.addEventListener('click',async()=>{if(!confirm(`Putuskan ${account.display_name}?`))return;try{await api(`/api/v1/me/integrations/facebook/${account.id}`,{method:'DELETE'});await Promise.all([loadFacebook(),loadSources()]);showStatus('Facebook Page diputuskan.');}catch(error){showStatus(error.message,true);}}); row.append(copy,remove); facebookAccounts.append(row); });
   };
+  const loadLinkedIn = async () => {
+    const result=await api('/api/v1/me/integrations/linkedin');linkedinAccounts.replaceChildren();if(!result.data.accounts.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='Belum ada LinkedIn Organization terhubung.';linkedinAccounts.append(empty);return;}
+    result.data.accounts.forEach(account=>{const row=document.createElement('article');row.className='source-row';const copy=document.createElement('div');const name=document.createElement('strong');name.textContent=account.display_name;const link=document.createElement('a');link.href=account.profile_url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=account.profile_url;const expiry=document.createElement('small');expiry.className='muted';expiry.textContent=account.token_expires_at?`Token berlaku sampai ${new Date(account.token_expires_at).toLocaleString()}`:'Masa token tidak diketahui';copy.append(name,link,expiry);const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='Putuskan';remove.addEventListener('click',async()=>{if(!confirm(`Putuskan ${account.display_name}?`))return;try{await api(`/api/v1/me/integrations/linkedin/${account.id}`,{method:'DELETE'});await Promise.all([loadLinkedIn(),loadSources()]);showStatus('LinkedIn Organization diputuskan.');}catch(error){showStatus(error.message,true);}});row.append(copy,remove);linkedinAccounts.append(row);});
+  };
   const verify = async () => {
     if (!token()) { setAuthenticated(false); return; }
-    try { const result = await api('/api/v1/me'); setAuthenticated(true, result.data.profile.handle); await Promise.all([loadSources(),loadFacebook()]); const query=new URLSearchParams(location.search); if(query.get('facebook')==='connected') showStatus(`${query.get('pages')||0} Facebook Page berhasil dihubungkan.`); }
+    try { const result = await api('/api/v1/me'); setAuthenticated(true, result.data.profile.handle); await Promise.all([loadSources(),loadFacebook(),loadLinkedIn()]); const query=new URLSearchParams(location.search); if(query.get('facebook')==='connected') showStatus(`${query.get('pages')||0} Facebook Page berhasil dihubungkan.`); if(query.get('linkedin')==='connected') showStatus(`${query.get('organizations')||0} LinkedIn Organization berhasil dihubungkan.`); }
     catch (_) { sessionStorage.removeItem(tokenKey); setAuthenticated(false); }
   };
   provider.addEventListener('change', () => {
@@ -67,6 +73,7 @@
     catch (error) { showStatus(error.message, true); } finally { syncButton.disabled = false; }
   });
   facebookConnect.addEventListener('click', async () => { facebookConnect.disabled=true; try { const result=await api('/api/v1/me/integrations/facebook/authorize',{method:'POST'}); location.href=result.data.authorization_url; } catch(error) { showStatus(error.message,true); facebookConnect.disabled=false; } });
+  linkedinConnect.addEventListener('click',async()=>{linkedinConnect.disabled=true;try{const result=await api('/api/v1/me/integrations/linkedin/authorize',{method:'POST'});location.href=result.data.authorization_url;}catch(error){showStatus(error.message,true);linkedinConnect.disabled=false;}});
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault(); const fields = new FormData(loginForm);
     try { const result = await api('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({ email: fields.get('email'), password: fields.get('password') }) }); sessionStorage.setItem(tokenKey, result.data.token.access_token); loginForm.reset(); await verify(); showStatus('Berhasil masuk.'); }
