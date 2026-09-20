@@ -21,6 +21,7 @@ const showOwnerNav = () => document.querySelectorAll('.owner-nav').forEach((el) 
     logoutButton.classList.toggle('hidden', !authenticated);
     postsSection.classList.toggle('hidden', !authenticated);
     authSummary.textContent = authenticated ? `Signed in${label ? ` as ${label}` : ''}.` : 'Sign in to view your posts.';
+    if (authenticated) showOwnerNav();
   };
   const api = async (path, options = {}) => {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
