@@ -95,6 +95,36 @@ final class PostRepository
 
         return $rows;
     }
+/**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listByUserId(int $userId, int $limit, ?int $beforeId = null): array
+    {
+        $where = ['posts.user_id = :user_id', 'posts.deleted_at IS NULL'];
+        $parameters = ['user_id' => $userId];
+        if ($beforeId !== null) {
+            $where[] = 'posts.id < :before_id';
+            $parameters['before_id'] = $beforeId;
+        }
+
+        $statement = $this->connection->prepare(
+            self::SELECT . ' WHERE ' . implode(' AND ', $where) . ' ORDER BY posts.id DESC LIMIT ' . ($limit + 1),
+        );
+        $statement->execute($parameters);
+
+        $rows = $statement->fetchAll();
+        $media = $this->mediaForPostIds(array_map(static fn (array $row): int => (int) $row['id'], $rows));
+        foreach ($rows as &$row) {
+            $row['media'] = $media[(int) $row['id']] ?? [];
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    /**
+     * @return array{total: int, published: int, draft: int}
+     */
 
     /**
      * @return array{total: int, published: int, draft: int}

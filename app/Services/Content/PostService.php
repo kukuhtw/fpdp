@@ -140,6 +140,38 @@ final class PostService
         return $post;
     }
 
+    public function listOwn(array $context, array $query): array
+    {
+        $limit = filter_var($query['limit'] ?? 20, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1, 'max_range' => 100],
+        ]);
+        if ($limit === false) {
+            throw new ValidationException([['field' => 'limit', 'reason' => 'invalid_value']]);
+        }
+
+        $beforeId = null;
+        if (isset($query['cursor']) && $query['cursor'] !== '') {
+            $decoded = base64_decode(strtr((string) $query['cursor'], '-_', '+/'), true);
+            if ($decoded === false || !ctype_digit($decoded)) {
+                throw new ValidationException([['field' => 'cursor', 'reason' => 'invalid_value']]);
+            }
+            $beforeId = (int) $decoded;
+        }
+
+        $rows = $this->posts->listByUserId((int) $context['user']['id'], $limit, $beforeId);
+        $hasMore = count($rows) > $limit;
+        if ($hasMore) {
+            array_pop($rows);
+        }
+        $last = $rows !== [] ? $rows[count($rows) - 1] : null;
+
+        return [
+            'items' => $rows,
+            'next_cursor' => $last !== null ? rtrim(strtr(base64_encode((string) $last['id']), '+/', '-_'), '=') : null,
+            'has_more' => $hasMore,
+        ];
+    }
+
     private function validate(array $input, bool $partial): array
     {
         $errors = [];

@@ -32,6 +32,18 @@ final class PostController
         );
     }
 
+public function myPosts(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        $result = $this->posts->listOwn($context, $request->query);
+
+        return JsonEnvelope::collection(
+            array_map([ResourcePresenter::class, 'post'], $result['items']),
+            $result['next_cursor'],
+            $result['has_more'],
+        );
+    }
     public function create(Request $request): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());

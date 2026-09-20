@@ -42,7 +42,7 @@
                 <label>Type<select name="post_type"><option>NOTE</option><option>ARTICLE</option><option>MEDIA</option></select></label>
                 <label>Visibility<select name="visibility"><option>PUBLIC</option><option>UNLISTED</option><option>PRIVATE</option></select></label>
             </div>
-            <label class="check"><input name="publish" type="checkbox"> Publish immediately</label>
+            <label class="check"><input name="publish" type="checkbox" checked> Publish immediately</label>
             <div class="actions"><button type="submit">Save post</button><button id="reset-button" class="secondary" type="button">New draft</button></div>
         </form>
         <p id="editor-status" class="status" role="status" aria-live="polite"></p>
