@@ -160,6 +160,7 @@ $buildCvAccessService = static function () use ($cvStorageDirectory, $buildPayme
         new CvDocumentRepository($connection),
         new CvAccessGrantRepository($connection),
         $buildPaymentService(),
+        new NodeRepository($connection),
         $cvStorageDirectory,
     );
 };

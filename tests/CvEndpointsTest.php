@@ -74,6 +74,7 @@ $connection->exec('
         default_locale TEXT NOT NULL DEFAULT "id",
         timezone TEXT NOT NULL DEFAULT "Asia/Jakarta",
         status TEXT NOT NULL DEFAULT "ACTIVE",
+        active_gateway TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 ');
