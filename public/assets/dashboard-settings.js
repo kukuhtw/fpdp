@@ -39,7 +39,11 @@
     api_url: 'API URL',
     server_key: 'Server Key',
     client_id: 'Client ID',
-const renderGatewayList = (gateways) => {
+    client_secret: 'Client Secret',
+    webhook_id: 'Webhook ID',
+  };
+
+  const renderGatewayList = (gateways) => {
     gatewayList.replaceChildren();
     gateways.forEach((gw) => {
       const card = document.createElement('article');
@@ -190,6 +194,3 @@ document.querySelectorAll('.toggle-password').forEach((btn) => {
     btn.setAttribute('aria-label', (isPassword ? 'Hide' : 'Show') + ' password');
   });
 });
-    client_secret: 'Client Secret',
-    webhook_id: 'Webhook ID',
-  };
