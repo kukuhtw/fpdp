@@ -6,6 +6,9 @@
 
 RewriteEngine On
 
+# Route /documentation/* to the documentation renderer
+RewriteRule ^documentation/ documentation.php [L]
+
 # Pass the Authorization header through to PHP (Apache/mod_rewrite may strip it
 # otherwise, even with mod_php; this rule re-injects it as an environment
 # variable so PHP sees it in $_SERVER['HTTP_AUTHORIZATION']).
