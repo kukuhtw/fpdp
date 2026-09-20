@@ -90,7 +90,7 @@
   const loadGateways = async () => {
     try {
       const result = await api('/api/v1/me/payment-gateways');
-      renderGatewayList(result.data.gateways || []);
+      renderGatewayList(result.data);
     } catch (error) {
       showStatus(error.message, true);
     }
