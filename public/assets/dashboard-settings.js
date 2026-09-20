@@ -118,16 +118,29 @@
     });
   };
 
-  gatewayList.addEventListener('click', (e) => {
+  gatewayList.addEventListener('click', async (e) => {
     const btn = e.target.closest('.configure-btn');
-    if (!btn) return;
-    const code = btn.dataset.code;
-    const keys = JSON.parse(btn.dataset.keys || '[]');
-    gatewayForm.elements.code.value = code;
-    configSubtitle.textContent = 'Configuring: ' + code;
-    buildFormFields(keys);
-    gatewayForm.classList.remove('hidden');
-    showStatus('');
+    if (btn) {
+      const code = btn.dataset.code;
+      const keys = JSON.parse(btn.dataset.keys || '[]');
+      gatewayForm.elements.code.value = code;
+      configSubtitle.textContent = 'Configuring: ' + code;
+      buildFormFields(keys);
+      gatewayForm.classList.remove('hidden');
+      showStatus('');
+      return;
+    }
+    const activateBtn = e.target.closest('.activate-btn');
+    if (activateBtn) {
+      const code = activateBtn.dataset.code;
+      try {
+        await api('/api/v1/me/payment-gateways/' + encodeURIComponent(code) + '/activate', { method: 'PUT' });
+        showStatus(code + ' is now the active payment gateway.');
+        await loadGateways();
+      } catch (error) {
+        showStatus(error.message, true);
+      }
+    }
   });
 
   gatewayForm.addEventListener('submit', async (e) => {
