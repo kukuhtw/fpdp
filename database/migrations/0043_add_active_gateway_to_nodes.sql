@@ -1,0 +1,1 @@
+ALTER TABLE nodes ADD COLUMN active_gateway VARCHAR(64) NULL COMMENT 'Currently active payment gateway code (PAYWUZ, MIDTRANS, PAYPAL, etc.)';
