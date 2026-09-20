@@ -18,9 +18,6 @@ final class ExternalFeedSourceRepository
      */
     public function findDueForSync(int $limit = 10): array
     {
-        $driver = $this->connection->getAttribute(\PDO::ATTR_DRIVER_NAME);
-        $nullsFirst = $driver === 'sqlite' ? '' : 'NULLS FIRST';
-
         $statement = $this->connection->prepare(
             "SELECT efs.*, ea.access_token, ea.external_account_id AS provider_account_id, ea.external_username, ea.display_name AS account_display_name
              FROM external_feed_sources efs
@@ -28,7 +25,7 @@ final class ExternalFeedSourceRepository
              WHERE efs.sync_enabled = 1
                AND efs.status = 'ACTIVE'
                AND (efs.next_sync_at IS NULL OR efs.next_sync_at <= CURRENT_TIMESTAMP)
-             ORDER BY efs.next_sync_at ASC {$nullsFirst}
+             ORDER BY (efs.next_sync_at IS NOT NULL) ASC, efs.next_sync_at ASC
              LIMIT :limit",
         );
         $statement->bindValue('limit', $limit, \PDO::PARAM_INT);
@@ -36,7 +33,7 @@ final class ExternalFeedSourceRepository
 
         $rows = $statement->fetchAll();
         foreach ($rows as &$row) {
-            if (($row['provider'] ?? '') === 'FACEBOOK' && !empty($row['access_token'])) {
+            if (in_array(($row['provider'] ?? ''), ['FACEBOOK','LINKEDIN'], true) && !empty($row['access_token'])) {
                 try { $row['access_token'] = Crypto::decrypt((string) $row['access_token']); }
                 catch (\Throwable) { $row['access_token'] = null; }
             }

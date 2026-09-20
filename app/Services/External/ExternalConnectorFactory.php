@@ -9,7 +9,7 @@ use App\Core\Exceptions\UnsupportedProviderException;
 
 final class ExternalConnectorFactory
 {
-    private const SUPPORTED_CODES = ['RSS', 'ATOM', 'CUSTOM_API', 'YOUTUBE', 'FACEBOOK'];
+    private const SUPPORTED_CODES = ['RSS', 'ATOM', 'CUSTOM_API', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN'];
 
     /**
      * @param array<string, mixed> $configuration
@@ -23,6 +23,7 @@ final class ExternalConnectorFactory
             'ATOM', 'YOUTUBE' => new AtomConnector($configuration),
             'CUSTOM_API' => new CustomApiConnector($configuration),
             'FACEBOOK' => new FacebookConnector($configuration),
+            'LINKEDIN' => new LinkedInConnector($configuration),
             default => throw UnsupportedProviderException::forCode(
                 'external content provider',
                 $normalized,

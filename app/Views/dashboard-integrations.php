@@ -22,11 +22,12 @@
     <section id="integration-content" class="hidden stack">
         <section class="provider-grid" aria-label="Platform konten">
             <article class="provider-card available"><span class="provider-logo youtube">YT</span><div><h2>YouTube</h2><p>Ambil upload publik melalui feed resmi channel, tanpa OAuth.</p></div><span class="status-badge">Tersedia</span></article>
-            <article class="provider-card"><span class="provider-logo">f</span><div><h2>Facebook</h2><p>Memerlukan Meta App, permission Page, dan App Review.</p></div><span class="provider-state">OAuth belum dikonfigurasi</span></article>
+            <article class="provider-card available"><span class="provider-logo">f</span><div><h2>Facebook Pages</h2><p>Hubungkan Page yang Anda kelola melalui OAuth resmi Meta.</p></div><button id="facebook-connect" type="button">Hubungkan Facebook</button></article>
             <article class="provider-card"><span class="provider-logo linkedin">in</span><div><h2>LinkedIn</h2><p>Memerlukan aplikasi LinkedIn dan izin akses konten.</p></div><span class="provider-state">OAuth belum dikonfigurasi</span></article>
             <article class="provider-card"><span class="provider-logo instagram">◎</span><div><h2>Instagram</h2><p>Untuk akun Business/Creator yang memenuhi syarat.</p></div><span class="provider-state">OAuth belum dikonfigurasi</span></article>
             <article class="provider-card"><span class="provider-logo tiktok">♪</span><div><h2>TikTok</h2><p>Memerlukan Login Kit, Display API, dan approval.</p></div><span class="provider-state">OAuth belum dikonfigurasi</span></article>
         </section>
+        <section class="panel"><div class="section-heading"><h2>Facebook Pages</h2><span class="muted">Token disimpan terenkripsi</span></div><div id="facebook-accounts" class="source-list"><p class="muted">Belum ada Facebook Page terhubung.</p></div></section>
         <div class="two-col integration-columns">
             <section class="panel">
                 <h2>Hubungkan sumber</h2>

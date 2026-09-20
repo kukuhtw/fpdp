@@ -27,6 +27,7 @@ FPDP adalah personal digital home yang tidak terikat pada provider tertentu. Dok
 | Dokploy Deployment | [English](DOKPLOY-DEPLOYMENT.en.md) | [Bahasa Indonesia](DOKPLOY-DEPLOYMENT.id.md) |
 | Google OAuth Setup | — | [Bahasa Indonesia](GOOGLE-OAUTH-SETUP.id.md) |
 | PayPal Setup | — | [Bahasa Indonesia](PAYPAL-SETUP.id.md) |
+| Facebook Pages Integration | — | [Bahasa Indonesia](FACEBOOK-INTEGRATION-SETUP.id.md) |
 | Deployment Guide (Dokploy) | [English](DOKPLOY-DEPLOYMENT.en.md) | [Bahasa Indonesia](DOKPLOY-DEPLOYMENT.id.md) |
 | API Contract | [English](API-CONTRACT.en.md) | [Bahasa Indonesia](API-CONTRACT.id.md) |
 | OpenAPI 3.1 | [Machine-readable YAML](openapi.yaml) | [Machine-readable YAML](openapi.yaml) |

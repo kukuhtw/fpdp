@@ -12,7 +12,7 @@ final class FacebookIntegrationService
     public function authorizationUrl(string $state,string $redirectUri):string
     {
         $appId=(string)Config::get('FACEBOOK_APP_ID','');if($appId==='')throw new RuntimeException('FACEBOOK_APP_ID is not configured.');$v=(string)Config::get('FACEBOOK_GRAPH_VERSION','v26.0');
-        return 'https://www.facebook.com/'.rawurlencode($v).'/dialog/oauth?'.http_build_query(['client_id'=>$appId,'redirect_uri'=>$redirectUri,'state'=>$state,'response_type'=>'code','scope'=>'pages_show_list,pages_read_engagement,pages_read_user_content']);
+        return 'https://www.facebook.com/'.rawurlencode($v).'/dialog/oauth?'.http_build_query(['client_id'=>$appId,'redirect_uri'=>$redirectUri,'state'=>$state,'response_type'=>'code','scope'=>'pages_show_list,pages_read_engagement']);
     }
     public function connectPages(int $userId,string $code,string $redirectUri):array
     {
