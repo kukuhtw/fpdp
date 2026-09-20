@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
     <link rel="stylesheet" href="/assets/app.css">
+    <link rel="stylesheet" href="https://unpkg.com/trix@2.1.12/dist/trix.css">
+    <style>
+      trix-editor { min-height:300px; border:1px solid var(--line); border-radius:9px; overflow:hidden; }
+      trix-editor:focus-visible { outline:2px solid var(--accent); outline-offset:-1px; }
+      trix-toolbar { background:var(--card); border:1px solid var(--line); border-radius:9px 9px 0 0; margin-bottom:0; }
+      trix-toolbar .trix-button-group { border:0; margin:2px; }
+      trix-toolbar .trix-button { border:0; border-radius:6px; }
+      trix-toolbar .trix-button.trix-active { background:var(--accent); color:white; }
+      .post-content h1,.post-content h2,.post-content h3{font-family:Georgia,serif;}
+      .post-content img{max-width:100%;height:auto;border-radius:12px;}
+      .post-content iframe{max-width:100%;aspect-ratio:16/9;border-radius:12px;border:1px solid var(--line);}
+      .post-content blockquote{border-left:4px solid var(--accent);margin:1em 0;padding:.5em 1em;background:#f4f2ea;border-radius:0 9px 9px 0;}
+      .post-content pre{background:#1e2a25;color:#e6ede8;padding:16px;border-radius:12px;overflow-x:auto;}
 </head>
 <body>
 <nav class="topbar"><a class="brand" href="/">FPDP</a><div class="nav-links"><a href="/dashboard">Dashboard</a><a href="/dashboard/posts" class="owner-nav hidden">Post editor</a><a href="/dashboard/posts/list" class="owner-nav hidden">My posts</a><a href="/dashboard/cv" class="owner-nav hidden">CV &amp; Resume</a><a href="/dashboard/integrations" class="owner-nav hidden">Integrations</a><a href="/dashboard/settings" class="owner-nav hidden">Settings</a><a href="/timeline">Timeline</a></div></nav>
@@ -28,7 +41,7 @@
         <form id="post-form" class="stack">
             <input name="post_id" type="hidden">
             <label>Title <span class="muted">optional</span><input name="title" maxlength="255"></label>
-            <label>Content<textarea name="content" rows="12" maxlength="100000" required></textarea></label>
+            <label>Content<input type="hidden" name="content" id="post-content"><trix-editor input="post-content"></trix-editor></label>
             <fieldset class="media-fields"><legend>Media attachment <span class="muted">optional</span></legend>
                 <div class="field-row"><label>Type<select name="media_type"><option>IMAGE</option><option>VIDEO</option><option>AUDIO</option><option>FILE</option></select></label><label>HTTPS URL<input name="media_url" type="url" inputmode="url" placeholder="https://cdn.example.com/media.jpg"></label></div>
                 <div class="field-row upload-row">
@@ -49,6 +62,7 @@
         <div id="saved-post" class="saved-post hidden"></div>
     </section>
 </main>
+<script src="https://unpkg.com/trix@2.1.12/dist/trix.umd.min.js"></script>
 <script src="/assets/post-editor.js" defer></script>
 </body>
 </html>

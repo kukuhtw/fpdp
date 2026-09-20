@@ -23,7 +23,8 @@
       const post = result.data;
       postForm.elements.post_id.value = post.id;
       postForm.elements.title.value = post.title || '';
-      postForm.elements.content.value = post.content || '';
+      const trixEditor = document.querySelector('trix-editor');
+      if (trixEditor) trixEditor.editor.loadHTML(post.content || '');
       postForm.elements.post_type.value = post.post_type || 'NOTE';
       postForm.elements.visibility.value = post.visibility || 'PUBLIC';
       postForm.elements.publish.checked = post.published_at !== null;

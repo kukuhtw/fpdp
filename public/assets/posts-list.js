@@ -56,7 +56,7 @@ const renderPost = (post) => {
     div.innerHTML = `
       <div class="post-list-main">
         <h3><a href="${slugUrl}">${post.title ? htmlEsc(post.title) : '(no title)'}</a></h3>
-        <p class="post-list-excerpt">${htmlEsc((post.content || '').slice(0, 200))}${(post.content || '').length > 200 ? '…' : ''}</p>
+        <p class="post-list-excerpt">${htmlEsc(stripHtml(post.content || '').slice(0, 200))}${stripHtml(post.content || '').length > 200 ? '…' : ''}</p>
       </div>
       <div class="post-list-meta">
         <span class="badge ${s.cls}">${s.text}</span>
@@ -72,6 +72,11 @@ const renderPost = (post) => {
     const d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
+  };
+  const stripHtml = (html) => {
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    return d.textContent || '';
   };
 
   const renderFiltered = () => {
