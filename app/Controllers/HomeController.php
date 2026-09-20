@@ -5,10 +5,31 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\View;
+use App\Repositories\NodeRepository;
+use App\Repositories\ProfileRepository;
 
 final class HomeController
 {
+    public function __construct(
+        private readonly NodeRepository $nodes,
+        private readonly ProfileRepository $profiles,
+        private readonly ContentPageController $contentPages,
+    ) {
+    }
+
     public function index(): string
+    {
+        $node = $this->nodes->findFirst();
+        $profile = $node !== null ? $this->profiles->findByNodeId((int) $node['id']) : null;
+
+        if ($profile === null || $profile['visibility'] !== 'PUBLIC') {
+            return $this->placeholder();
+        }
+
+        return $this->contentPages->profile((string) $profile['handle']);
+    }
+
+    private function placeholder(): string
     {
         return View::render('home', [
             'title' => 'FPDP',

@@ -63,7 +63,7 @@ use App\Services\Visitor\VisitorAuthService;
 $router = new Router();
 
 // Database connections are created lazily inside each closure so that
-// routes with no persistence needs (/, /api/v1/health) never touch the DB.
+// routes with no persistence needs (/api/v1/health) never touch the DB.
 $buildAuthService = static function (): AuthService {
     $connection = Database::connection();
 
@@ -235,8 +235,16 @@ $buildExternalContentController = static function () use ($buildAuthService): Ex
     );
 };
 
-$router->get('/', function (Request $request, array $params): Response {
-    return Response::html((new HomeController())->index());
+$router->get('/', function (Request $request, array $params) use ($buildContentPageController): Response {
+    $connection = Database::connection();
+
+    $home = new HomeController(
+        new NodeRepository($connection),
+        new ProfileRepository($connection),
+        $buildContentPageController(),
+    );
+
+    return Response::html($home->index());
 });
 
 $router->get('/timeline', function (Request $request, array $params) use ($buildContentPageController): Response {

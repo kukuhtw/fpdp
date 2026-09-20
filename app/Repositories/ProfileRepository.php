@@ -65,6 +65,25 @@ final class ProfileRepository
     }
 
     /**
+     * Returns the first profile belonging to the given node, i.e. the
+     * node owner's profile. FPDP deployments currently host a single
+     * owner per node, so this resolves "this node's public home".
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByNodeId(int $nodeId): ?array
+    {
+        $statement = $this->connection->prepare(
+            self::SELECT . ' WHERE nodes.id = :node_id ORDER BY profiles.id ASC LIMIT 1',
+        );
+        $statement->execute(['node_id' => $nodeId]);
+
+        $row = $statement->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function findByHandle(string $handle): ?array
