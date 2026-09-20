@@ -50,11 +50,12 @@ const showOwnerNav = () => document.querySelectorAll('.owner-nav').forEach((el) 
   };
 const renderPost = (post) => {
     const s = postStatusLabel(post);
+    const slugUrl = post.slug_url || `/posts/${encodeURIComponent(post.id)}`;
     const div = document.createElement('div');
     div.className = 'post-list-item';
     div.innerHTML = `
       <div class="post-list-main">
-        <h3><a href="/posts/${encodeURIComponent(post.id)}">${post.title ? htmlEsc(post.title) : '(no title)'}</a></h3>
+        <h3><a href="${slugUrl}">${post.title ? htmlEsc(post.title) : '(no title)'}</a></h3>
         <p class="post-list-excerpt">${htmlEsc((post.content || '').slice(0, 200))}${(post.content || '').length > 200 ? '…' : ''}</p>
       </div>
       <div class="post-list-meta">

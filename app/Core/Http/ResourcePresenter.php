@@ -72,6 +72,7 @@ final class ResourcePresenter
             'source_type' => 'LOCAL',
             'source_provider' => 'FPDP',
             'canonical_url' => sprintf('https://%s/posts/%d%s', $post['node_domain'], $post['id'], $slug),
+            'slug_url' => sprintf('/posts/%d%s', $post['id'], $slug),
             'author' => [
                 'handle' => $post['handle'],
                 'display_name' => $post['display_name'],

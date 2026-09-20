@@ -119,7 +119,7 @@
       savedPost.append(message);
       if (result.data.published_at) {
         const link = document.createElement('a');
-        link.href = `/posts/${encodeURIComponent(result.data.id)}`;
+        link.href = result.data.slug_url || `/posts/${encodeURIComponent(result.data.id)}`;
         link.textContent = ' Open post';
         savedPost.append(link);
       }
