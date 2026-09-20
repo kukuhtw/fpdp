@@ -14,10 +14,11 @@ final class ContentPageController
         private readonly PostService $posts,
         private readonly ProfileService $profiles,
     ) {
-public function about(): string
+    }
+
+    public function about(): string
     {
         return View::render('about', ['title' => 'About FPDP · Federated Personal Digital Platform']);
-    }
     }
 
     public function timeline(array $query = []): string
