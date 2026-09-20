@@ -19,6 +19,7 @@ final class PostService
     private const FIELDS = ['title', 'content', 'post_type', 'visibility', 'published_at', 'media'];
     private const TYPES = ['NOTE', 'ARTICLE', 'MEDIA'];
     private const VISIBILITIES = ['PUBLIC', 'UNLISTED', 'PRIVATE'];
+    private const ALLOWED_HTML_TAGS = '<b><i><u><strong><em><a><ul><ol><li><br><p><h1><h2><h3><h4><pre><blockquote><figure><figcaption><img><div><span><sub><sup><code><hr><table><thead><tbody><tr><th><td><caption><iframe>';
 
     public function __construct(
         private readonly PostRepository $posts,
@@ -234,7 +235,7 @@ final class PostService
         if (array_key_exists('title', $input) && $input['title'] !== null && mb_strlen((string) $input['title']) > 255) {
             $errors[] = ['field' => 'title', 'reason' => 'invalid_length'];
         }
-        if (array_key_exists('content', $input) && (trim((string) $input['content']) === '' || mb_strlen((string) $input['content']) > 100000)) {
+        if (array_key_exists('content', $input) && (trim(strip_tags((string) $input['content'])) === '' || mb_strlen((string) $input['content']) > 500000)) {
             $errors[] = ['field' => 'content', 'reason' => 'invalid_length'];
         }
         if (array_key_exists('post_type', $input) && !in_array($input['post_type'], self::TYPES, true)) {
