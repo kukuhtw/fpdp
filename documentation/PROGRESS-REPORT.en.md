@@ -2,18 +2,19 @@
 
 ## 1. Snapshot
 
-**Verification date:** September 19, 2026
+**Verification date:** September 20, 2026
 **Evidence:** repository routes, controllers, services, repositories, migrations, UI, tests, and deployment configuration—not planning documents alone.
 
-FPDP has moved beyond a basic prototype. Identity, local publishing, external aggregation, a basic marketplace, payment abstraction, analytics, and most federation foundations exist as testable code. The next stage is to connect commercial flows end to end, build the real dashboard, validate external integrations against real sandboxes/servers, and harden production operations.
+FPDP has moved beyond a basic prototype. Identity, local publishing, external aggregation, a basic marketplace, payment abstraction, analytics, and most federation foundations exist as testable code. Dokploy staging is live and validated, the home page (`/`) now renders the node owner's personal digital home live, and the owner dashboard Overview is wired to real APIs. The next stage is no longer scaffolding but connecting commercial flows end to end (including a way to pick which payment gateway is active), filling in the remaining dashboard panels, validating external integrations against real sandboxes/servers, and hardening production operations.
 
 Repository snapshot:
 
-- **39 MySQL migrations** (`0001`–`0039`);
-- **29 test scripts**;
-- REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, marketplace, analytics, and federation;
-- real UI for the landing page, local timeline, public profile, post page, and post editor;
-- a Dockerfile and Dokploy-specific Compose deployment;
+- **40 MySQL migrations** (`0001`–`0040`);
+- **31 test scripts**;
+- REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, marketplace, analytics, federation, and post-media upload;
+- real UI for the home page (a live personal digital home per node), local timeline, public profile, post page, post editor (with direct media upload), and the owner dashboard Overview;
+- 4 payment gateway adapters: Dummy, Paywuz, Midtrans, and PayPal (Orders API v2);
+- a Dockerfile and Dokploy-specific Compose deployment — deployed and validated on staging;
 - bilingual product and technical documentation.
 
 ## 2. Phase status
@@ -44,9 +45,9 @@ flowchart LR
 | External aggregation | **MVP complete** | RSS/Atom/Custom API, SSRF-safe HTTP, sync worker, deduplication, persistence, timeline merge |
 | Operations & hardening | **Partial** | CI, base audit exist; Dokploy staging is live and validated (migrations, health check, owner bootstrap); backup/restore recovery exercise remains |
 | Marketplace | **Mostly done** | Products and orders exist; public checkout and payment are not connected end to end |
-| Payments | **Mostly done** | Dummy, Paywuz, Midtrans, encrypted config, webhook/idempotency; real sandbox and reconciliation remain |
+| Payments | **Mostly done** | Dummy, Paywuz, Midtrans, PayPal (Orders API v2), encrypted config, webhook/idempotency; real sandbox (every provider) and reconciliation remain; no way to pick the active gateway for checkout yet |
 | Federation | **Backend mostly done** | Keys, discovery, signed inbox/outbox, follow lifecycle, moderation, delivery retry; cross-server/UI remain |
-| Dashboard | **Partial** | Overview, Payments, Analytics, and Federation have APIs; the mockup is not a live dashboard |
+| Dashboard | **Partial** | Owner Overview is live at `/dashboard` (KPIs, traffic chart, top content, recent activity) using existing APIs; Payments/Analytics/Federation are not separate panels yet, node settings remain |
 | AI & advertising | **Planned** | Strategy is documented; LLM chat and advertising marketplace are not implemented |
 
 ## 3. Delivered capabilities
@@ -54,6 +55,7 @@ flowchart LR
 ### 3.1 Platform and baseline security
 
 - Front controller and router with static, segment-parameter, and canonical `/@handle` routes.
+- The home page (`/`) renders the node owner's public profile live (the BRD's personal-digital-home vision) once the node has an owner with a `PUBLIC` profile; falls back to a static placeholder for a fresh install or a non-public profile.
 - Configuration from defaults, `.env`, and native container environment variables.
 - Password hashing, hashed/revocable bearer tokens, and authentication rate limits.
 - SSRF-aware outbound HTTP with private-target blocking, redirect, timeout, and response-size limits.
@@ -72,7 +74,8 @@ flowchart LR
 - Draft, publish, and unpublish through `published_at`.
 - Stable profile/post canonical URLs and cursor pagination.
 - Up to ten ordered `IMAGE`, `VIDEO`, `AUDIO`, or `FILE` metadata items with HTTPS/credential/alt-text validation.
-- Live local timeline, profile, post, and post-editor pages.
+- **Direct media file upload** (`POST /api/v1/me/media`, owner-only): an alternative to pasting an external URL. The client-claimed `content_type` is never trusted — the actual bytes are sniffed server-side (`finfo`) and checked against an allowlist per media type; SVG is deliberately excluded from `IMAGE` and `FILE` is restricted to PDF, since content served back with the wrong type is a stored-XSS vector. Files are served from `GET /api/v1/media/{key}` (an unguessable UUID storage key is the access control, the same model as any external CDN link), inline, with `X-Content-Type-Options: nosniff` and a one-year immutable cache.
+- Live local timeline, profile, post, and post-editor (including a media upload button) pages.
 
 ### 3.4 External content
 
@@ -90,10 +93,12 @@ flowchart LR
 
 - Product CRUD and orders with immutable product snapshots.
 - Order lifecycle and ownership validation.
-- `PaymentGatewayInterface`, Dummy, Paywuz, and Midtrans adapters.
+- `PaymentGatewayInterface`, Dummy, Paywuz, Midtrans, and PayPal (Orders API v2) adapters.
+- The PayPal adapter handles the two-step capture flow (approve, then capture) via lazy-capture inside `getPaymentStatus()`, refunds by looking up the capture id (not the order id), verifies webhooks through PayPal's own `verify-webhook-signature` API (not a local HMAC), and explicitly rejects unsupported currencies including IDR.
 - Payment/transaction persistence, webhook verification, and duplicate-event handling.
 - AES-256-GCM encrypted gateway configuration through API without returning secrets.
 - Payment dashboard summary API.
+- **Known gap:** there is no mechanism for the owner or a visitor to choose which gateway is active — checkout still resolves a gateway through an explicit parameter/env var per feature (e.g. `CV_PAYMENT_GATEWAY` for CV access), not a UI choice.
 
 ### 3.7 Federation
 
@@ -104,12 +109,13 @@ flowchart LR
 - Remote-node trust states, delivery retries, exponential backoff, deduplication, and timestamp replay reduction.
 - Federation summary and capability-settings APIs.
 
-### 3.8 Analytics and dashboard APIs
+### 3.8 Analytics and dashboard
 
 - Privacy-conscious daily visitor HMACs; raw IP addresses are not stored.
 - Profile view, post view, outbound click, and shop-conversion events.
 - Seven-day summary, unique visitors, traffic chart, and top content.
 - Dashboard overview aggregating content, marketplace, payment, federation, analytics, and audit activity.
+- **Live owner Overview UI** at `/dashboard` (vanilla JS + PHP, no framework, backed by the existing `/api/v1/me/dashboard/overview`): node status, 6 KPI tiles (published posts, products, pending orders, revenue this month, followers, unique visitors), a 7-day bar chart (views vs. unique visitors, a colorblind-safe validated palette), a top-content list, and recent activity. Verified against a real browser (Playwright): sign-in flow, live data rendering, chart hover tooltips, zero console errors.
 
 ### 3.9 Deployment
 
@@ -137,14 +143,15 @@ flowchart LR
 
 ### 4.3 Production payments
 
-- Paywuz and Midtrans use fake HTTP requesters in tests; real sandbox validation remains.
+- Paywuz, Midtrans, and PayPal use fake HTTP requesters in tests; real sandbox validation remains for all three.
 - Midtrans refund events after `PAID` do not always reconcile the payment to `REFUNDED`.
 - No settlement/payout ledger, fee accounting, or reconciliation job exists.
 - `APP_KEY` rotation cannot automatically re-encrypt gateway credentials.
+- No UI/API exists yet to choose which gateway is active for a given checkout; each feature hardcodes one gateway through an env var.
 
 ### 4.4 Dashboard and settings
 
-- The dashboard mockup is not wired to live APIs.
+- Owner Overview is live at `/dashboard` (see 3.8); Payments, Analytics, and Federation are not separate dashboard panels beyond what Overview already summarizes.
 - Content, Timeline, Integrations, Products, and Orders have domain APIs but no integrated dashboard panels.
 - Theme, layout, custom CSS, default/enabled languages, node configuration, 2FA, and session management remain.
 
@@ -184,9 +191,9 @@ flowchart LR
 ```
 
 1. ~~Deploy a staging node through Dokploy and validate image build, health checks, volumes, bootstrap, and every migration on MySQL 8.~~ **Done** — Dokploy staging is live and validated (2026-09-19).
-2. Validate Paywuz and Midtrans against real sandboxes.
-3. Connect public checkout → order → payment → webhook → fulfillment/refund.
-4. Turn the dashboard mockup into a live UI, starting with APIs already available.
+2. Validate Paywuz, Midtrans, and PayPal against real sandboxes.
+3. Connect public checkout → order → payment → webhook → fulfillment/refund, including a way to choose the active gateway.
+4. ~~Turn the dashboard mockup into a live UI, starting with APIs already available.~~ **Partially done** — Overview is live at `/dashboard` (2026-09-20); Payments/Analytics/Federation panels and node settings remain.
 5. Implement node appearance/language and security settings.
 6. Run cross-server federation interoperability tests.
 7. Add RBAC middleware, sensitive-action audit coverage, analytics rate limiting, and retention.
@@ -204,12 +211,13 @@ flowchart LR
 
 ## 8. Latest validation
 
-- **29/29 test scripts passed** in the latest development run.
+- **31/31 test scripts passed** in the latest development run.
 - PHP syntax checks passed for configuration and owner bootstrap.
 - Owner bootstrap passed its SQLite integration test.
 - `git diff --check` passed.
 - Docker build/Compose rendering did not run in this development workspace because Docker CLI is unavailable here; this acceptance step was run directly on the Dokploy server and confirmed successful by the project owner.
 - `ExternalContentTest` passed but Windows emitted a temporary SQLite cleanup warning; functionality passed, while cleanup can be improved.
+- The Overview dashboard, the live home page, and the full media-upload flow (choose file → upload → URL auto-filled → save post → image renders on the public post page) were verified against a real browser (Playwright, headless Chromium): screenshots were inspected, zero console errors on every flow.
 
 ## 9. References
 

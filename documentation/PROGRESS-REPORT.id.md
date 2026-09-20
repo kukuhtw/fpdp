@@ -10,9 +10,9 @@ FPDP sudah melewati tahap prototype dasar. Identity, local publishing, external 
 Ringkasan repository saat laporan ini dibuat:
 
 - **40 migration MySQL** (`0001`–`0040`);
-- **30 test script**;
-- REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, marketplace, analytics, dan federation;
-- UI nyata untuk halaman utama (personal digital home live per node), timeline lokal, profil publik, halaman post, post editor, dan dashboard Overview owner;
+- **31 test script**;
+- REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, marketplace, analytics, federation, dan upload media post;
+- UI nyata untuk halaman utama (personal digital home live per node), timeline lokal, profil publik, halaman post, post editor (dengan upload media langsung), dan dashboard Overview owner;
 - 4 payment gateway adapter: Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2);
 - Dockerfile serta Docker Compose khusus Dokploy — sudah di-deploy dan tervalidasi di staging;
 - dokumentasi produk dan teknis bilingual.
@@ -79,7 +79,8 @@ flowchart LR
 - Cursor pagination untuk post dan timeline.
 - Maksimal 10 media berurutan per post (`IMAGE`, `VIDEO`, `AUDIO`, `FILE`).
 - URL media wajib HTTPS, tanpa embedded credential; alt text dibatasi.
-- UI nyata: timeline, profile, post page, post editor.
+- **Upload file media langsung** (`POST /api/v1/me/media`, owner-only): alternatif dari sekadar tempel URL eksternal. Validasi tidak percaya `content_type` yang diklaim client — tipe file di-deteksi server-side (`finfo`) dan dicocokkan ke allowlist per media type; SVG sengaja tidak diizinkan untuk `IMAGE` dan `FILE` dibatasi ke PDF saja, karena file yang disajikan kembali dengan tipe salah adalah vektor stored-XSS. File disajikan lewat `GET /api/v1/media/{key}` (storage key UUID = kontrol akses, sama seperti URL CDN eksternal manapun), inline dengan header `X-Content-Type-Options: nosniff` dan cache 1 tahun immutable.
+- UI nyata: timeline, profile, post page, post editor (termasuk tombol upload media).
 
 ### 3.4 Konten eksternal
 
@@ -154,14 +155,15 @@ flowchart LR
 
 ### 4.3 Payment production
 
-- Paywuz dan Midtrans diuji dengan fake HTTP requester, belum terhadap sandbox provider nyata.
+- Paywuz, Midtrans, dan PayPal diuji dengan fake HTTP requester, belum terhadap sandbox provider nyata.
 - Refund/partial refund Midtrans setelah `PAID` tercatat sebagai transaction event tetapi belum selalu merekonsiliasi status payment menjadi `REFUNDED`.
 - Belum ada settlement/payout ledger, gateway-fee accounting, dan reconciliation job.
 - Rotasi `APP_KEY` belum dapat melakukan re-encryption credential gateway otomatis.
+- Belum ada UI/API untuk memilih gateway mana yang aktif untuk suatu checkout; setiap fitur (mis. CV) hardcode satu gateway lewat env var.
 
 ### 4.4 Dashboard dan settings
 
-- Mockup dashboard belum terhubung ke API live.
+- Overview owner sudah live di `/dashboard` (lihat 3.8); Payments, Analytics, dan Federation belum jadi panel dashboard tersendiri di luar apa yang sudah dirangkum di Overview.
 - Content, Timeline, Integrations, Products, dan Orders memiliki domain endpoint, tetapi belum menjadi panel dashboard terintegrasi.
 - Node settings belum tersedia: theme, layout, custom CSS, default/enabled languages, dan node config.
 - Security settings belum tersedia: 2FA dan session management.
@@ -206,9 +208,9 @@ flowchart LR
 Urutan rekomendasi:
 
 1. ~~Deploy satu staging node melalui Dokploy dan validasi build, health check, volume, bootstrap, serta seluruh migration pada MySQL 8.~~ **Selesai** — staging Dokploy live dan tervalidasi (19 September 2026).
-2. Uji Paywuz dan Midtrans terhadap sandbox sungguhan.
-3. Sambungkan public checkout → order → payment → webhook → fulfillment/refund.
-4. Ubah dashboard mockup menjadi UI live, dimulai dari Overview, Payments, Analytics, dan Federation yang API-nya sudah ada.
+2. Uji Paywuz, Midtrans, dan PayPal terhadap sandbox sungguhan.
+3. Sambungkan public checkout → order → payment → webhook → fulfillment/refund, termasuk mekanisme memilih gateway aktif.
+4. ~~Ubah dashboard mockup menjadi UI live, dimulai dari Overview, Payments, Analytics, dan Federation yang API-nya sudah ada.~~ **Sebagian selesai** — Overview sudah live di `/dashboard` (20 September 2026); panel Payments/Analytics/Federation dan node settings masih menyusul.
 5. Implementasikan node appearance/language settings dan security settings.
 6. Jalankan dua node nyata untuk interoperability federation.
 7. Tambahkan RBAC middleware, audit sensitif, analytics rate limiting, dan retention job.
@@ -226,12 +228,13 @@ Urutan rekomendasi:
 
 ## 8. Validasi terakhir
 
-- **29/29 test script lulus** pada environment pengembangan terakhir.
+- **31/31 test script lulus** pada environment pengembangan terakhir.
 - PHP syntax untuk konfigurasi dan owner bootstrap lulus.
 - Bootstrap owner tervalidasi terhadap database SQLite test.
 - `git diff --check` lulus.
 - Docker build/Compose rendering tidak dijalankan pada workspace pengembangan ini karena Docker CLI tidak tersedia di sini; acceptance step ini sudah dijalankan langsung di server Dokploy dan dikonfirmasi berhasil oleh pemilik project.
 - `ExternalContentTest` lulus tetapi Windows sempat memberi warning cleanup file SQLite yang masih terbuka; bukan kegagalan fungsi, tetapi test cleanup dapat diperbaiki.
+- Dashboard Overview, halaman utama live, dan flow upload media (pilih file → upload → URL terisi otomatis → simpan post → gambar tampil di halaman post publik) diverifikasi lewat browser sungguhan (Playwright, headless Chromium): screenshot diperiksa, nol console error pada setiap flow.
 
 ## 9. Referensi
 

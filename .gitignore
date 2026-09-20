@@ -21,6 +21,7 @@
 /storage/tmp/
 /storage/queue/
 /storage/cv/
+/storage/media/
 /storage/installed.lock
 /bootstrap/cache/*.php
 !/bootstrap/cache/.gitignore
