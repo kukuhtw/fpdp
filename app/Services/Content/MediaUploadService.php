@@ -119,7 +119,6 @@ final class MediaUploadService
             throw new RuntimeException('The fileinfo extension is required to validate uploaded media.');
         }
         $type = finfo_buffer($finfo, $bytes);
-        finfo_close($finfo);
 
         return $type === false ? null : $type;
     }
