@@ -141,6 +141,7 @@
   postForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!token()) return showStatus('Sign in before saving a post.', true);
+    syncContent();
     const fields = new FormData(postForm);
     const postId = fields.get('post_id');
     const payload = {
@@ -173,7 +174,7 @@
     } catch (error) { showStatus(error.message, true); }
   });
   document.querySelector('#reset-button').addEventListener('click', () => {
-    postForm.reset(); postForm.elements.post_id.value = ''; savedPost.classList.add('hidden'); showStatus('Ready for a new draft.');
+    postForm.reset(); postForm.elements.post_id.value = ''; editorContent.innerHTML = ''; postContentInput.value = ''; savedPost.classList.add('hidden'); showStatus('Ready for a new draft.');
   });
 
   const mediaCategoryFor = (mimeType) => {
