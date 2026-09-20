@@ -232,6 +232,11 @@ final class PostService
             }
         }
 
+        // Sanitize HTML content — strip dangerous tags/attributes
+        if (array_key_exists('content', $input) && is_string($input['content'])) {
+            $input['content'] = self::sanitizeHtml($input['content']);
+        }
+
         if (array_key_exists('title', $input) && $input['title'] !== null && mb_strlen((string) $input['title']) > 255) {
             $errors[] = ['field' => 'title', 'reason' => 'invalid_length'];
         }
@@ -296,5 +301,21 @@ final class PostService
         }
 
         return $fields;
+    }
+
+    /** Strip dangerous HTML tags/attributes; allow only Trix-safe content. */
+    private static function sanitizeHtml(string $html): string
+    {
+        // Strip tags not in the allowlist
+        $cleaned = strip_tags($html, self::ALLOWED_HTML_TAGS);
+
+        // Remove event handlers (onclick, onerror, onload, etc.)
+        $cleaned = preg_replace('/\bon\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $cleaned);
+
+        // Remove javascript: and data: URIs (except data:image)
+        $cleaned = preg_replace('/\s+(?:href|src|action)\s*=\s*(?:"javascript:[^"]*"|\'javascript:[^\']*\')/i', '', $cleaned);
+        $cleaned = preg_replace('/\s+srcset\s*=\s*"[^"]*"/i', '', $cleaned);
+
+        return $cleaned;
     }
 }
