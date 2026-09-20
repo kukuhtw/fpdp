@@ -64,6 +64,19 @@ final class PostService
         return $post;
     }
 
+    public function getOwn(string $publicId, array $context): array
+    {
+        $post = $this->posts->findByPublicId($publicId, true);
+        if ($post === null) {
+            throw new NotFoundException('Post not found.');
+        }
+        if ((int) $post['user_id'] !== (int) $context['user']['id']) {
+            throw new NotFoundException('Post not found.');
+        }
+
+        return $post;
+    }
+
     public function list(array $query): array
     {
         $sourceType = (string) ($query['source_type'] ?? 'LOCAL');

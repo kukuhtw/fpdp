@@ -52,7 +52,19 @@ public function myPosts(Request $request): Response
 
     public function show(Request $request, array $params): Response
     {
-        $post = $this->posts->get($params['postId']);
+        $token = $request->bearerToken();
+        $context = null;
+        if ($token !== null) {
+            try {
+                $context = $this->auth->authenticate($token);
+            } catch (\Throwable) {
+                // not authenticated — proceed with public view
+            }
+        }
+
+        $post = $context !== null
+            ? $this->posts->getOwn($params['postId'], $context)
+            : $this->posts->get($params['postId']);
 
         if (isset($post['node_id'])) {
             $this->analytics?->recordPostView((int) $post['node_id'], (string) $post['public_id'], $request->ipAddress, $request->header('user-agent'));
