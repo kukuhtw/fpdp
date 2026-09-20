@@ -80,4 +80,35 @@ final class MarketplaceController
         $input = $request->json() ?? [];
         return JsonEnvelope::success($this->marketplace->updateOrderStatus((int) $context['node']['id'], $params['orderId'], (string) ($input['status'] ?? '')));
     }
+
+    // ---- Digital goods ----
+
+    /**
+     * GET /api/v1/products/{productId}/download
+     *
+     * Returns the download URL for a purchased digital product. The caller
+     * must have a COMPLETED or CONFIRMED order containing this product.
+     *
+     * @param array<string, string> $params
+     */
+    public function getDigitalDownload(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        $product = $this->marketplace->getProduct($params['productId']);
+
+        if (($product['product_type'] ?? 'PHYSICAL') !== 'DIGITAL') {
+            throw new \App\Core\Exceptions\ValidationException([['field' => 'product_type', 'reason' => 'not_a_digital_product']]);
+        }
+
+        // Verify the caller has a completed order for this product
+        $this->marketplace->verifyDigitalPurchase((int) $context['user']['id'], (int) $product['id']);
+
+        return JsonEnvelope::success([
+            'product_id' => $product['public_id'],
+            'title' => $product['title'],
+            'digital_asset_url' => $product['digital_asset_url'],
+            'digital_asset_metadata' => $product['digital_asset_metadata'],
+        ]);
+    }
 }

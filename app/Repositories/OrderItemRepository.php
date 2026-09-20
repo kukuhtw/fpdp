@@ -33,6 +33,23 @@ final class OrderItemRepository
     /**
      * @return array<int, array<string, mixed>>
      */
+    public function findByProductId(int $productId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT oi.*, o.status AS order_status, o.public_id AS order_public_id
+             FROM order_items oi
+             INNER JOIN orders o ON o.id = oi.order_id
+             WHERE oi.product_id = :product_id
+             ORDER BY oi.id DESC',
+        );
+        $statement->execute(['product_id' => $productId]);
+
+        return $statement->fetchAll();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     public function findByOrderId(int $orderId): array
     {
         $statement = $this->connection->prepare(
