@@ -81,6 +81,8 @@ final class SyncWorker
         $account = [
             'source_url' => $source['source_url'],
             'access_token' => $source['access_token'] ?? null,
+            'provider_account_id' => $source['provider_account_id'] ?? null,
+            'account_display_name' => $source['account_display_name'] ?? null,
         ];
 
         $result = $connector->fetchPosts($account);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Core\Crypto;
 use PDO;
 
 final class ExternalFeedSourceRepository
@@ -21,7 +22,7 @@ final class ExternalFeedSourceRepository
         $nullsFirst = $driver === 'sqlite' ? '' : 'NULLS FIRST';
 
         $statement = $this->connection->prepare(
-            "SELECT efs.*, ea.access_token, ea.external_username, ea.display_name AS account_display_name
+            "SELECT efs.*, ea.access_token, ea.external_account_id AS provider_account_id, ea.external_username, ea.display_name AS account_display_name
              FROM external_feed_sources efs
              LEFT JOIN external_accounts ea ON ea.id = efs.external_account_id
              WHERE efs.sync_enabled = 1
@@ -33,7 +34,15 @@ final class ExternalFeedSourceRepository
         $statement->bindValue('limit', $limit, \PDO::PARAM_INT);
         $statement->execute();
 
-        return $statement->fetchAll();
+        $rows = $statement->fetchAll();
+        foreach ($rows as &$row) {
+            if (($row['provider'] ?? '') === 'FACEBOOK' && !empty($row['access_token'])) {
+                try { $row['access_token'] = Crypto::decrypt((string) $row['access_token']); }
+                catch (\Throwable) { $row['access_token'] = null; }
+            }
+        }
+        unset($row);
+        return $rows;
     }
 
     /**
@@ -114,5 +123,13 @@ final class ExternalFeedSourceRepository
         ]);
 
         return (int) $this->connection->lastInsertId();
+    }
+
+    public function ensureForExternalAccount(int $userId, string $provider, string $sourceType, string $sourceUrl, int $externalAccountId): int
+    {
+        $statement = $this->connection->prepare('SELECT id FROM external_feed_sources WHERE user_id=:user_id AND provider=:provider AND external_account_id=:account_id LIMIT 1');
+        $statement->execute(['user_id'=>$userId,'provider'=>$provider,'account_id'=>$externalAccountId]);
+        $id = $statement->fetchColumn();
+        return $id === false ? $this->create($userId,$provider,$sourceType,$sourceUrl,$externalAccountId) : (int)$id;
     }
 }
