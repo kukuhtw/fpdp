@@ -241,6 +241,44 @@ final class FederationService
     }
 
     /**
+     * Manually trigger discovery of a remote domain by fetching its
+     * federation capability document (and public key) over HTTP. If the
+     * domain is already known and its key cache is still fresh, this
+     * returns the existing record without making an outbound request.
+     *
+     * @return array<string, mixed> The remote node record with a merged
+     *         'public_key' field and a 'discovered' flag.
+     */
+    public function discoverRemoteNode(string $domain): array
+    {
+        $domain = strtolower(trim($domain));
+        if ($domain === '' || filter_var("https://{$domain}/", FILTER_VALIDATE_URL) === false) {
+            throw new ValidationException([['field' => 'domain', 'reason' => 'invalid_format']]);
+        }
+
+        $node = $this->getDiscoveryService()->ensureRemoteNode($domain);
+        if ($node === null) {
+            throw new ValidationException([['field' => 'domain', 'reason' => 'discovery_failed',
+                'message' => "Could not fetch capability document from {$domain}. The remote node may not support FPDP federation, or the domain is unreachable."]]);
+        }
+
+        // Enrich with actor count
+        $actorCount = $this->actors->countByRemoteNodeId((int) $node['id']);
+
+        return [
+            'id' => $node['public_id'],
+            'domain' => $node['domain'],
+            'name' => $node['name'],
+            'status' => $node['status'],
+            'trust_state' => $node['trust_state'],
+            'public_key' => $node['public_key'],
+            'actor_count' => $actorCount,
+            'last_seen_at' => $node['last_seen_at'],
+            'discovered' => true,
+        ];
+    }
+
+    /**
      * Sets a remote node's trust_state (UNKNOWN/TRUSTED/BLOCKED). BLOCKED is
      * enforced immediately at the top of receiveActivity(), before any
      * signature verification or discovery is attempted for that domain.

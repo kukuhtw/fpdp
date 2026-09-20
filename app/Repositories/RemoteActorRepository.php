@@ -119,4 +119,17 @@ final class RemoteActorRepository
             'id' => $id,
         ]);
     }
+
+    /**
+     * Count how many remote actors are registered under a given remote node.
+     */
+    public function countByRemoteNodeId(int $remoteNodeId): int
+    {
+        $statement = $this->connection->prepare(
+            'SELECT COUNT(*) FROM remote_actors WHERE remote_node_id = :remote_node_id',
+        );
+        $statement->execute(['remote_node_id' => $remoteNodeId]);
+
+        return (int) $statement->fetchColumn();
+    }
 }

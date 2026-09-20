@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="id" dir="ltr" data-locale-path="locales/">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="FPDP public personal digital home mockup">
+  <title>Maya Pradana · Personal Digital Home</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="assets/app.js" defer></script>
+</head>
+<body class="public-body">
+  <header class="public-nav">
+    <a class="public-logo" href="public-profile.html"><span class="brand-mark">M</span><span>maya.id</span></a>
+    <nav class="public-links" aria-label="Public navigation">
+      <a href="#home" data-i18n="public.navHome">Beranda</a>
+      <a href="#writing" data-i18n="public.navWriting">Tulisan</a>
+      <a href="#network" data-i18n="public.navNetwork">Jaringan</a>
+      <a href="#project" data-i18n="public.navProjects">Proyek</a>
+      <a href="#video" data-i18n="public.navVideo">Video</a>
+      <a href="#shop" data-i18n="public.navShop">Toko</a>
+    </nav>
+    <select class="locale-select" data-language-select aria-label="Language"></select>
+    <a class="button button-secondary" href="index.html#overview">Dashboard</a>
+  </header>
+
+  <main>
+    <section class="public-hero" id="home">
+      <div>
+        <p class="eyebrow" data-i18n="public.heroEyebrow">Desainer · Peneliti · Pembangun independent web</p>
+        <h1 data-i18n="public.heroTitle">Halo, saya Maya.</h1>
+        <p data-i18n="public.heroBody">Saya mendesain produk digital yang tenang.</p>
+        <div class="hero-actions"><button class="button button-primary" data-i18n="public.follow">Ikuti node ini</button><a class="button button-secondary" href="mailto:hello@maya.id" data-i18n="public.contact">Hubungi saya</a></div>
+      </div>
+      <div class="portrait-card" aria-label="Abstract portrait of Maya"><div class="portrait-art">M</div></div>
+    </section>
+
+    <section class="public-section" id="writing">
+      <div class="public-container">
+        <header class="section-head"><h2 data-i18n="public.latest">Terbaru dari digital home saya</h2><p data-i18n="public.latestSubtitle">Tulisan lokal dan update beratribusi.</p></header>
+        <div class="public-post-grid">
+          <article class="public-post"><span class="source" data-i18n="public.sourceLocal">LOKAL · MAYA.ID</span><h3 data-i18n="timeline.post1">Designing for digital ownership</h3><p data-i18n="timeline.post1Body">Kerangka praktis untuk produk portabel.</p><a href="#" data-i18n="common.viewAll">Lihat semua</a></article>
+          <article class="public-post"><span class="source" data-i18n="public.sourceRss">EKSTERNAL · STUDIO NOTES RSS</span><h3 data-i18n="timeline.post2">Interface kecil, sistem tahan lama</h3><p data-i18n="timeline.post2Body">Catatan tentang extension point.</p><a href="#">studionotes.example ↗</a></article>
+          <article class="public-post"><span class="source" data-i18n="public.sourceFed">FEDERASI · ARINODE.ID</span><h3 data-i18n="timeline.post3">Ruang milik komunitas</h3><p data-i18n="timeline.post3Body">Teknologi dan moderasi sama pentingnya.</p><a href="#">arinode.id ↗</a></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="public-section federation-network" id="network">
+      <div class="public-container">
+        <header class="section-head"><p class="eyebrow">FEDERATED NETWORK</p><h2 data-i18n="public.networkTitle">Terhubung di jaringan independen</h2><p data-i18n="public.networkSubtitle">User yang diikuti Maya dan post publik terbaru mereka. Preview berasal dari cache node dengan atribusi asli.</p></header>
+        <div class="federation-grid">
+          <article class="federation-card"><header><span class="remote-avatar">A</span><div><a href="https://arinode.id/@ari">Ari Wibowo</a><span>@ari@arinode.id · CONNECTED</span></div><span class="badge badge-green" data-i18n="public.visible">Tampil</span></header><div class="remote-post"><span class="source">FEDERATED · ARINODE.ID</span><h3 data-i18n="public.fedPost1">Ruang milik komunitas</h3><p data-i18n="public.fedPost1Body">Teknologi dan moderasi perlu tumbuh bersama.</p><a href="https://arinode.id/posts/community-spaces">arinode.id ↗</a></div><footer data-i18n="public.syncedRecently">Disinkronkan 8 menit lalu</footer></article>
+          <article class="federation-card"><header><span class="remote-avatar violet">D</span><div><a href="https://dian.page/@dian">Dian Lestari</a><span>@dian@dian.page · FOLLOWING</span></div><span class="badge badge-green" data-i18n="public.visible">Tampil</span></header><div class="remote-post"><span class="source">FEDERATED · DIAN.PAGE</span><h3 data-i18n="public.fedPost2">Merawat arsip digital pribadi</h3><p data-i18n="public.fedPost2Body">Catatan tentang format terbuka dan umur panjang data.</p><a href="https://dian.page/posts/personal-archives">dian.page ↗</a></div><footer data-i18n="public.syncedHour">Disinkronkan 1 jam lalu</footer></article>
+          <article class="federation-card stale"><header><span class="remote-avatar amber">E</span><div><a href="https://eka.social/@eka">Eka Rahman</a><span>@eka@eka.social · CONNECTED</span></div><span class="badge badge-yellow" data-i18n="public.cached">Cache</span></header><div class="remote-post"><span class="source">FEDERATED · EKA.SOCIAL</span><h3 data-i18n="public.fedPost3">Membangun tanpa platform pusat</h3><p data-i18n="public.fedPost3Body">Eksperimen interoperabilitas antar personal node.</p><a href="https://eka.social/posts/without-center">eka.social ↗</a></div><footer data-i18n="public.remoteUnavailable">Remote offline · cache 2 hari lalu</footer></article>
+        </div>
+        <p class="network-note" data-i18n="public.networkPrivacy">Koneksi yang disembunyikan, dimute, atau diblokir tidak ditampilkan.</p>
+      </div>
+    </section>
+
+    <section class="public-section alt" id="project">
+      <div class="public-container project-feature">
+        <div class="project-visual"><div class="node-orbit"><div class="node-center">N</div></div></div>
+        <div class="project-copy"><p class="eyebrow" data-i18n="public.featured">Proyek unggulan</p><h2 data-i18n="public.projectTitle">Nadi: sebuah personal internet node</h2><p data-i18n="public.projectBody">Eksperimen identitas dan publikasi pada domain sendiri.</p><a class="button" href="#" data-i18n="public.explore">Jelajahi proyek</a></div>
+      </div>
+    </section>
+
+    <section class="public-section" id="video">
+      <div class="public-container">
+        <header class="section-head"><h2 data-i18n="public.videoTitle">Video tersemat</h2><p data-i18n="public.videoSubtitle">Video dari channel YouTube yang terhubung, disinkronkan lewat feed RSS resmi channel dan ditampilkan sebagai embed privacy-enhanced (youtube-nocookie.com).</p></header>
+        <div class="video-grid">
+          <article class="video-card">
+            <div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/jNQXAC9IVRw" title="Me at the zoo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+            <span class="source" data-i18n="public.sourceYoutube">EKSTERNAL · YOUTUBE</span>
+            <h3 data-i18n="public.video1Title">Me at the zoo</h3>
+            <p data-i18n="public.video1Body">Contoh embed video publik yang disinkronkan otomatis dari channel YouTube terhubung.</p>
+            <a href="https://www.youtube.com/watch?v=jNQXAC9IVRw" target="_blank" rel="noopener" data-i18n="public.watchOnYoutube">Tonton di YouTube ↗</a>
+          </article>
+          <article class="video-card">
+            <div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/YE7VzlLtp-4" title="Big Buck Bunny" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+            <span class="source" data-i18n="public.sourceYoutube">EKSTERNAL · YOUTUBE</span>
+            <h3 data-i18n="public.video2Title">Big Buck Bunny (Blender Foundation)</h3>
+            <p data-i18n="public.video2Body">Contoh kedua: video open-source berlisensi Creative Commons yang dipakai sebagai sample embed.</p>
+            <a href="https://www.youtube.com/watch?v=YE7VzlLtp-4" target="_blank" rel="noopener" data-i18n="public.watchOnYoutube">Tonton di YouTube ↗</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="public-section" id="shop">
+      <div class="public-container"><div class="shop-banner"><div><h2 data-i18n="public.shopTitle">Bekerja bersama saya</h2><p data-i18n="public.shopBody">Workshop, panduan digital, dan sesi desain.</p></div><a class="button" href="index.html#products" data-i18n="public.navShop">Toko</a></div></div>
+    </section>
+  </main>
+
+  <footer class="public-footer"><span data-i18n="public.footer">Situs ini merupakan node FPDP independen.</span><span>© 2026 Maya Pradana · maya.id</span></footer>
+</body>
+</html>
