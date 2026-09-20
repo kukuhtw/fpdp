@@ -270,6 +270,10 @@ $router->get('/dashboard/posts', function (Request $request, array $params) use 
     return Response::html($buildContentPageController()->editor());
 });
 
+$router->get('/dashboard/posts/list', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->postsList());
+});
+
 $router->get('/dashboard', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->dashboardOverview());
 });
@@ -304,6 +308,10 @@ $router->patch('/api/v1/me/profile', function (Request $request, array $params) 
 
 $router->get('/api/v1/posts', function (Request $request, array $params) use ($buildPostController): Response {
     return $buildPostController()->index($request);
+});
+
+$router->get('/api/v1/me/posts', function (Request $request, array $params) use ($buildPostController): Response {
+    return $buildPostController()->myPosts($request);
 });
 
 $router->post('/api/v1/posts', function (Request $request, array $params) use ($buildPostController): Response {
