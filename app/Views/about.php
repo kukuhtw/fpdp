@@ -75,6 +75,9 @@
       <div class="fed-arrow">⇄</div>
       <div class="fed-node"><div class="domain">maya.id</div><div class="handle">@maya</div><div>Friend</div></div>
       <div class="fed-arrow">⇄</div>
+      <div class="fed-node"><div class="domain">arinode.id</div><div class="handle">@ari</div><div>Colleague</div></div>
+    </div>
+    <ol>
 <ol>
       <li><strong>Follow:</strong> @kukuh sends a Follow request to @ari@arinode.id.</li>
       <li><strong>Accept:</strong> The arinode.id node verifies the request and accepts it.</li>
