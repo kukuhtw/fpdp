@@ -102,16 +102,15 @@ PAYPAL_CLIENT_ID=CLIENT_ID_SANDBOX_ANDA
 PAYPAL_CLIENT_SECRET=CLIENT_SECRET_SANDBOX_ANDA
 PAYPAL_WEBHOOK_ID=WEBHOOK_ID_SANDBOX_ANDA
 PAYPAL_ENVIRONMENT=SANDBOX
-CV_PAYMENT_GATEWAY=PAYPAL
 ```
 
-`CV_PAYMENT_GATEWAY=PAYPAL` diperlukan bila pembayaran CV/resume ingin diarahkan melalui PayPal. Tanpa pengaturan ini, default aplikasi untuk CV adalah `DUMMY`.
+Gateway untuk pembayaran CV/resume mengikuti `nodes.active_gateway`. Aktifkan PayPal dari menu payment gateway dashboard atau endpoint `PUT /api/v1/me/payment-gateways/PAYPAL/activate`. Implementasi saat ini tidak memilih gateway CV dari `CV_PAYMENT_GATEWAY`.
 
 Untuk Dokploy:
 
 1. Buka service aplikasi.
 2. Buka **Environment**.
-3. Tambahkan atau ubah kelima variabel di atas.
+3. Tambahkan atau ubah keempat variabel di atas.
 4. Simpan lalu redeploy aplikasi.
 
 FPDP juga menyediakan API pengaturan gateway yang menyimpan credential terenkripsi di database. Config aktif dari database memiliki prioritas terhadap fallback `.env`:
@@ -162,7 +161,6 @@ PayPal pada implementasi FPDP tidak mendukung penerimaan `IDR`. Gunakan salah sa
    PAYPAL_CLIENT_SECRET=LIVE_CLIENT_SECRET
    PAYPAL_WEBHOOK_ID=LIVE_WEBHOOK_ID
    PAYPAL_ENVIRONMENT=PRODUCTION
-   CV_PAYMENT_GATEWAY=PAYPAL
    ```
 
 8. Redeploy aplikasi dan lakukan transaksi Live bernilai kecil.
@@ -202,7 +200,9 @@ Pastikan URL memakai HTTPS publik, tidak dilindungi basic auth/firewall, dapat m
 
 ### Pembayaran CV gagal karena mata uang
 
-PayPal tidak mendukung penerimaan IDR pada adapter FPDP. Atur harga CV dalam USD sebelum memakai `CV_PAYMENT_GATEWAY=PAYPAL`.
+PayPal tidak mendukung penerimaan IDR pada adapter FPDP. Atur harga CV dalam USD sebelum mengaktifkan PayPal sebagai gateway node.
+
+Penjelasan lengkap mengenai prioritas `.env`, database, status dashboard, serta pemilihan Sandbox/Live tersedia di [Konfigurasi Payment Gateway FPDP](PAYMENT-GATEWAY-CONFIGURATION.id.md).
 
 ## 9. Referensi resmi
 
@@ -210,4 +210,3 @@ PayPal tidak mendukung penerimaan IDR pada adapter FPDP. Atur harga CV dalam USD
 - [Webhook PayPal](https://developer.paypal.com/api/rest/webhooks)
 - [Integrasi dan verifikasi webhook](https://developer.paypal.com/api/rest/webhooks/rest/)
 - [Event webhook untuk checkout](https://developer.paypal.com/payment-methods/webhooks/)
-
