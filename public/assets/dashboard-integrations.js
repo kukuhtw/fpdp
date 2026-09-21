@@ -25,6 +25,8 @@
       const reasonMessages = {
         youtube_channel_id_required: 'Gunakan Channel ID YouTube atau URL /channel/UC...; URL @handle belum didukung.',
         youtube_url_requires_youtube_provider: 'URL YouTube harus ditambahkan sebagai "YouTube channel", bukan RSS.',
+        instagram_username_required: 'Masukkan username Instagram yang valid atau URL profil publik Instagram.',
+        instagram_url_requires_instagram_provider: 'URL Instagram harus ditambahkan sebagai "Instagram profil", bukan RSS.',
         duplicate_source: 'Channel atau sumber ini sudah terhubung. Hapus duplikat lama jika diperlukan.',
       };
       throw new Error(reasonMessages[reason] || payload?.error?.message || `Request failed (${response.status})`);
@@ -69,13 +71,20 @@
     try { const result = await api('/api/v1/me'); setAuthenticated(true, result.data.profile.handle); await Promise.all([loadSources(),loadFacebook(),loadLinkedIn()]); const query=new URLSearchParams(location.search); if(query.get('facebook')==='connected') showStatus(`${query.get('pages')||0} Facebook Page berhasil dihubungkan.`); if(query.get('linkedin')==='connected') showStatus(`${query.get('organizations')||0} LinkedIn Organization berhasil dihubungkan.`); }
     catch (_) { sessionStorage.removeItem(tokenKey); setAuthenticated(false); }
   };
+  const sourceTypeByProvider = { YOUTUBE: 'youtube_channel', INSTAGRAM: 'instagram_profile' };
   provider.addEventListener('change', () => {
-    const youtube = provider.value === 'YOUTUBE'; document.querySelector('#source-label-text').textContent = youtube ? 'Channel ID atau URL channel YouTube' : 'URL sumber';
-    document.querySelector('#source-help').classList.toggle('hidden', !youtube); sourceForm.elements.source_url.placeholder = youtube ? 'UC... atau https://youtube.com/channel/UC...' : 'https://example.com/feed.xml';
+    const value = provider.value; const labelText = document.querySelector('#source-label-text'); const help = document.querySelector('#source-help'); const input = sourceForm.elements.source_url;
+    if (value === 'YOUTUBE') {
+      labelText.textContent = 'Channel ID atau URL channel YouTube'; help.textContent = 'URL /@handle belum didukung; masukkan channel ID.'; help.classList.remove('hidden'); input.placeholder = 'UC... atau https://youtube.com/channel/UC...';
+    } else if (value === 'INSTAGRAM') {
+      labelText.textContent = 'Username atau URL profil Instagram (publik)'; help.textContent = 'Hanya profil publik yang didukung; scraping ringan ini bisa berhenti sewaktu-waktu jika Instagram memblokir permintaan otomatis.'; help.classList.remove('hidden'); input.placeholder = 'username atau https://instagram.com/username';
+    } else {
+      labelText.textContent = 'URL sumber'; help.classList.add('hidden'); input.placeholder = 'https://example.com/feed.xml';
+    }
   });
   sourceForm.addEventListener('submit', async (event) => {
-    event.preventDefault(); const fields = new FormData(sourceForm);
-    try { await api('/api/v1/me/feed-sources', { method: 'POST', body: JSON.stringify({ provider: fields.get('provider'), source_type: fields.get('provider') === 'YOUTUBE' ? 'youtube_channel' : String(fields.get('provider')).toLowerCase(), source_url: fields.get('source_url'), sync_interval: Number(fields.get('sync_interval')) }) }); sourceForm.reset(); await loadSources(); showStatus('Sumber berhasil dihubungkan. Klik “Sinkronkan sekarang” untuk mengambil konten.'); }
+    event.preventDefault(); const fields = new FormData(sourceForm); const providerValue = String(fields.get('provider'));
+    try { await api('/api/v1/me/feed-sources', { method: 'POST', body: JSON.stringify({ provider: providerValue, source_type: sourceTypeByProvider[providerValue] || providerValue.toLowerCase(), source_url: fields.get('source_url'), sync_interval: Number(fields.get('sync_interval')) }) }); sourceForm.reset(); await loadSources(); showStatus('Sumber berhasil dihubungkan. Klik “Sinkronkan sekarang” untuk mengambil konten.'); }
     catch (error) { showStatus(error.message, true); }
   });
   syncButton.addEventListener('click', async () => {

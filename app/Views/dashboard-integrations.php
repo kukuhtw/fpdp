@@ -24,7 +24,7 @@
             <article class="provider-card available"><span class="provider-logo youtube">YT</span><div><h2>YouTube</h2><p>Ambil upload publik melalui feed resmi channel, tanpa OAuth.</p></div><span class="status-badge">Tersedia</span></article>
             <article class="provider-card available"><span class="provider-logo">f</span><div><h2>Facebook Pages</h2><p>Hubungkan Page yang Anda kelola melalui OAuth resmi Meta.</p></div><button id="facebook-connect" type="button">Hubungkan Facebook</button></article>
             <article class="provider-card available"><span class="provider-logo linkedin">in</span><div><h2>LinkedIn Organizations</h2><p>Sinkronkan post Company Page yang Anda administrasikan.</p></div><button id="linkedin-connect" type="button">Hubungkan LinkedIn</button></article>
-            <article class="provider-card"><span class="provider-logo instagram">◎</span><div><h2>Instagram</h2><p>Untuk akun Business/Creator yang memenuhi syarat.</p></div><span class="provider-state">OAuth belum dikonfigurasi</span></article>
+            <article class="provider-card available"><span class="provider-logo instagram">◎</span><div><h2>Instagram</h2><p>Ambil postingan profil publik lewat light-scrape HTML, tanpa OAuth/App Review Meta.</p></div><span class="status-badge">Tersedia (beta)</span></article>
             <article class="provider-card"><span class="provider-logo tiktok">♪</span><div><h2>TikTok</h2><p>Memerlukan Login Kit, Display API, dan approval.</p></div><span class="provider-state">OAuth belum dikonfigurasi</span></article>
         </section>
         <section class="panel"><div class="section-heading"><h2>Facebook Pages</h2><span class="muted">Token disimpan terenkripsi</span></div><div id="facebook-accounts" class="source-list"><p class="muted">Belum ada Facebook Page terhubung.</p></div></section>
@@ -33,7 +33,7 @@
             <section class="panel">
                 <h2>Hubungkan sumber</h2>
                 <form id="source-form" class="stack">
-                    <label>Jenis sumber<select name="provider" id="provider"><option value="YOUTUBE">YouTube channel</option><option value="RSS">RSS</option><option value="ATOM">Atom</option><option value="CUSTOM_API">Custom JSON API</option></select></label>
+                    <label>Jenis sumber<select name="provider" id="provider"><option value="YOUTUBE">YouTube channel</option><option value="INSTAGRAM">Instagram profil (publik)</option><option value="RSS">RSS</option><option value="ATOM">Atom</option><option value="CUSTOM_API">Custom JSON API</option></select></label>
                     <label id="source-url-label"><span id="source-label-text">Channel ID atau URL channel YouTube</span><input name="source_url" type="text" required placeholder="UC... atau https://youtube.com/channel/UC..."><small class="muted" id="source-help">URL /@handle belum didukung; masukkan channel ID.</small></label>
                     <label>Interval sinkronisasi<select name="sync_interval"><option value="3600">Setiap jam</option><option value="21600">Setiap 6 jam</option><option value="86400">Setiap hari</option></select></label>
                     <button type="submit">Hubungkan sumber</button>

@@ -124,10 +124,16 @@ final class HttpClient
     private function buildHeaders(array $headers): string
     {
         $lines = [];
+        $hasUserAgent = false;
         foreach ($headers as $name => $value) {
             $lines[] = $name . ': ' . $value;
+            if (strcasecmp((string) $name, 'User-Agent') === 0) {
+                $hasUserAgent = true;
+            }
         }
-        $lines[] = 'User-Agent: FPDP-HttpClient/1.0';
+        if (!$hasUserAgent) {
+            $lines[] = 'User-Agent: FPDP-HttpClient/1.0';
+        }
         return implode("\r\n", $lines) . "\r\n";
     }
 
