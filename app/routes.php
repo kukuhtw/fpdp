@@ -108,6 +108,7 @@ $buildContentPageController = static function (): ContentPageController {
     return new ContentPageController(
         new PostService(new PostRepository($connection)),
         new ProfileService(new ProfileRepository($connection)),
+        new ExternalPostRepository($connection),
     );
 };
 

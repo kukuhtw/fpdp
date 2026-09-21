@@ -116,6 +116,20 @@ final class ExternalPostRepository
         return $statement->fetchAll();
     }
 
+    /** @return array<int, array<string, mixed>> */
+    public function listYouTubeByUserId(int $userId, int $limit = 12): array
+    {
+        $statement = $this->connection->prepare(
+            self::SELECT
+            . " WHERE ep.status = 'ACTIVE' AND ep.user_id = :user_id AND ep.provider = 'YOUTUBE'"
+            . ' ORDER BY ep.published_at DESC, ep.id DESC LIMIT :limit',
+        );
+        $statement->bindValue('user_id', $userId, PDO::PARAM_INT);
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll();
+    }
+
     public function getTotalCount(): int
     {
         $statement = $this->connection->query("SELECT COUNT(*) FROM external_posts WHERE status = 'ACTIVE'");

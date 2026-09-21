@@ -7,12 +7,15 @@ namespace App\Controllers;
 use App\Core\View;
 use App\Services\Content\PostService;
 use App\Services\Profile\ProfileService;
+use App\Repositories\ExternalPostRepository;
+use App\Services\External\YouTubeEmbedResolver;
 
 final class ContentPageController
 {
     public function __construct(
         private readonly PostService $posts,
         private readonly ProfileService $profiles,
+        private readonly ?ExternalPostRepository $externalPosts = null,
     ) {
     }
 
@@ -36,13 +39,48 @@ final class ContentPageController
     {
         $profile = $this->profiles->getPublicProfile($handle);
         $result = $this->posts->list(array_merge($query, ['author_handle' => $profile['handle']]));
+        $videos = $this->youtubeVideos((int) $profile['user_id']);
 
         return View::render('profile', [
             'title' => $profile['display_name'] . ' · FPDP',
             'profile' => $profile,
             'posts' => $result['items'],
+            'youtubeVideos' => $videos,
             'nextCursor' => $result['next_cursor'],
         ]);
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function youtubeVideos(int $userId): array
+    {
+        if ($this->externalPosts === null) {
+            return [];
+        }
+
+        $videos = [];
+        foreach ($this->externalPosts->listYouTubeByUserId($userId) as $row) {
+            $media = json_decode((string) ($row['media_json'] ?? '[]'), true);
+            if (!is_array($media)) {
+                continue;
+            }
+            foreach ($media as $item) {
+                $videoId = is_array($item) ? (string) ($item['video_id'] ?? '') : '';
+                if (preg_match('/^[A-Za-z0-9_-]{11}$/', $videoId) !== 1) {
+                    continue;
+                }
+                $videos[] = [
+                    'video_id' => $videoId,
+                    'embed_url' => YouTubeEmbedResolver::embedUrl($videoId),
+                    'watch_url' => 'https://www.youtube.com/watch?v=' . rawurlencode($videoId),
+                    'thumbnail_url' => YouTubeEmbedResolver::thumbnailUrl($videoId),
+                    'title' => trim((string) ($row['title'] ?? '')) ?: trim(strip_tags((string) ($row['content'] ?? ''))) ?: 'Video YouTube',
+                    'author_name' => (string) ($row['author_name'] ?? 'YouTube'),
+                    'published_at' => $row['published_at'] ?? null,
+                ];
+                break;
+            }
+        }
+        return $videos;
     }
 
     public function post(string $publicId): string
