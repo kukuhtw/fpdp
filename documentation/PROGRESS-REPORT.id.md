@@ -2,15 +2,59 @@
 
 ## 1. Snapshot
 
-**Tanggal verifikasi:** 20 September 2026
+**Tanggal verifikasi:** 21 September 2026
+
+## 0. Pembaruan task terbaru
+
+Bagian ini mencatat pekerjaan yang sudah masuk ke repository sampai 21 September 2026, sekaligus mengoreksi gap pada laporan sebelumnya.
+
+| Area | Status | Perbaikan/implementasi |
+|---|---|---|
+| Menu integrasi | **Selesai untuk Facebook dan LinkedIn** | Halaman `/dashboard/integrations`, tombol OAuth, daftar akun terhubung, putuskan akun, serta daftar external feed tersedia. |
+| Facebook Pages | **Selesai di level implementasi** | OAuth Meta, penyimpanan token terenkripsi, pemilihan Page yang dikelola, fetch post Page, dan koneksi ke external content tersedia. Belum divalidasi dengan aplikasi Meta production. |
+| LinkedIn Organizations | **Selesai di level implementasi** | OAuth LinkedIn, discovery Organization yang dikelola, penyimpanan token, fetch post Organization, daftar koneksi, dan disconnect tersedia. Belum divalidasi dengan Community Management API production. |
+| Google OAuth visitor | **Selesai di level implementasi** | Login visitor untuk akses CV, signed state, callback, token visitor, serta dokumentasi `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` tersedia. Error deployment tetap harus diperiksa dari konfigurasi redirect URI dan environment server. |
+| CV/resume | **Selesai untuk MVP** | Menu `/dashboard/cv`, upload/replace dokumen, metadata/harga, halaman CV publik, access request, paywall, grant setelah pembayaran, dan download terlindungi tersedia. |
+| PayPal | **Selesai di level adapter** | Orders API v2, capture, status, refund, verifikasi webhook, environment fallback, dan panduan mendapatkan Client ID, Secret, serta Webhook ID tersedia. Pengujian Sandbox nyata masih diperlukan. |
+| Pemilihan payment gateway | **Selesai** | Owner dapat menyimpan konfigurasi dan mengaktifkan gateway melalui Settings. Gateway checkout disimpan pada `nodes.active_gateway`; CV tidak lagi bergantung pada `CV_PAYMENT_GATEWAY`. |
+| Sandbox/Live gateway | **Sebagian** | Credential per environment tersimpan terenkripsi di `payment_gateway_configs`. Midtrans meneruskan mode DB dengan benar. PayPal masih perlu menyamakan pilihan DB dengan `PAYPAL_ENVIRONMENT` di server. |
+| Dokumentasi payment gateway | **Selesai** | Prioritas `.env`/database, field dan tabel, API, query diagnosis, alasan status “berhasil”, serta prosedur Sandbox/Live didokumentasikan. |
+| Paywall per post | **Belum tersedia** | Paywall yang sudah berjalan adalah akses CV/resume. Model harga dan entitlement per post masih perlu migration, API, UI, dan fulfillment tersendiri. |
+| Instagram, TikTok, dan impor native YouTube | **Belum tersedia** | YouTube dapat masuk melalui feed resmi/external source, tetapi OAuth/API native Instagram dan TikTok belum diimplementasikan. |
+
+### Perbaikan penting yang telah dilakukan
+
+1. Menambahkan `nodes.active_gateway` dan seluruh alur pemilihan gateway aktif dari repository, service, route, sampai UI Settings.
+2. Mengubah pembayaran akses CV agar membaca gateway aktif milik node, bukan konfigurasi gateway CV yang terpisah.
+3. Memisahkan aksi **Save configuration** dari **Activate gateway** pada dashboard.
+4. Menampilkan environment aktif dan key yang sudah tersimpan tanpa mengembalikan secret ke browser.
+5. Menambahkan integrasi Facebook Pages dan LinkedIn Organizations ke menu dashboard.
+6. Menambahkan menu upload/download CV & Resume pada navigasi owner dan halaman publik CV.
+7. Menambahkan dokumentasi Google OAuth, PayPal, Facebook, serta konfigurasi payment gateway.
+8. Mengoreksi dokumentasi PayPal yang sebelumnya masih menyebut `CV_PAYMENT_GATEWAY`.
+
+### Temuan yang sudah diperbaiki di kode
+
+- Penyimpanan gateway sekarang memeriksa credential/probe provider sebelum menulis database. PayPal diverifikasi lewat OAuth, Midtrans lewat request berautentikasi, dan Paywuz memerlukan transaksi Sandbox lanjutan karena tidak ada endpoint verifikasi non-transaksi pada kontrak yang tersedia.
+- Backend mewajibkan seluruh key dan UI hanya menampilkan “Configured” jika set key lengkap.
+- Aktivasi gateway menolak konfigurasi yang belum lengkap; `DUMMY` tetap dapat aktif tanpa credential.
+- Environment PayPal aktif dari database sekarang diteruskan ke adapter.
+- Tersedia `scripts/rotate-app-key.php` untuk re-encryption payment credential dan token OAuth secara transaksional.
+- Google, Facebook, dan LinkedIn memeriksa pasangan client/app ID dan secret sebelum memulai redirect OAuth.
+
+### Batasan eksternal
+
+- Credential dan exact redirect URI tetap harus dibuat di dashboard Google/Meta/LinkedIn oleh pemilik akun.
+- Permission dan app review merupakan keputusan provider dan tidak dapat diotomatisasi dari repository.
+- Uji akun nyata tetap menjadi acceptance test deployment karena membutuhkan akun dan persetujuan provider.
 **Dasar verifikasi:** route, controller, service, repository, migration, UI, test, dan konfigurasi deployment pada repository—bukan hanya dokumen rencana.
 
 FPDP sudah melewati tahap prototype dasar. Identity, local publishing, external aggregation, marketplace dasar, payment abstraction, analytics, dan sebagian besar fondasi federasi tersedia sebagai kode yang dapat diuji. Staging Dokploy sudah live dan tervalidasi, halaman utama (`/`) kini menampilkan personal digital home pemilik node secara live, dan dashboard Overview owner sudah tersambung ke API sungguhan. Fokus berikutnya bukan lagi membuat kerangka, tetapi menghubungkan flow komersial end-to-end (termasuk mekanisme pemilihan payment gateway aktif), melengkapi panel dashboard lain, memvalidasi integrasi eksternal terhadap sandbox/server nyata, dan mengeraskan operasional production.
 
 Ringkasan repository saat laporan ini dibuat:
 
-- **40 migration MySQL** (`0001`–`0040`);
-- **31 test script**;
+- **43 migration MySQL** (`0001`–`0043`);
+- **32 test script**;
 - REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, marketplace, analytics, federation, dan upload media post;
 - UI nyata untuk halaman utama (personal digital home live per node), timeline lokal, profil publik, halaman post, post editor (dengan upload media langsung), dan dashboard Overview owner;
 - 4 payment gateway adapter: Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2);
@@ -45,7 +89,7 @@ flowchart LR
 | External aggregation | **Selesai untuk MVP** | RSS/Atom/Custom API, anti-SSRF HTTP client, sync worker, dedup, persistence, timeline merge |
 | Operasional & hardening | **Sebagian** | CI, audit dasar tersedia; staging Dokploy sudah live dan tervalidasi (migration, health check, bootstrap owner); backup/restore recovery exercise belum selesai |
 | Marketplace | **Sebagian besar** | Product dan order tersedia; checkout visitor + payment belum tersambung end-to-end |
-| Payment | **Sebagian besar** | Dummy, Paywuz, Midtrans, PayPal (Orders API v2), encrypted config, webhook/idempotency; sandbox nyata (semua provider) dan reconciliation belum selesai; belum ada mekanisme pilih gateway aktif untuk checkout |
+| Payment | **Sebagian besar** | Dummy, Paywuz, Midtrans, PayPal (Orders API v2), encrypted config, webhook/idempotency, serta pemilihan gateway aktif tersedia; sandbox nyata dan reconciliation belum selesai |
 | Federasi | **Sebagian besar backend** | Keys, discovery, signed inbox/outbox, follow lifecycle, moderation, delivery retry; cross-server/UI belum selesai |
 | Dashboard | **Sebagian** | Overview owner sudah live (KPI, traffic chart, top content, recent activity) di `/dashboard`, menggunakan API yang sudah ada; Payments/Analytics/Federation belum jadi panel terpisah, node settings belum live |
 | AI & ads | **Direncanakan** | Dokumen strategi tersedia; LLM chat dan ad marketplace belum diimplementasikan |
@@ -106,7 +150,7 @@ flowchart LR
 - Webhook verification serta duplicate-event handling.
 - Gateway credentials dapat disimpan terenkripsi AES-256-GCM melalui API dan tidak dikembalikan ke client.
 - Dashboard payment summary tersedia sebagai API.
-- **Catatan gap:** belum ada mekanisme untuk owner atau visitor memilih gateway aktif — gateway checkout masih ditentukan lewat parameter/env var eksplisit per fitur (mis. `CV_PAYMENT_GATEWAY` untuk akses CV), bukan pilihan di UI.
+- Owner dapat memilih gateway default node dari Settings. Pilihan disimpan pada `nodes.active_gateway` dan dipakai oleh flow pembayaran CV.
 
 ### 3.7 Federasi
 
@@ -159,7 +203,7 @@ flowchart LR
 - Refund/partial refund Midtrans setelah `PAID` tercatat sebagai transaction event tetapi belum selalu merekonsiliasi status payment menjadi `REFUNDED`.
 - Belum ada settlement/payout ledger, gateway-fee accounting, dan reconciliation job.
 - Rotasi `APP_KEY` belum dapat melakukan re-encryption credential gateway otomatis.
-- Belum ada UI/API untuk memilih gateway mana yang aktif untuk suatu checkout; setiap fitur (mis. CV) hardcode satu gateway lewat env var.
+- UI/API pemilihan gateway aktif sudah tersedia. Validasi kelengkapan credential dan verifikasi provider pada saat save/activate masih belum tersedia.
 
 ### 4.4 Dashboard dan settings
 
@@ -186,7 +230,7 @@ flowchart LR
 
 ## 5. Belum dimulai
 
-- OAuth connector production untuk Instagram/Meta, LinkedIn, X, Threads, TikTok, dan Shopee.
+- OAuth connector production untuk Instagram, X, Threads, TikTok, dan Shopee. Implementasi Facebook Pages dan LinkedIn Organizations sudah tersedia, tetapi belum divalidasi terhadap akun production.
 - LLM provider configuration, profile/CV-grounded chatbot, paid chat session, serta AI usage/cost controls.
 - Advertising marketplace: ad slot, pricing, booking, approval, dan delivery window.
 - Production plugin/adapter marketplace.
@@ -209,7 +253,7 @@ Urutan rekomendasi:
 
 1. ~~Deploy satu staging node melalui Dokploy dan validasi build, health check, volume, bootstrap, serta seluruh migration pada MySQL 8.~~ **Selesai** — staging Dokploy live dan tervalidasi (19 September 2026).
 2. Uji Paywuz, Midtrans, dan PayPal terhadap sandbox sungguhan.
-3. Sambungkan public checkout → order → payment → webhook → fulfillment/refund, termasuk mekanisme memilih gateway aktif.
+3. Sambungkan public checkout → order → payment → webhook → fulfillment/refund. Mekanisme memilih gateway aktif sudah tersedia.
 4. ~~Ubah dashboard mockup menjadi UI live, dimulai dari Overview, Payments, Analytics, dan Federation yang API-nya sudah ada.~~ **Sebagian selesai** — Overview sudah live di `/dashboard` (20 September 2026); panel Payments/Analytics/Federation dan node settings masih menyusul.
 5. Implementasikan node appearance/language settings dan security settings.
 6. Jalankan dua node nyata untuk interoperability federation.
@@ -228,7 +272,7 @@ Urutan rekomendasi:
 
 ## 8. Validasi terakhir
 
-- **31/31 test script lulus** pada environment pengembangan terakhir.
+- Repository saat ini memiliki **32 test script**. Klaim kelulusan penuh 31/31 berasal dari verifikasi sebelumnya; seluruh 32 test perlu dijalankan kembali setelah perubahan integrasi terbaru.
 - PHP syntax untuk konfigurasi dan owner bootstrap lulus.
 - Bootstrap owner tervalidasi terhadap database SQLite test.
 - `git diff --check` lulus.
@@ -245,4 +289,8 @@ Urutan rekomendasi:
 - [API Contract](API-CONTRACT.id.md) dan [OpenAPI](openapi.yaml)
 - [Konsep Federasi](FEDERATION-CONCEPT.id.md)
 - [Panduan Dokploy](DOKPLOY-DEPLOYMENT.id.md)
+- [Konfigurasi Payment Gateway](PAYMENT-GATEWAY-CONFIGURATION.id.md)
+- [Panduan Google OAuth](GOOGLE-OAUTH-SETUP.id.md)
+- [Panduan PayPal](PAYPAL-SETUP.id.md)
+- [Panduan Facebook](FACEBOOK-INTEGRATION-SETUP.id.md)
 - [Mockup](mockup/README.md)

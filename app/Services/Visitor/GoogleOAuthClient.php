@@ -27,8 +27,8 @@ final class GoogleOAuthClient implements GoogleOAuthClientInterface
 
     public function getAuthorizationUrl(string $state, string $redirectUri): string
     {
-        if ($this->clientId === '') {
-            throw new RuntimeException('GOOGLE_CLIENT_ID is not configured.');
+        if ($this->clientId === '' || $this->clientSecret === '') {
+            throw new RuntimeException('Google OAuth is not configured: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required.');
         }
 
         $params = [

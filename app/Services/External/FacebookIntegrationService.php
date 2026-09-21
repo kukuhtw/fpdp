@@ -11,7 +11,7 @@ final class FacebookIntegrationService
     public function __construct(private readonly ExternalAccountRepository $accounts,private readonly ExternalFeedSourceRepository $sources,private readonly HttpClient $http=new HttpClient()){}
     public function authorizationUrl(string $state,string $redirectUri):string
     {
-        $appId=(string)Config::get('FACEBOOK_APP_ID','');if($appId==='')throw new RuntimeException('FACEBOOK_APP_ID is not configured.');$v=(string)Config::get('FACEBOOK_GRAPH_VERSION','v26.0');
+        $appId=(string)Config::get('FACEBOOK_APP_ID','');$secret=(string)Config::get('FACEBOOK_APP_SECRET','');if($appId===''||$secret==='')throw new RuntimeException('Facebook OAuth is not configured: FACEBOOK_APP_ID and FACEBOOK_APP_SECRET are required.');$v=(string)Config::get('FACEBOOK_GRAPH_VERSION','v26.0');
         return 'https://www.facebook.com/'.rawurlencode($v).'/dialog/oauth?'.http_build_query(['client_id'=>$appId,'redirect_uri'=>$redirectUri,'state'=>$state,'response_type'=>'code','scope'=>'pages_show_list,pages_read_engagement']);
     }
     public function connectPages(int $userId,string $code,string $redirectUri):array

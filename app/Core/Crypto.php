@@ -19,7 +19,12 @@ final class Crypto
 
     public static function encrypt(string $plaintext): string
     {
-        $key = self::key();
+        return self::encryptWithKey($plaintext, (string) Config::get('APP_KEY', ''));
+    }
+
+    public static function encryptWithKey(string $plaintext, string $appKey): string
+    {
+        $key = self::deriveKey($appKey);
         $ivLength = openssl_cipher_iv_length(self::CIPHER);
         if ($ivLength === false) {
             throw new RuntimeException('Unable to determine IV length for ' . self::CIPHER);
@@ -37,7 +42,12 @@ final class Crypto
 
     public static function decrypt(string $encoded): string
     {
-        $key = self::key();
+        return self::decryptWithKey($encoded, (string) Config::get('APP_KEY', ''));
+    }
+
+    public static function decryptWithKey(string $encoded, string $appKey): string
+    {
+        $key = self::deriveKey($appKey);
         $ivLength = openssl_cipher_iv_length(self::CIPHER);
         if ($ivLength === false) {
             throw new RuntimeException('Unable to determine IV length for ' . self::CIPHER);
@@ -65,10 +75,9 @@ final class Crypto
      * per .env.example's generation instructions) via SHA-256, so the raw
      * key material is never used directly regardless of its exact format.
      */
-    private static function key(): string
+    private static function deriveKey(string $appKey): string
     {
-        $appKey = Config::get('APP_KEY', '');
-        if ($appKey === null || $appKey === '') {
+        if ($appKey === '') {
             throw new RuntimeException('APP_KEY is not configured; it is required to encrypt/decrypt stored gateway credentials.');
         }
 

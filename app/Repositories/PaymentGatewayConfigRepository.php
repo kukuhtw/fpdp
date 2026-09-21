@@ -53,12 +53,24 @@ final class PaymentGatewayConfigRepository
     public function listConfigMeta(int $gatewayId): array
     {
         $statement = $this->connection->prepare(
-            'SELECT config_key, environment, is_active, updated_at FROM payment_gateway_configs
+            'SELECT config_key, encrypted_value, environment, is_active, updated_at FROM payment_gateway_configs
              WHERE gateway_id = :gateway_id ORDER BY environment ASC, config_key ASC',
         );
         $statement->execute(['gateway_id' => $gatewayId]);
 
-        return $statement->fetchAll();
+        $metadata = [];
+        foreach ($statement->fetchAll() as $row) {
+            try {
+                Crypto::decrypt((string) $row['encrypted_value']);
+                $row['is_decryptable'] = true;
+            } catch (Throwable) {
+                $row['is_decryptable'] = false;
+            }
+            unset($row['encrypted_value']);
+            $metadata[] = $row;
+        }
+
+        return $metadata;
     }
 
     /**
@@ -177,8 +189,9 @@ final class PaymentGatewayConfigRepository
             return [];
         }
 
-        if (strtoupper($gatewayCode) === 'MIDTRANS' && $this->getActiveEnvironment($gatewayId) === 'LIVE') {
-            $values['environment'] = 'PRODUCTION';
+        $environment = $this->getActiveEnvironment($gatewayId);
+        if (in_array(strtoupper($gatewayCode), ['MIDTRANS', 'PAYPAL'], true) && $environment !== null) {
+            $values['environment'] = $environment === 'LIVE' ? 'PRODUCTION' : 'SANDBOX';
         }
 
         return $values;

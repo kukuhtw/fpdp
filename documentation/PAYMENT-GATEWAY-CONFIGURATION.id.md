@@ -9,7 +9,7 @@ Dokumen ini menjelaskan sumber konfigurasi payment gateway, tabel dan field yang
 - Credential di database menjadi sumber utama. `.env` berfungsi sebagai fallback untuk key yang tidak tersedia dari database.
 - `APP_KEY` tetap wajib berada di environment server karena dipakai untuk mengenkripsi dan membuka credential database.
 - SANDBOX/LIVE yang dipilih di dashboard disimpan pada `payment_gateway_configs.environment` dan `is_active`.
-- Khusus implementasi PayPal saat ini, mode endpoint masih dibaca dari `PAYPAL_ENVIRONMENT` apabila repository tidak mengirim key `environment`. Karena itu nilai `.env` harus disamakan dengan pilihan database.
+- Mode endpoint Midtrans dan PayPal mengikuti environment aktif dari database. Nilai `.env` dipakai sebagai fallback hanya ketika belum ada konfigurasi database aktif.
 
 ## Cara kerja konfigurasi
 
@@ -80,26 +80,25 @@ Nilainya adalah kode gateway default node, misalnya `PAYPAL`. Field inilah yang 
 | Enkripsi credential DB | `.env`: `APP_KEY` | Harus stabil dan tidak boleh diganti sembarangan |
 | Mode Midtrans | environment aktif DB | `LIVE` dipetakan menjadi `PRODUCTION`; tanpa config DB gunakan `MIDTRANS_ENVIRONMENT` |
 | Mode Paywuz | credential aktif DB | Endpoint Sandbox/Live ditentukan oleh `api_url` |
-| Mode PayPal saat ini | `.env`: `PAYPAL_ENVIRONMENT` | Pilihan environment DB belum diteruskan ke adapter PayPal |
+| Mode PayPal | environment aktif DB | `LIVE` dipetakan menjadi `PRODUCTION`; tanpa config DB gunakan `PAYPAL_ENVIRONMENT` |
 
-Karena adapter dapat memakai `.env` untuk key yang tidak ditemukan, hindari konfigurasi parsial. Konfigurasi parsial bisa mencampurkan Client ID dari database dengan Secret dari `.env`, termasuk mencampur credential Sandbox dan Live.
+Adapter masih dapat memakai `.env` sebagai fallback ketika tidak ada konfigurasi database. Endpoint dashboard sekarang menolak konfigurasi parsial sehingga credential dari kedua sumber tidak tercampur melalui flow pengaturan normal.
 
 ## Mengapa dashboard mengatakan berhasil, tetapi gateway tidak bekerja?
 
-Respons sukses dashboard saat ini hanya berarti validasi bentuk request lolos, nilai berhasil dienkripsi, dan transaksi database selesai. Aplikasi belum melakukan pemeriksaan ke API provider pada saat tombol **Save configuration** ditekan.
+Sebelum konfigurasi disimpan, aplikasi memeriksa kelengkapan semua key dan melakukan request autentikasi/probe ke provider. PayPal diverifikasi lewat OAuth client credentials, Midtrans lewat request berautentikasi, sedangkan Paywuz hanya dapat menjalankan connectivity/auth probe karena kontrak API yang tersedia tidak menyediakan endpoint verifikasi credential tanpa membuat transaksi. Respons juga mengembalikan `provider_check` agar tingkat pemeriksaannya tidak disalahartikan.
 
 Penyebab yang mungkin:
 
-1. **Credential tidak diverifikasi saat penyimpanan.** Client ID/API key yang salah tetap dapat tersimpan dengan sukses dan baru ditolak ketika checkout atau webhook berjalan.
-2. **Konfigurasi parsial diterima.** Backend hanya mewajibkan request berisi minimal satu key. Dashboard menampilkan “Configured” bila minimal satu key tersimpan, bukan bila seluruh key wajib tersedia.
-3. **Save dan Activate adalah operasi berbeda.** Menyimpan credential tidak mengubah `nodes.active_gateway`. Sebaliknya, gateway dapat diaktifkan walaupun credential belum lengkap.
+1. **Provider tidak dapat dihubungi.** Timeout, DNS, firewall, atau gangguan provider membuat penyimpanan ditolak dan konfigurasi lama tetap aktif.
+2. **Konfigurasi harus lengkap.** Semua key wajib harus dikirim ulang karena secret lama tidak pernah ditampilkan kembali ke browser.
+3. **Save dan Activate adalah operasi berbeda.** Menyimpan credential tidak mengubah `nodes.active_gateway`; setelah berhasil disimpan, gateway tetap harus diaktifkan.
 4. **Environment dan credential tidak cocok.** Credential Sandbox tidak dapat dipakai pada endpoint Live, dan sebaliknya.
-5. **Khusus PayPal, environment database belum mengendalikan endpoint runtime.** Dashboard dapat menampilkan LIVE aktif, tetapi adapter tetap memakai Sandbox jika `PAYPAL_ENVIRONMENT=SANDBOX`.
-6. **`APP_KEY` berubah.** Credential lama tidak dapat didekripsi. Row yang gagal didekripsi saat ini dilewati sehingga adapter mungkin jatuh ke `.env`.
+5. **`APP_KEY` diganti tanpa prosedur rotasi.** Jalankan utilitas rotasi sebelum mengganti nilai server.
 7. **Webhook belum dibuat di dashboard provider.** Menyimpan `webhook_id` di FPDP tidak otomatis mendaftarkan URL webhook ke provider.
 8. **Constraint provider tidak terpenuhi.** Contohnya adapter PayPal FPDP tidak menerima mata uang `IDR`.
 
-Jadi, pesan yang lebih tepat untuk status sekarang adalah **“configuration saved”**, bukan **“gateway verified”**.
+Dashboard hanya menampilkan **Configured** jika semua key wajib tersedia pada environment tersebut.
 
 ## Mengatur Sandbox dan Live
 
@@ -111,9 +110,8 @@ Untuk deployment yang memakai dashboard:
 2. Simpan seluruh credential Sandbox dan Live melalui dashboard, bukan sebagian di dashboard dan sebagian di `.env`.
 3. Pilih environment yang akan aktif melalui form konfigurasi gateway.
 4. Klik **Activate** untuk gateway yang akan dipakai checkout.
-5. Samakan `PAYPAL_ENVIRONMENT` di server dengan environment PayPal aktif sampai kekurangan implementasi PayPal diperbaiki.
-6. Restart/redeploy service bila `.env` diubah.
-7. Jalankan transaksi end-to-end dan periksa delivery webhook sebelum menyatakan integrasi siap.
+5. Restart/redeploy service bila `.env` diubah.
+6. Jalankan transaksi end-to-end dan periksa delivery webhook sebelum menyatakan integrasi siap.
 
 ### Sandbox
 
@@ -147,7 +145,7 @@ PAYPAL_ENVIRONMENT=LIVE
 
 - Midtrans: pilihan `LIVE` pada database otomatis dipetakan ke mode `PRODUCTION`.
 - Paywuz: simpan `api_url` Live bersama `api_key` Live.
-- PayPal: pilih `LIVE` di dashboard **dan** set `PAYPAL_ENVIRONMENT=LIVE` pada server untuk perilaku runtime saat ini.
+- PayPal: pilihan `LIVE` database otomatis memakai endpoint production. `PAYPAL_ENVIRONMENT` hanya menjadi fallback bila tidak ada config database aktif.
 
 Lakukan transaksi Live bernilai kecil dan verifikasi webhook sebelum membuka pembayaran untuk pengguna umum.
 
@@ -210,15 +208,17 @@ FROM nodes;
 
 Jangan mengubah `encrypted_value` langsung. Gunakan dashboard/API agar nilai dienkripsi dengan format yang benar.
 
-## Catatan implementasi PayPal
+## Rotasi `APP_KEY`
 
-Repository konfigurasi saat ini hanya menambahkan key runtime `environment=PRODUCTION` untuk Midtrans ketika environment database adalah `LIVE`. Perlakuan setara belum ada untuk PayPal. Akibatnya:
+Jangan langsung mengganti `APP_KEY`, karena payment credential dan token OAuth eksternal dienkripsi dengan key tersebut. Jalankan dari root aplikasi:
 
-- `payment_gateway_configs.environment = LIVE` mengaktifkan credential Live di database;
-- tetapi pemilihan base URL PayPal masih memakai `PAYPAL_ENVIRONMENT` dari `.env`;
-- kondisi keduanya berbeda dapat menyebabkan credential Live dikirim ke endpoint Sandbox atau sebaliknya.
+```powershell
+$env:FPDP_OLD_APP_KEY="KEY_LAMA"
+$env:FPDP_NEW_APP_KEY="KEY_BARU_MINIMAL_32_KARAKTER"
+php scripts/rotate-app-key.php
+```
 
-Mitigasi operasional saat ini adalah menyamakan keduanya. Perbaikan kode yang disarankan adalah meneruskan environment database ke konfigurasi adapter PayPal, lalu menambahkan validasi kelengkapan credential dan health check provider sebelum dashboard menampilkan status terverifikasi.
+Utilitas memproses `payment_gateway_configs.encrypted_value` dan `external_accounts.access_token` dalam satu transaksi. Bila ada nilai yang tidak dapat dibuka, seluruh perubahan dibatalkan. Setelah sukses, ubah `APP_KEY` ke key baru, hapus environment sementara dari shell, lalu restart/redeploy aplikasi. OAuth state yang dibuat sebelum rotasi akan menjadi tidak valid dan pengguna harus memulai login ulang.
 
 ## Checklist sebelum produksi
 
@@ -226,7 +226,7 @@ Mitigasi operasional saat ini adalah menyamakan keduanya. Perbaikan kode yang di
 - Semua key wajib diisi dalam environment yang sama.
 - Credential berasal dari account/app provider yang sama.
 - Environment database dan endpoint provider cocok.
-- Untuk PayPal, `PAYPAL_ENVIRONMENT` cocok dengan pilihan dashboard.
+- Gateway berhasil melewati pemeriksaan provider saat disimpan; untuk Paywuz lanjutkan dengan transaksi Sandbox karena probe non-transaksi tidak dapat membuktikan seluruh capability API key.
 - Gateway yang benar tercatat di `nodes.active_gateway`.
 - URL webhook HTTPS publik sudah didaftarkan pada provider.
 - Signature webhook berhasil diverifikasi.

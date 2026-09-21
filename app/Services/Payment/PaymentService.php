@@ -35,6 +35,7 @@ final class PaymentService
         private ?PaymentRepository $payments = null,
         private ?PaymentGatewayConfigRepository $gatewayConfigs = null,
         private ?NodeRepository $nodes = null,
+        private ?PaymentCredentialVerifier $credentialVerifier = null,
     ) {
     }
 
@@ -174,7 +175,10 @@ final class PaymentService
                 $env = (string) $row['environment'];
                 $environments[$env]['environment'] = $env;
                 $environments[$env]['is_active'] = (bool) $row['is_active'];
-                $environments[$env]['configured_keys'][] = (string) $row['config_key'];
+                $environments[$env]['configured_keys'] ??= [];
+                if ((bool) ($row['is_decryptable'] ?? false)) {
+                    $environments[$env]['configured_keys'][] = (string) $row['config_key'];
+                }
             }
 
             $code = (string) $gateway['code'];
@@ -187,6 +191,7 @@ final class PaymentService
                 'code' => $code,
                 'name' => $gateway['name'],
                 'allowed_config_keys' => self::ALLOWED_CONFIG_KEYS[strtoupper($code)] ?? [],
+                'requires_configuration' => (self::ALLOWED_CONFIG_KEYS[strtoupper($code)] ?? []) !== [],
                 'webhook_url' => $webhookUrl,
                 'environments' => array_values($environments),
             ];
@@ -210,6 +215,18 @@ final class PaymentService
             $gateway = $this->getGatewayConfigRepository()->findGatewayByCode($normalized);
             if ($gateway === null) {
                 throw new ValidationException([['field' => 'gateway', 'reason' => 'unknown_gateway']]);
+            }
+            $requiredKeys = self::ALLOWED_CONFIG_KEYS[$normalized] ?? [];
+            if ($requiredKeys !== []) {
+                $configuredKeys = array_keys($this->getGatewayConfigRepository()->getActiveConfig((int) $gateway['id']));
+                $missingKeys = array_values(array_diff($requiredKeys, $configuredKeys));
+                if ($missingKeys !== []) {
+                    throw new ValidationException([[
+                        'field' => 'gateway',
+                        'reason' => 'incomplete_configuration',
+                        'missing_keys' => $missingKeys,
+                    ]]);
+                }
             }
         }
 
@@ -257,8 +274,16 @@ final class PaymentService
             }
             $values[$key] = $value;
         }
-        if ($values === []) {
-            throw new ValidationException([['field' => 'config', 'reason' => 'empty_config']]);
+        $missingKeys = array_values(array_diff($allowedKeys, array_keys($values)));
+        if ($missingKeys !== []) {
+            throw new ValidationException([[
+                'field' => 'config',
+                'reason' => 'missing_required_keys',
+                'missing_keys' => $missingKeys,
+            ]]);
+        }
+        if ($allowedKeys === []) {
+            throw new ValidationException([['field' => 'config', 'reason' => 'configuration_not_required']]);
         }
 
         $configs = $this->getGatewayConfigRepository();
@@ -267,9 +292,24 @@ final class PaymentService
             throw new NotFoundException('Gateway not found.');
         }
 
+        try {
+            $providerCheck = ($this->credentialVerifier ??= new PaymentCredentialVerifier())->verify($normalizedCode, $environment, $values);
+        } catch (\RuntimeException $exception) {
+            throw new ValidationException([[
+                'field' => 'config',
+                'reason' => 'credential_verification_failed',
+                'message' => $exception->getMessage(),
+            ]], 'Payment provider rejected the configuration: ' . $exception->getMessage());
+        }
+
         $configs->setConfig((int) $gateway['id'], $environment, $values);
 
-        return ['code' => $normalizedCode, 'environment' => $environment, 'configured_keys' => array_keys($values)];
+        return [
+            'code' => $normalizedCode,
+            'environment' => $environment,
+            'configured_keys' => array_keys($values),
+            'provider_check' => $providerCheck,
+        ];
     }
 
     private function getRepository(): PaymentRepository

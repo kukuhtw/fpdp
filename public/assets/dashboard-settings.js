@@ -66,7 +66,7 @@
       const card = document.createElement('article');
       card.className = 'gateway-card';
       const envInfo = gw.environments.map((e) =>
-        `${envLabels[e.environment] || e.environment}: ${e.configured_keys.length > 0 ? '✅ Configured' : '❌ Not configured'}`
+        `${envLabels[e.environment] || e.environment}: ${gw.allowed_config_keys.every((key) => e.configured_keys.includes(key)) ? '✅ Configured' : '❌ Incomplete'}`
       ).join(' | ') || 'Not configured';
 
       const isActive = activeGateway === gw.code;
@@ -159,16 +159,16 @@
         hasValue = true;
       }
     });
-    if (!hasValue) {
-      showStatus('Fill in at least one field.', true);
+    if (!hasValue || Object.keys(config).length !== inputs.length) {
+      showStatus('Fill in all required fields. Existing secrets are hidden, so enter the complete credential set when saving.', true);
       return;
     }
     try {
-      await api('/api/v1/me/payment-gateways/' + encodeURIComponent(code), {
+      const result = await api('/api/v1/me/payment-gateways/' + encodeURIComponent(code), {
         method: 'PATCH',
         body: JSON.stringify({ environment, config }),
       });
-      showStatus(`${code} (${envLabels[environment] || environment}) configuration saved.`);
+      showStatus(`${code} (${envLabels[environment] || environment}) provider check completed and configuration saved.`);
       await loadGateways();
     } catch (error) {
       showStatus(error.message, true);

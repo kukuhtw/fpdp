@@ -27,7 +27,7 @@ Database::reset();
 $db = Database::connection();
 
 foreach ([
-    'CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, domain TEXT UNIQUE, name TEXT, default_locale TEXT, timezone TEXT, status TEXT DEFAULT "ACTIVE", capabilities TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, domain TEXT UNIQUE, name TEXT, default_locale TEXT, timezone TEXT, status TEXT DEFAULT "ACTIVE", capabilities TEXT, active_gateway TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, email TEXT UNIQUE, password_hash TEXT, role TEXT DEFAULT "OWNER", status TEXT DEFAULT "ACTIVE", created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, user_id INTEGER UNIQUE, handle TEXT UNIQUE, display_name TEXT, bio TEXT, avatar_url TEXT, visibility TEXT DEFAULT "PUBLIC", links TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, token_hash TEXT UNIQUE, token_type TEXT DEFAULT "ACCESS", scopes TEXT, expires_at TIMESTAMP, revoked_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
@@ -37,7 +37,7 @@ foreach ([
 ] as $sql) {
     $db->exec($sql);
 }
-$db->exec("INSERT INTO payment_gateways (code, name) VALUES ('DUMMY', 'Dummy'), ('PAYWUZ', 'Paywuz'), ('MIDTRANS', 'Midtrans')");
+$db->exec("INSERT INTO payment_gateways (code, name) VALUES ('DUMMY', 'Dummy'), ('PAYWUZ', 'Paywuz'), ('MIDTRANS', 'Midtrans'), ('PAYPAL', 'PayPal')");
 
 /** @var Router $router */
 $router = require __DIR__ . '/../app/routes.php';
@@ -63,6 +63,12 @@ try {
 }
 pgs_assert($tamperFailed, 'Decrypting a tampered ciphertext should throw');
 
+$oldRotationKey = str_repeat('a', 64);
+$newRotationKey = str_repeat('b', 64);
+$rotationCiphertext = Crypto::encryptWithKey('rotating-secret', $oldRotationKey);
+$rotatedCiphertext = Crypto::encryptWithKey(Crypto::decryptWithKey($rotationCiphertext, $oldRotationKey), $newRotationKey);
+pgs_assert(Crypto::decryptWithKey($rotatedCiphertext, $newRotationKey) === 'rotating-secret', 'Explicit-key re-encryption should preserve plaintext');
+
 // ---- Test 2: PaymentGatewayConfigRepository setConfig/getActiveConfig round trip and environment switching ----
 $configs = new PaymentGatewayConfigRepository($db);
 $paywuz = $configs->findGatewayByCode('PAYWUZ');
@@ -84,6 +90,11 @@ $resolved = $configs->resolveConfiguration('MIDTRANS');
 pgs_assert($resolved['server_key'] === 'Mid-server-key', 'resolveConfiguration should surface the decrypted server_key');
 pgs_assert($resolved['environment'] === 'PRODUCTION', 'A LIVE Midtrans config should resolve to environment=PRODUCTION for the gateway adapter');
 
+$paypal = $configs->findGatewayByCode('PAYPAL');
+$configs->setConfig((int) $paypal['id'], 'LIVE', ['client_id' => 'live-id', 'client_secret' => 'live-secret', 'webhook_id' => 'live-webhook']);
+$paypalResolved = $configs->resolveConfiguration('PAYPAL');
+pgs_assert($paypalResolved['environment'] === 'PRODUCTION', 'A LIVE PayPal config should resolve to environment=PRODUCTION');
+
 // Register an owner for the HTTP-level tests below.
 $register = $dispatch('POST', '/api/v1/auth/register', [
     'email' => 'owner@test.local',
@@ -93,6 +104,9 @@ $register = $dispatch('POST', '/api/v1/auth/register', [
 ]);
 pgs_assert($register['status'] === 201, 'Owner registration failed: ' . json_encode($register));
 $ownerToken = $register['body']['data']['token']['access_token'];
+
+$incompleteActivation = $dispatch('PUT', '/api/v1/me/payment-gateways/PAYWUZ/activate', null, $ownerToken);
+pgs_assert($incompleteActivation['status'] === 422, 'Activating an incompletely configured gateway should 422');
 
 // ---- Test 3: listing gateways requires auth and never exposes decrypted secrets ----
 $unauthList = $dispatch('GET', '/api/v1/me/payment-gateways');
@@ -111,11 +125,17 @@ pgs_assert(str_contains(json_encode($list['body']), 'live-key-1') === false, 'Th
 $unauthUpdate = $dispatch('PATCH', '/api/v1/me/payment-gateways/paywuz', ['environment' => 'SANDBOX', 'config' => ['api_key' => 'x']]);
 pgs_assert($unauthUpdate['status'] === 401, 'Updating gateway config should require auth');
 
-$update = $dispatch('PATCH', '/api/v1/me/payment-gateways/paywuz', ['environment' => 'sandbox', 'config' => ['api_key' => 'sandbox-key-2']], $ownerToken);
+$update = $dispatch('PATCH', '/api/v1/me/payment-gateways/paywuz', ['environment' => 'sandbox', 'config' => ['api_key' => 'sandbox-key-2', 'api_url' => 'https://api.paywuz.id/v1']], $ownerToken);
 pgs_assert($update['status'] === 200, 'Updating PAYWUZ sandbox config should succeed: ' . json_encode($update));
 
 $afterUpdate = $configs->getActiveConfig($paywuzId);
-pgs_assert($afterUpdate === ['api_key' => 'sandbox-key-2'], 'The new SANDBOX config should now be active and decrypt correctly');
+pgs_assert($afterUpdate === ['api_key' => 'sandbox-key-2', 'api_url' => 'https://api.paywuz.id/v1'], 'The complete SANDBOX config should now be active and decrypt correctly');
+
+$activation = $dispatch('PUT', '/api/v1/me/payment-gateways/PAYWUZ/activate', null, $ownerToken);
+pgs_assert($activation['status'] === 200, 'A completely configured gateway should be activatable');
+
+$partial = $dispatch('PATCH', '/api/v1/me/payment-gateways/paywuz', ['environment' => 'SANDBOX', 'config' => ['api_key' => 'partial']], $ownerToken);
+pgs_assert($partial['status'] === 422, 'A partial gateway configuration should 422');
 
 $unknownGateway = $dispatch('PATCH', '/api/v1/me/payment-gateways/stripe', ['environment' => 'SANDBOX', 'config' => ['api_key' => 'x']], $ownerToken);
 pgs_assert($unknownGateway['status'] === 422, 'An unsupported gateway code should 422');
