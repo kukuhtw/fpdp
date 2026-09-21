@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Exceptions\ValidationException;
+use App\Core\Exceptions\NotFoundException;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
@@ -79,6 +80,18 @@ public function listExternalPosts(Request $request): Response
             }
         }
 
+        if ($provider !== 'YOUTUBE' && $sourceUrl !== '') {
+            $host = strtolower((string) (parse_url($sourceUrl, PHP_URL_HOST) ?? ''));
+            if (in_array($host, ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'], true)) {
+                $errors[] = ['field' => 'provider', 'reason' => 'youtube_url_requires_youtube_provider'];
+            }
+        }
+
+        $syncInterval = (int) ($input['sync_interval'] ?? 3600);
+        if (!in_array($syncInterval, [3600, 21600, 86400], true)) {
+            $errors[] = ['field' => 'sync_interval', 'reason' => 'invalid_value'];
+        }
+
         if ($sourceUrl !== '' && filter_var($sourceUrl, FILTER_VALIDATE_URL) === false) {
             $errors[] = ['field' => 'source_url', 'reason' => 'invalid_url'];
         }
@@ -87,13 +100,18 @@ public function listExternalPosts(Request $request): Response
             throw new ValidationException($errors);
         }
 
+        $userId = (int) $context['user']['id'];
+        if ($this->feedSources->existsForUser($userId, $provider, $sourceUrl)) {
+            throw new ValidationException([['field' => 'source_url', 'reason' => 'duplicate_source']], 'Sumber ini sudah terhubung.');
+        }
+
         $id = $this->feedSources->create(
-            (int) $context['user']['id'],
+            $userId,
             $provider,
             (string) $input['source_type'],
             $sourceUrl,
             isset($input['external_account_id']) ? (int) $input['external_account_id'] : null,
-            (int) ($input['sync_interval'] ?? 3600),
+            $syncInterval,
         );
 
         return JsonEnvelope::success(['id' => $id], 201);
@@ -128,13 +146,24 @@ public function listExternalPosts(Request $request): Response
 
     public function triggerSync(Request $request): Response
     {
-        $this->auth->authenticate($request->bearerToken());
-        $stats = $this->syncWorker->run();
+        $context = $this->auth->authenticate($request->bearerToken());
+        $stats = $this->syncWorker->runForUser((int) $context['user']['id']);
         return JsonEnvelope::success([
             'processed' => $stats['processed'],
             'inserted' => $stats['inserted'],
             'errors' => $stats['errors'],
         ]);
+    }
+
+    /** @param array<string, string> $params */
+    public function deleteFeedSource(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $sourceId = (int) ($params['sourceId'] ?? 0);
+        if ($sourceId < 1 || !$this->feedSources->deleteForUser((int) $context['user']['id'], $sourceId)) {
+            throw new NotFoundException('Sumber tidak ditemukan.');
+        }
+        return Response::noContent();
     }
 
     public function stats(Request $request): Response

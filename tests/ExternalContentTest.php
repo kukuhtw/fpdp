@@ -66,6 +66,12 @@ ext_assert($r->status === 200 && count($body['data']['sources']) === 2, 'Expecte
 $youtubeSources = array_values(array_filter($body['data']['sources'], static fn(array $source): bool => $source['provider'] === 'YOUTUBE'));
 ext_assert(count($youtubeSources) === 1 && $youtubeSources[0]['source_url'] === 'https://www.youtube.com/feeds/videos.xml?channel_id=' . $youtubeId, 'YouTube URL was not normalized');
 
+$r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'YOUTUBE', 'source_type' => 'youtube_channel', 'source_url' => $youtubeId], $token);
+ext_assert($r->status === 422, 'Duplicate YouTube source should be rejected');
+
+$r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'RSS', 'source_type' => 'rss', 'source_url' => 'https://youtube.com/kukuhtw'], $token);
+ext_assert($r->status === 422, 'A YouTube page must not be accepted as RSS');
+
 // External posts endpoint
 $r = $dispatch('GET', '/api/v1/external/posts');
 ext_assert($r->status === 200, 'External posts list failed');
@@ -73,6 +79,10 @@ ext_assert($r->status === 200, 'External posts list failed');
 // Trigger sync
 $r = $dispatch('POST', '/api/v1/me/sync', null, $token);
 ext_assert($r->status === 200, 'Trigger sync failed');
+
+$youtubeSourceId = (int) $youtubeSources[0]['id'];
+$r = $dispatch('DELETE', '/api/v1/me/feed-sources/' . $youtubeSourceId, null, $token);
+ext_assert($r->status === 204, 'Deleting an owned feed source should succeed');
 
 // Stats
 $r = $dispatch('GET', '/api/v1/me/external/stats', null, $token);

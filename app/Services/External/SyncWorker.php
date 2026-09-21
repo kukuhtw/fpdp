@@ -61,6 +61,29 @@ final class SyncWorker
         return $stats;
     }
 
+    /** Force-sync the authenticated owner's enabled sources, regardless of next_sync_at. */
+    public function runForUser(int $userId, int $maxSources = self::MAX_SOURCES_PER_RUN): array
+    {
+        $sources = $this->feedSources->findAllForSyncByUserId($userId, $maxSources);
+        $stats = ['processed' => 0, 'inserted' => 0, 'errors' => 0];
+        foreach ($sources as $source) {
+            $stats['processed']++;
+            $result = $this->syncSource($source);
+            $this->feedSources->updateSyncStatus(
+                (int) $source['id'],
+                $result['success'] ? 'ACTIVE' : 'ERROR',
+                $result['error'],
+                (int) ($source['sync_interval'] ?? 3600),
+            );
+            if ($result['success']) {
+                $stats['inserted'] += $result['inserted'];
+            } else {
+                $stats['errors']++;
+            }
+        }
+        return $stats;
+    }
+
     /**
      * Sync a single feed source.
      *

@@ -22,7 +22,12 @@
     const payload = response.status === 204 ? null : await response.json();
     if (!response.ok) {
       const reason = payload?.error?.details?.[0]?.reason;
-      throw new Error(reason === 'youtube_channel_id_required' ? 'Gunakan channel ID YouTube atau URL /channel/UC….' : (payload?.error?.message || `Request failed (${response.status})`));
+      const reasonMessages = {
+        youtube_channel_id_required: 'Gunakan Channel ID YouTube atau URL /channel/UC...; URL @handle belum didukung.',
+        youtube_url_requires_youtube_provider: 'URL YouTube harus ditambahkan sebagai "YouTube channel", bukan RSS.',
+        duplicate_source: 'Channel atau sumber ini sudah terhubung. Hapus duplikat lama jika diperlukan.',
+      };
+      throw new Error(reasonMessages[reason] || payload?.error?.message || `Request failed (${response.status})`);
     }
     return payload;
   };
@@ -40,8 +45,12 @@
       const copy = document.createElement('div'); const title = document.createElement('strong'); title.textContent = source.provider;
       const url = document.createElement('a'); url.href = source.source_url; url.target = '_blank'; url.rel = 'noopener noreferrer'; url.textContent = source.source_url;
       const meta = document.createElement('small'); meta.className = 'muted'; meta.textContent = source.last_sync_at ? `Sinkron terakhir: ${new Date(source.last_sync_at).toLocaleString()}` : 'Belum pernah disinkronkan';
-      copy.append(title, url, meta); const badge = document.createElement('span'); badge.className = `status-badge ${source.status === 'ERROR' ? 'error-badge' : ''}`; badge.textContent = source.status;
-      row.append(copy, badge); sourceList.append(row);
+      const error = document.createElement('small'); error.className = 'error-text'; error.textContent = source.last_error ? `Error: ${source.last_error}` : '';
+      copy.append(title, url, meta); if (source.last_error) copy.append(error);
+      const badge = document.createElement('span'); badge.className = `status-badge ${source.status === 'ERROR' ? 'error-badge' : ''}`; badge.textContent = source.status;
+      const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'secondary'; remove.textContent = 'Hapus';
+      remove.addEventListener('click', async () => { if (!confirm(`Hapus sumber ${source.provider} ini beserta konten hasil sinkronisasinya?`)) return; try { await api(`/api/v1/me/feed-sources/${source.id}`, { method: 'DELETE' }); await loadSources(); showStatus('Sumber berhasil dihapus.'); } catch (failure) { showStatus(failure.message, true); } });
+      row.append(copy, badge, remove); sourceList.append(row);
     });
   };
   const loadSources = async () => { const result = await api('/api/v1/me/feed-sources'); renderSources(result.data.sources); };

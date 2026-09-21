@@ -512,6 +512,10 @@ $router->post('/api/v1/me/feed-sources', function (Request $request, array $para
     return $buildExternalContentController()->addFeedSource($request);
 });
 
+$router->delete('/api/v1/me/feed-sources/{sourceId}', function (Request $request, array $params) use ($buildExternalContentController): Response {
+    return $buildExternalContentController()->deleteFeedSource($request, $params);
+});
+
 $router->post('/api/v1/me/sync', function (Request $request, array $params) use ($buildExternalContentController): Response {
     return $buildExternalContentController()->triggerSync($request);
 });

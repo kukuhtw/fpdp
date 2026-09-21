@@ -70,6 +70,57 @@ final class ExternalFeedSourceRepository
         return $statement->fetchAll();
     }
 
+    /** @return array<int, array<string, mixed>> */
+    public function findAllForSyncByUserId(int $userId, int $limit = 10): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT efs.*, ea.access_token, ea.external_account_id AS provider_account_id,
+                    ea.external_username, ea.display_name AS account_display_name
+             FROM external_feed_sources efs
+             LEFT JOIN external_accounts ea ON ea.id = efs.external_account_id
+             WHERE efs.user_id = :user_id AND efs.sync_enabled = 1
+             ORDER BY efs.id ASC LIMIT :limit",
+        );
+        $statement->bindValue('user_id', $userId, PDO::PARAM_INT);
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+        $rows = $statement->fetchAll();
+        foreach ($rows as &$row) {
+            if (in_array(($row['provider'] ?? ''), ['FACEBOOK', 'LINKEDIN'], true) && !empty($row['access_token'])) {
+                try { $row['access_token'] = Crypto::decrypt((string) $row['access_token']); }
+                catch (\Throwable) { $row['access_token'] = null; }
+            }
+        }
+        unset($row);
+        return $rows;
+    }
+
+    public function existsForUser(int $userId, string $provider, string $sourceUrl): bool
+    {
+        $statement = $this->connection->prepare(
+            'SELECT 1 FROM external_feed_sources WHERE user_id = :user_id AND provider = :provider AND source_url = :source_url LIMIT 1',
+        );
+        $statement->execute(['user_id' => $userId, 'provider' => $provider, 'source_url' => $sourceUrl]);
+        return $statement->fetchColumn() !== false;
+    }
+
+    public function deleteForUser(int $userId, int $sourceId): bool
+    {
+        $this->connection->beginTransaction();
+        try {
+            $posts = $this->connection->prepare('DELETE FROM external_posts WHERE feed_source_id = :source_id AND user_id = :user_id');
+            $posts->execute(['source_id' => $sourceId, 'user_id' => $userId]);
+            $source = $this->connection->prepare('DELETE FROM external_feed_sources WHERE id = :id AND user_id = :user_id');
+            $source->execute(['id' => $sourceId, 'user_id' => $userId]);
+            $deleted = $source->rowCount() > 0;
+            $this->connection->commit();
+            return $deleted;
+        } catch (\Throwable $exception) {
+            $this->connection->rollBack();
+            throw $exception;
+        }
+    }
+
     public function updateSyncStatus(int $id, string $status, ?string $lastError = null, int $syncInterval = 3600): void
     {
         $connection = $this->connection;

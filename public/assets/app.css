@@ -64,3 +64,4 @@ a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:under
 .gateway-card .muted{font-size:.84rem;}
 .gateway-card .configure-btn{margin-top:8px;}
 @media (max-width:700px){.post-list-item{flex-direction:column;}.post-list-meta{flex-wrap:wrap;}}
+.error-text{color:#a13d37;font-weight:700;white-space:normal;overflow-wrap:anywhere}.source-row>button{align-self:center;flex:0 0 auto}
