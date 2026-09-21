@@ -242,18 +242,17 @@ Jangan menganggap token Instagram valid untuk Threads. Simpan koneksi provider s
 
 ### 6.8 YouTube
 
-Penggunaan terbaik: hubungkan channel YouTube publik owner melalui official Atom feed milik channel tersebut, lalu tampilkan setiap video sebagai embed privacy-enhanced pada public profile (bukan sekadar canonical link).
+Implementasi saat ini menghubungkan channel YouTube publik melalui official Atom feed tanpa API key atau OAuth.
 
 ```text
-Hubungkan YouTube → Dashboard → Integrasi → Hubungkan sumber → pilih RSS/Atom
-→ isi source_url = https://www.youtube.com/feeds/videos.xml?channel_id=UCxxxxxxxx
-→ preview video terbaru channel → pilih destination Video/Portfolio
-→ sinkronisasi berkala mengambil upload publik terbaru
+Dashboard → Integrations → Hubungkan sumber → YouTube channel
+→ isi Channel ID UC... atau URL /channel/UC...
+→ pilih interval → Hubungkan sumber → Sinkronkan sekarang
 ```
 
 Cara kerja teknis:
 
-1. Setiap channel dan playlist YouTube publik memiliki official Atom feed tanpa API key atau OAuth: `https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID` (atau `?playlist_id=PLAYLIST_ID`). Owner dapat menemukan `channel_id` dari halaman **About** channel miliknya.
+1. Channel ID dinormalisasi menjadi `https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID`. Normalisasi playlist belum didukung oleh dashboard saat ini.
 2. Connector `ATOM` yang sudah ada pada FPDP (`App\Services\External\AtomConnector`) mem-parsing feed ini. Setiap `<entry>` YouTube memuat elemen `<yt:videoId>` dan thumbnail pada `<media:group>`; connector membaca keduanya secara langsung, tanpa perlu menebak video ID dari teks.
 3. Video ID dinormalisasi menjadi descriptor embed oleh `App\Services\External\YouTubeEmbedResolver`, disimpan pada `media_json` dengan bentuk:
    ```json
@@ -266,8 +265,8 @@ Cara kerja teknis:
    }
    ```
    Item dengan embed video ditandai `post_type = MEDIA`; item Atom biasa tanpa video tetap `ARTICLE`.
-4. Public profile me-render `embed_url` sebagai `<iframe>` di dalam kontainer `aspect-ratio: 16/9`, memakai domain privacy-enhanced `youtube-nocookie.com` (bukan `youtube.com`) agar visitor yang belum memutar video tidak langsung diprofilkan oleh YouTube, dan `loading="lazy"` agar iframe tidak memuat sebelum discroll ke bagian Video. Lihat contoh berjalan pada [mockup public profile, bagian “Video”](mockup/public-profile.html#video) dan [peta navigasi mockup](mockup/NAVIGATION-MAP.id.md).
-5. Owner tetap dapat menempelkan satu YouTube URL secara manual (tanpa menghubungkan seluruh channel) untuk video tunggal; gunakan mode publikasi **Embed** pada tabel Bagian 3 dan simpan sebagai satu `external_post` dengan `source_provider = YOUTUBE`.
+4. Data hasil sinkronisasi tersedia melalui external-content API. Renderer embed pada timeline/profile live belum lengkap; tampilan iframe saat ini tersedia sebagai mockup dan menjadi pekerjaan lanjutan.
+5. Owner juga dapat menempelkan satu URL video melalui Post Editor, tetapi itu membuat post lokal dan tidak menghubungkan seluruh channel.
 
 Batasan yang perlu diketahui owner:
 
@@ -275,6 +274,8 @@ Batasan yang perlu diketahui owner:
 - Jangan mengunduh atau me-rehost file video; hanya video ID, judul, canonical URL, dan thumbnail yang disimpan FPDP. Pemutaran tetap terjadi di infrastruktur YouTube melalui iframe.
 - Untuk kebutuhan lanjutan (statistik, caption, atau video dari beberapa channel sekaligus dalam satu request), gunakan YouTube Data API v3 dengan API key dan hormati quota harian; ini bersifat opsional dan tidak diperlukan untuk embed dasar.
 - Selalu pertahankan `canonical_url` menuju halaman watch YouTube asli agar atribusi kreator tetap terlihat jelas di samping embed.
+
+Panduan penggunaan, API, database, cron, dan troubleshooting lengkap tersedia pada [Integrasi Channel YouTube](YOUTUBE-INTEGRATION-SETUP.id.md).
 
 ### 6.9 Blog, podcast, video channel, newsletter, dan “lainnya”
 
@@ -500,4 +501,3 @@ User menggunakan FPDP secara maksimal ketika:
 - connection health dan permission state mudah dipahami;
 - source dapat di-pause atau disconnect tanpa data ambiguity;
 - kegagalan provider tidak mematikan seluruh personal digital home.
-

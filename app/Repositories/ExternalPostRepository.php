@@ -12,7 +12,7 @@ final class ExternalPostRepository
         SELECT ep.*, efs.source_type AS feed_source_type, efs.provider AS feed_provider,
                efs.source_url AS feed_url
         FROM external_posts ep
-        INNER JOIN external_feed_sources efs ON efs.id = ep.external_account_id
+        INNER JOIN external_feed_sources efs ON efs.id = ep.feed_source_id
     ';
 
     public function __construct(private readonly PDO $connection)
@@ -38,17 +38,17 @@ final class ExternalPostRepository
 
         $statement = $this->connection->prepare(
             "{$insertSyntax} external_posts
-             (user_id, provider, external_post_id, external_account_id, post_type,
+             (user_id, provider, external_post_id, external_account_id, feed_source_id, post_type,
               canonical_url, title, content, media_json, author_name, published_at, raw_payload)
              VALUES
-             (:user_id, :provider, :external_post_id, :external_account_id, :post_type,
+             (:user_id, :provider, :external_post_id, NULL, :feed_source_id, :post_type,
               :canonical_url, :title, :content, :media_json, :author_name, :published_at, :raw_payload)",
         );
         $statement->execute([
             'user_id' => $userId,
             'provider' => $provider,
             'external_post_id' => $externalPostId,
-            'external_account_id' => $feedSourceId,
+            'feed_source_id' => $feedSourceId,
             'post_type' => $postType,
             'canonical_url' => $canonicalUrl,
             'title' => $title,
