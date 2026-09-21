@@ -123,7 +123,7 @@ Jika benar, browser akan menampilkan XML/Atom berisi informasi channel dan entry
    - setiap 6 jam (`21600` detik);
    - setiap hari (`86400` detik).
 6. Klik **Hubungkan sumber**.
-7. Klik **Sinkronkan sekarang** untuk mengambil video saat source sudah masuk jadwal sinkronisasi.
+7. Klik **Sinkronkan sekarang** untuk memaksa sinkronisasi semua source aktif milik owner saat itu juga.
 
 Setelah disimpan, FPDP mengubah input menjadi URL feed resmi. Pada daftar sumber, URL yang terlihat akan berbentuk:
 
@@ -141,7 +141,7 @@ Source baru memiliki `next_sync_at` kosong sehingga dapat diproses pada siklus s
 - video baru dimasukkan ke `external_posts`;
 - video yang sudah pernah tersimpan dilewati berdasarkan kombinasi provider dan external post ID.
 
-Tombol **Sinkronkan sekarang** menjalankan worker untuk source yang sedang jatuh tempo. Tombol tersebut tidak memaksa source yang `next_sync_at`-nya masih di masa depan.
+Tombol **Sinkronkan sekarang** memaksa semua source aktif milik owner untuk diproses tanpa menunggu `next_sync_at`. Worker cron tetap hanya memproses source yang sudah jatuh tempo.
 
 Untuk memaksa satu source tertentu dari server:
 
@@ -281,7 +281,7 @@ Fitur menempelkan URL YouTube pada post lokal melalui Post Editor adalah alur ya
 - URL `@handle`, `/c/`, dan `/user/` belum otomatis diubah menjadi Channel ID.
 - Tidak mengambil analytics, subscriber count, komentar, caption, atau data YouTube Studio.
 - Tidak dapat mengunggah, mengedit, atau menghapus video YouTube.
-- Tidak ada tombol disconnect/delete source pada dashboard saat ini.
+- Source dapat dihapus dari dashboard. Penghapusan juga menghapus external post yang diimpor dari source tersebut.
 - Ketersediaan embed tetap mengikuti izin embedding, pembatasan usia, wilayah, dan kebijakan YouTube pada video tersebut.
 
 Untuk metadata lanjutan diperlukan integrasi YouTube Data API v3 yang terpisah, termasuk API key/OAuth, quota handling, consent, dan kebijakan penyimpanan data.
@@ -297,7 +297,6 @@ Input bukan Channel ID yang valid. Gunakan ID berawalan `UC`, URL `/channel/UC..
 Kemungkinan:
 
 - semua video dari feed sudah pernah disimpan;
-- source belum jatuh tempo;
 - channel belum memiliki upload publik terbaru;
 - feed publik tidak mengembalikan entry.
 
@@ -327,4 +326,3 @@ Periksa terlebih dahulu `GET /api/v1/external/posts`. Jika data ada, sinkronisas
 - External post tersedia melalui `/api/v1/external/posts`.
 - Cron `sync-external.php` aktif untuk sinkronisasi otomatis.
 - Canonical URL tetap mengarah ke video asli YouTube.
-
