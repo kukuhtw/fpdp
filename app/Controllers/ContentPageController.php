@@ -73,7 +73,7 @@ final class ContentPageController
                     'embed_url' => YouTubeEmbedResolver::embedUrl($videoId),
                     'watch_url' => 'https://www.youtube.com/watch?v=' . rawurlencode($videoId),
                     'thumbnail_url' => YouTubeEmbedResolver::thumbnailUrl($videoId),
-                    'title' => trim((string) ($row['title'] ?? '')) ?: trim(strip_tags((string) ($row['content'] ?? ''))) ?: 'Video YouTube',
+                    'title' => mb_substr(trim((string) ($row['title'] ?? '')) ?: trim(strip_tags((string) ($row['content'] ?? ''))) ?: 'Video YouTube', 0, 180),
                     'author_name' => (string) ($row['author_name'] ?? 'YouTube'),
                     'published_at' => $row['published_at'] ?? null,
                 ];
