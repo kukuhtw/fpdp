@@ -172,7 +172,7 @@ flowchart LR
 
 ## 5. Not started
 
-- Production OAuth connectors for Instagram/Meta, LinkedIn, X, Threads, TikTok, and Shopee.
+- Production OAuth connectors for LinkedIn, X, Threads, TikTok, and Shopee. Instagram uses a non-OAuth "litescrap" connector (public profile HTML scraping) instead — see `InstagramConnector`; not yet validated against production accounts.
 - LLM provider configuration, profile/CV-grounded chat, paid sessions, and AI cost controls.
 - Advertising marketplace: slots, pricing, booking, approval, and delivery windows.
 - Production plugin/adapter marketplace and federated commerce.

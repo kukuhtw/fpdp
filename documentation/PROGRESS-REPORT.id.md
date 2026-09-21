@@ -20,7 +20,7 @@ Bagian ini mencatat pekerjaan yang sudah masuk ke repository sampai 21 September
 | Sandbox/Live gateway | **Sebagian** | Credential per environment tersimpan terenkripsi di `payment_gateway_configs`. Midtrans meneruskan mode DB dengan benar. PayPal masih perlu menyamakan pilihan DB dengan `PAYPAL_ENVIRONMENT` di server. |
 | Dokumentasi payment gateway | **Selesai** | Prioritas `.env`/database, field dan tabel, API, query diagnosis, alasan status “berhasil”, serta prosedur Sandbox/Live didokumentasikan. |
 | Paywall per post | **Belum tersedia** | Paywall yang sudah berjalan adalah akses CV/resume. Model harga dan entitlement per post masih perlu migration, API, UI, dan fulfillment tersendiri. |
-| Instagram, TikTok, dan impor native YouTube | **Belum tersedia** | YouTube dapat masuk melalui feed resmi/external source, tetapi OAuth/API native Instagram dan TikTok belum diimplementasikan. |
+| Instagram, TikTok, dan impor native YouTube | **Sebagian** | YouTube masuk melalui feed resmi/external source. Instagram kini punya connector "litescrap" (scraping HTML profil publik tanpa OAuth/App Review Meta) — lihat `InstagramConnector`; ini best-effort dan bisa berhenti jika Instagram mengubah markup atau memblokir permintaan otomatis. OAuth/API native TikTok belum diimplementasikan. |
 
 ### Perbaikan penting yang telah dilakukan
 
@@ -230,7 +230,7 @@ flowchart LR
 
 ## 5. Belum dimulai
 
-- OAuth connector production untuk Instagram, X, Threads, TikTok, dan Shopee. Implementasi Facebook Pages dan LinkedIn Organizations sudah tersedia, tetapi belum divalidasi terhadap akun production.
+- OAuth connector production untuk X, Threads, TikTok, dan Shopee. Implementasi Facebook Pages dan LinkedIn Organizations sudah tersedia, tetapi belum divalidasi terhadap akun production. Instagram memakai connector "litescrap" (bukan OAuth) dan juga belum divalidasi terhadap akun production.
 - LLM provider configuration, profile/CV-grounded chatbot, paid chat session, serta AI usage/cost controls.
 - Advertising marketplace: ad slot, pricing, booking, approval, dan delivery window.
 - Production plugin/adapter marketplace.
