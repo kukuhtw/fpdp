@@ -72,19 +72,8 @@ ext_assert($r->status === 422, 'Duplicate YouTube source should be rejected');
 $r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'RSS', 'source_type' => 'rss', 'source_url' => 'https://youtube.com/kukuhtw'], $token);
 ext_assert($r->status === 422, 'A YouTube page must not be accepted as RSS');
 
-// Instagram profiles are added by username/URL, no OAuth (litescrap connector).
 $r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'INSTAGRAM', 'source_type' => 'instagram_profile', 'source_url' => '@kukuhtw'], $token);
-ext_assert($r->status === 201, 'Add Instagram source failed');
-$r = $dispatch('GET', '/api/v1/me/feed-sources', null, $token);
-$body = json_decode($r->body, true);
-$instagramSources = array_values(array_filter($body['data']['sources'], static fn(array $source): bool => $source['provider'] === 'INSTAGRAM'));
-ext_assert(count($instagramSources) === 1 && $instagramSources[0]['source_url'] === 'https://www.instagram.com/kukuhtw/', 'Instagram username was not normalized to a profile URL');
-
-$r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'INSTAGRAM', 'source_type' => 'instagram_profile', 'source_url' => 'not a valid username!'], $token);
-ext_assert($r->status === 422, 'An invalid Instagram username should be rejected');
-
-$r = $dispatch('POST', '/api/v1/me/feed-sources', ['provider' => 'RSS', 'source_type' => 'rss', 'source_url' => 'https://www.instagram.com/kukuhtw/'], $token);
-ext_assert($r->status === 422, 'An Instagram profile URL must not be accepted as RSS');
+ext_assert($r->status === 422, 'Instagram provider should no longer be accepted');
 
 // External posts endpoint
 $r = $dispatch('GET', '/api/v1/external/posts');

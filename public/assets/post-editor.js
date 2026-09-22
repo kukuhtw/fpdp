@@ -10,8 +10,26 @@
   const mediaFileInput = document.querySelector('#media-file-input');
   const mediaUploadButton = document.querySelector('#media-upload-button');
   const mediaUploadStatus = document.querySelector('#media-upload-status');
-  const mediaUrlInput = postForm.elements.media_url;
-  const mediaTypeSelect = postForm.elements.media_type;
+  const mediaList = document.querySelector('#media-list');
+  const mediaRowTemplate = document.querySelector('#media-row-template');
+  const MAX_MEDIA_ROWS = 10;
+
+  const addMediaRow = (data = {}) => {
+    if (mediaList.children.length >= MAX_MEDIA_ROWS) return null;
+    const row = mediaRowTemplate.content.firstElementChild.cloneNode(true);
+    row.querySelector('.media-type').value = data.type || 'IMAGE';
+    row.querySelector('.media-url').value = data.url || '';
+    row.querySelector('.media-alt').value = data.alt_text || '';
+    row.querySelector('.remove-media-row').addEventListener('click', () => row.remove());
+    mediaList.append(row);
+    return row;
+  };
+  document.querySelector('#add-media-row').addEventListener('click', () => addMediaRow());
+  const collectMedia = () => Array.from(mediaList.querySelectorAll('.media-row')).map((row) => ({
+    type: row.querySelector('.media-type').value,
+    url: row.querySelector('.media-url').value.trim(),
+    alt_text: row.querySelector('.media-alt').value.trim() || null,
+  })).filter((item) => item.url);
 
   const editorContent = document.querySelector('#editor-content');
   const postContentInput = document.querySelector('#post-content');
@@ -31,11 +49,8 @@
       postForm.elements.post_type.value = post.post_type || 'NOTE';
       postForm.elements.visibility.value = post.visibility || 'PUBLIC';
       postForm.elements.publish.checked = post.published_at !== null;
-      if ((post.media || []).length > 0) {
-        mediaUrlInput.value = post.media[0].url || '';
-        mediaTypeSelect.value = post.media[0].type || 'IMAGE';
-        postForm.elements.media_alt_text.value = post.media[0].alt_text || '';
-      }
+      mediaList.replaceChildren();
+      (post.media && post.media.length > 0 ? post.media : [{}]).forEach((item) => addMediaRow(item));
       showStatus(`Editing post "${post.title || 'untitled'}".`);
     } catch (error) {
       showStatus(error.message, true);
@@ -46,6 +61,24 @@
     document.execCommand(cmd, false, value || null);
     syncContent();
     editorContent.focus();
+  };
+
+  /** Turn a YouTube / TikTok / Instagram URL into a safe embeddable iframe. */
+  const buildVideoEmbed = (url) => {
+    const youtube = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]+)/);
+    if (youtube) {
+      return `<iframe src="https://www.youtube-nocookie.com/embed/${youtube[1]}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+    }
+    const tiktok = url.match(/tiktok\.com\/@[\w.-]+\/video\/(\d+)/);
+    if (tiktok) {
+      return `<iframe src="https://www.tiktok.com/embed/v2/${tiktok[1]}" frameborder="0" allow="encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    }
+    const instagram = url.match(/instagram\.com\/(p|reel|tv)\/([\w-]+)/);
+    if (instagram) {
+      return `<iframe src="https://www.instagram.com/${instagram[1]}/${instagram[2]}/embed" frameborder="0" allowfullscreen></iframe>`;
+    }
+    const safeUrl = url.replace(/"/g, '&quot;');
+    return `<iframe src="${safeUrl}" frameborder="0" allowfullscreen></iframe>`;
   };
 
   /* ── Toolbar buttons ── */
@@ -60,13 +93,9 @@
       const url = prompt('Enter image URL:', 'https://');
       if (url) execFormat('insertImage', url);
     } else if (cmd === 'insertVideo') {
-      const url = prompt('Enter video embed URL (YouTube):', 'https://www.youtube.com/watch?v=');
+      const url = prompt('Paste a YouTube, TikTok, or Instagram post/reel URL:', 'https://');
       if (!url) return;
-      const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-      const iframe = match
-        ? `<iframe src="https://www.youtube-nocookie.com/embed/${match[1]}" frameborder="0" allowfullscreen></iframe>`
-        : `<iframe src="${url}" frameborder="0" allowfullscreen></iframe>`;
-      document.execCommand('insertHTML', false, iframe);
+      document.execCommand('insertHTML', false, buildVideoEmbed(url));
       syncContent();
     } else if (cmd === 'h1' || cmd === 'h2' || cmd === 'h3') {
       document.execCommand('formatBlock', false, cmd.replace('h', 'H'));
@@ -178,11 +207,7 @@
       post_type: fields.get('post_type'),
       visibility: fields.get('visibility'),
       published_at: fields.get('publish') ? new Date().toISOString() : null,
-      media: fields.get('media_url') ? [{
-        type: fields.get('media_type'),
-        url: fields.get('media_url'),
-        alt_text: fields.get('media_alt_text') || null,
-      }] : [],
+      media: collectMedia(),
     };
     try {
       const result = await api(postId ? `/api/v1/posts/${encodeURIComponent(postId)}` : '/api/v1/posts', { method: postId ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
@@ -202,7 +227,9 @@
     } catch (error) { showStatus(error.message, true); }
   });
   document.querySelector('#reset-button').addEventListener('click', () => {
-    postForm.reset(); postForm.elements.post_id.value = ''; editorContent.innerHTML = ''; postContentInput.value = ''; savedPost.classList.add('hidden'); showStatus('Ready for a new draft.');
+    postForm.reset(); postForm.elements.post_id.value = ''; editorContent.innerHTML = ''; postContentInput.value = ''; savedPost.classList.add('hidden');
+    mediaList.replaceChildren(); addMediaRow();
+    showStatus('Ready for a new draft.');
   });
 
   const mediaCategoryFor = (mimeType) => {
@@ -230,7 +257,7 @@
     if (!file) return;
 
     const guessedType = mediaCategoryFor(file.type);
-    const mediaType = guessedType || mediaTypeSelect.value;
+    const mediaType = guessedType || 'IMAGE';
 
     mediaUploadButton.disabled = true;
     showMediaStatus('Uploading…');
@@ -240,15 +267,21 @@
         method: 'POST',
         body: JSON.stringify({ media_type: mediaType, content_base64: contentBase64 }),
       });
-      mediaUrlInput.value = result.data.url;
-      if (guessedType) mediaTypeSelect.value = guessedType;
-      showMediaStatus('Uploaded. URL filled in below — save the post to attach it.');
+      const emptyRow = Array.from(mediaList.querySelectorAll('.media-row')).find((row) => !row.querySelector('.media-url').value.trim());
+      const targetRow = emptyRow || addMediaRow();
+      if (targetRow) {
+        targetRow.querySelector('.media-url').value = result.data.url;
+        targetRow.querySelector('.media-type').value = mediaType;
+      }
+      showMediaStatus('Uploaded. URL added below — save the post to attach it.');
     } catch (error) {
       showMediaStatus(error.message, true);
     } finally {
       mediaUploadButton.disabled = mediaFileInput.files.length === 0;
     }
   });
+
+  addMediaRow();
 
   const editId = getParam('edit');
   (async () => {

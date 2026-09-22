@@ -10,7 +10,6 @@ use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Services\Auth\AuthService;
-use App\Services\External\InstagramConnector;
 use App\Services\External\SyncWorker;
 use App\Repositories\ExternalFeedSourceRepository;
 use App\Repositories\ExternalPostRepository;
@@ -69,7 +68,7 @@ public function listExternalPosts(Request $request): Response
         if (empty($input['source_url'])) $errors[] = ['field' => 'source_url', 'reason' => 'required'];
         if (empty($input['source_type'])) $errors[] = ['field' => 'source_type', 'reason' => 'required'];
         $provider = strtoupper(trim((string) ($input['provider'] ?? '')));
-        if (!in_array($provider, ['RSS', 'ATOM', 'CUSTOM_API', 'YOUTUBE', 'INSTAGRAM'], true)) {
+        if (!in_array($provider, ['RSS', 'ATOM', 'CUSTOM_API', 'YOUTUBE'], true)) {
             $errors[] = ['field' => 'provider', 'reason' => 'invalid_value'];
         }
 
@@ -81,21 +80,10 @@ public function listExternalPosts(Request $request): Response
             }
         }
 
-        if ($provider === 'INSTAGRAM' && $sourceUrl !== '') {
-            $username = InstagramConnector::extractUsername($sourceUrl);
-            $sourceUrl = $username === null ? '' : 'https://www.instagram.com/' . $username . '/';
-            if ($sourceUrl === '') {
-                $errors[] = ['field' => 'source_url', 'reason' => 'instagram_username_required'];
-            }
-        }
-
-        if (!in_array($provider, ['YOUTUBE', 'INSTAGRAM'], true) && $sourceUrl !== '') {
+        if ($provider !== 'YOUTUBE' && $sourceUrl !== '') {
             $host = strtolower((string) (parse_url($sourceUrl, PHP_URL_HOST) ?? ''));
             if (in_array($host, ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'], true)) {
                 $errors[] = ['field' => 'provider', 'reason' => 'youtube_url_requires_youtube_provider'];
-            }
-            if (in_array($host, ['instagram.com', 'www.instagram.com'], true)) {
-                $errors[] = ['field' => 'provider', 'reason' => 'instagram_url_requires_instagram_provider'];
             }
         }
 

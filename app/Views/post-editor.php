@@ -65,17 +65,26 @@
                 <span class="muted" style="width:1px;background:var(--line);margin:0 2px;">&nbsp;</span>
                 <button type="button" data-cmd="createLink" title="Insert link">🔗</button>
                 <button type="button" data-cmd="insertImage" title="Insert image">🖼️</button>
-                <button type="button" data-cmd="insertVideo" title="Embed video">▶️</button>
+                <button type="button" data-cmd="insertVideo" title="Embed video (YouTube, TikTok, Instagram)">▶️</button>
               </div>
-              <div id="editor-content" contenteditable="true" role="textbox" aria-label="Post content"></div></label>
-            <fieldset class="media-fields"><legend>Media attachment <span class="muted">optional</span></legend>
-                <div class="field-row"><label>Type<select name="media_type"><option>IMAGE</option><option>VIDEO</option><option>AUDIO</option><option>FILE</option></select></label><label>HTTPS URL<input name="media_url" type="url" inputmode="url" placeholder="https://cdn.example.com/media.jpg"></label></div>
+              <div id="editor-content" contenteditable="true" role="textbox" aria-label="Post content"></div>
+              <p class="muted" style="margin:.35em 0 0;font-size:.85rem;">Klik <strong>▶️</strong> lalu tempel URL video YouTube, TikTok, atau Instagram (post/reel) untuk menyisipkannya sebagai embed.</p></label>
+            <fieldset class="media-fields"><legend>Media attachments <span class="muted">optional, up to 10</span></legend>
+                <div id="media-list" class="stack"></div>
+                <template id="media-row-template">
+                    <div class="field-row media-row">
+                        <label>Type<select class="media-type"><option>IMAGE</option><option>VIDEO</option><option>AUDIO</option><option>FILE</option></select></label>
+                        <label>HTTPS URL<input class="media-url" type="url" inputmode="url" placeholder="https://cdn.example.com/media.jpg"></label>
+                        <label>Alt text<input class="media-alt" maxlength="500" placeholder="Describe the media"></label>
+                        <button type="button" class="secondary remove-media-row">Remove</button>
+                    </div>
+                </template>
+                <button id="add-media-row" class="secondary" type="button">+ Add another media</button>
                 <div class="field-row upload-row">
                     <label class="upload-picker">Or upload a file<input id="media-file-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,audio/mpeg,audio/ogg,audio/wav,application/pdf"></label>
                     <button id="media-upload-button" class="secondary" type="button" disabled>Upload</button>
                 </div>
                 <p id="media-upload-status" class="status" role="status" aria-live="polite"></p>
-                <label>Alternative text<input name="media_alt_text" maxlength="500" placeholder="Describe the media for accessibility"></label>
             </fieldset>
             <div class="field-row">
                 <label>Type<select name="post_type"><option>NOTE</option><option>ARTICLE</option><option>MEDIA</option></select></label>

@@ -33,7 +33,7 @@ final class ExternalFeedSourceRepository
 
         $rows = $statement->fetchAll();
         foreach ($rows as &$row) {
-            if (in_array(($row['provider'] ?? ''), ['FACEBOOK','LINKEDIN'], true) && !empty($row['access_token'])) {
+            if (($row['provider'] ?? '') === 'LINKEDIN' && !empty($row['access_token'])) {
                 try { $row['access_token'] = Crypto::decrypt((string) $row['access_token']); }
                 catch (\Throwable) { $row['access_token'] = null; }
             }
@@ -86,7 +86,7 @@ final class ExternalFeedSourceRepository
         $statement->execute();
         $rows = $statement->fetchAll();
         foreach ($rows as &$row) {
-            if (in_array(($row['provider'] ?? ''), ['FACEBOOK', 'LINKEDIN'], true) && !empty($row['access_token'])) {
+            if (($row['provider'] ?? '') === 'LINKEDIN' && !empty($row['access_token'])) {
                 try { $row['access_token'] = Crypto::decrypt((string) $row['access_token']); }
                 catch (\Throwable) { $row['access_token'] = null; }
             }
