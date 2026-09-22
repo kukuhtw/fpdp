@@ -278,6 +278,16 @@ $router->get('/posts/{postId}', function (Request $request, array $params) use (
 $router->get('/about', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->about());
 });
+$router->get('/about-me', function (Request $request, array $params) use ($buildContentPageController): Response {
+    $connection = Database::connection();
+    $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
+    return Response::html($home->aboutMe());
+});
+$router->get('/youtube', function (Request $request, array $params) use ($buildContentPageController): Response {
+    $connection = Database::connection();
+    $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
+    return Response::html($home->youtube());
+});
 $router->get('/dashboard/posts', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->editor());
 });
@@ -292,6 +302,9 @@ $router->get('/dashboard/integrations', function (Request $request, array $param
 
 $router->get('/dashboard/settings', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->settings());
+});
+$router->get('/dashboard/about-me', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->aboutMeManager());
 });
 
 $router->get('/dashboard/cv', function (Request $request, array $params) use ($buildContentPageController): Response {

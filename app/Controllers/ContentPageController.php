@@ -39,14 +39,27 @@ final class ContentPageController
     {
         $profile = $this->profiles->getPublicProfile($handle);
         $result = $this->posts->list(array_merge($query, ['author_handle' => $profile['handle']]));
-        $videos = $this->youtubeVideos((int) $profile['user_id']);
-
         return View::render('profile', [
             'title' => $profile['display_name'] . ' · FPDP',
             'profile' => $profile,
             'posts' => $result['items'],
-            'youtubeVideos' => $videos,
             'nextCursor' => $result['next_cursor'],
+        ]);
+    }
+
+    public function aboutMe(string $handle): string
+    {
+        $profile = $this->profiles->getPublicProfile($handle);
+        return View::render('about-me', ['title' => 'About Me · ' . $profile['display_name'], 'profile' => $profile]);
+    }
+
+    public function youtube(string $handle): string
+    {
+        $profile = $this->profiles->getPublicProfile($handle);
+        return View::render('youtube', [
+            'title' => 'YouTube · ' . $profile['display_name'],
+            'profile' => $profile,
+            'youtubeVideos' => $this->youtubeVideos((int) $profile['user_id']),
         ]);
     }
 
@@ -116,6 +129,11 @@ final class ContentPageController
     public function settings(): string
     {
         return View::render('dashboard-settings', ['title' => 'Settings · FPDP']);
+    }
+
+    public function aboutMeManager(): string
+    {
+        return View::render('dashboard-about-me', ['title' => 'About Me · Dashboard · FPDP']);
     }
 
     public function cvManager(): string

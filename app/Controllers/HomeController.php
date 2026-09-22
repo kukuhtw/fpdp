@@ -29,6 +29,26 @@ final class HomeController
         return $this->contentPages->profile((string) $profile['handle']);
     }
 
+    public function aboutMe(): string
+    {
+        return $this->ownerPage('aboutMe');
+    }
+
+    public function youtube(): string
+    {
+        return $this->ownerPage('youtube');
+    }
+
+    private function ownerPage(string $page): string
+    {
+        $node = $this->nodes->findFirst();
+        $profile = $node !== null ? $this->profiles->findByNodeId((int) $node['id']) : null;
+        if ($profile === null || $profile['visibility'] !== 'PUBLIC') {
+            return $this->placeholder();
+        }
+        return $this->contentPages->{$page}((string) $profile['handle']);
+    }
+
     private function placeholder(): string
     {
         return View::render('home', [

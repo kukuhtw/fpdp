@@ -49,13 +49,21 @@ page_assert(str_contains($timeline->body, '&lt;script&gt;alert(1)&lt;/script&gt;
 $profile = $router->dispatch(new Request('GET', '/@writer'));
 page_assert($profile->status === 200 && str_contains($profile->body, 'Writer &lt;script&gt;'), 'Profile page failed or did not escape display name');
 page_assert(str_contains($profile->body, 'Bio &lt;b&gt;unsafe&lt;/b&gt;'), 'Profile bio was not escaped');
-page_assert(str_contains($profile->body, 'https://www.youtube-nocookie.com/embed/jNQXAC9IVRw'), 'Profile did not render the synced YouTube video');
-page_assert(!str_contains($profile->body, 'evil.example'), 'Profile trusted an unvalidated stored embed URL');
+page_assert(!str_contains($profile->body, 'https://www.youtube-nocookie.com/embed/jNQXAC9IVRw'), 'Profile should not render syndicated YouTube videos');
+
+$youtube = $router->dispatch(new Request('GET', '/youtube'));
+page_assert($youtube->status === 200 && str_contains($youtube->body, 'https://www.youtube-nocookie.com/embed/jNQXAC9IVRw'), 'YouTube page did not render the synced video');
+page_assert(!str_contains($youtube->body, 'evil.example'), 'YouTube page trusted an unvalidated stored embed URL');
+
+$aboutMe = $router->dispatch(new Request('GET', '/about-me'));
+page_assert($aboutMe->status === 200 && str_contains($aboutMe->body, 'Bio &lt;b&gt;unsafe&lt;/b&gt;'), 'About Me page did not render the escaped profile bio');
 
 $post = $router->dispatch(new Request('GET', '/posts/post-1'));
 page_assert($post->status === 200 && str_contains($post->body, 'Hello &lt;img&gt;'), 'Post page failed or title was not escaped');
 $editor = $router->dispatch(new Request('GET', '/dashboard/posts'));
 page_assert($editor->status === 200 && str_contains($editor->body, 'Post editor'), 'Post editor page failed');
+$aboutMeEditor = $router->dispatch(new Request('GET', '/dashboard/about-me'));
+page_assert($aboutMeEditor->status === 200 && str_contains($aboutMeEditor->body, 'Update About Me'), 'About Me dashboard page failed');
 
 Database::reset(); unset($db); unlink($envPath); unlink($dbPath);
 fwrite(STDOUT, "Content pages test passed\n");
