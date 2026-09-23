@@ -1,0 +1,7 @@
+{
+    "name": "Editorial",
+    "description": "Gaya majalah/literary: latar krem hangat, judul serif besar, aksen merah marun, kolom tunggal yang lapang. Meng-override halaman profil (beranda).",
+    "author": "FPDP",
+    "version": "1.0.0",
+    "preview_color": "#7a2c34"
+}

@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\View;
 use App\Services\Content\PostService;
 use App\Services\Profile\ProfileService;
+use App\Services\Theme\ThemeService;
 use App\Repositories\ExternalPostRepository;
 use App\Services\External\YouTubeEmbedResolver;
 
@@ -16,7 +17,13 @@ final class ContentPageController
         private readonly PostService $posts,
         private readonly ProfileService $profiles,
         private readonly ?ExternalPostRepository $externalPosts = null,
+        private readonly ?ThemeService $themes = null,
     ) {
+    }
+
+    private function activeThemeForNode(int $nodeId): ?string
+    {
+        return $this->themes?->getActiveSlug($nodeId);
     }
 
     public function about(): string
@@ -39,28 +46,28 @@ final class ContentPageController
     {
         $profile = $this->profiles->getPublicProfile($handle);
         $result = $this->posts->list(array_merge($query, ['author_handle' => $profile['handle']]));
-        return View::render('profile', [
+        return View::renderThemed('profile', [
             'title' => $profile['display_name'] . ' · FPDP',
             'profile' => $profile,
             'posts' => $result['items'],
             'nextCursor' => $result['next_cursor'],
-        ]);
+        ], $this->activeThemeForNode((int) $profile['node_id']));
     }
 
     public function aboutMe(string $handle): string
     {
         $profile = $this->profiles->getPublicProfile($handle);
-        return View::render('about-me', ['title' => 'About Me · ' . $profile['display_name'], 'profile' => $profile]);
+        return View::renderThemed('about-me', ['title' => 'About Me · ' . $profile['display_name'], 'profile' => $profile], $this->activeThemeForNode((int) $profile['node_id']));
     }
 
     public function youtube(string $handle): string
     {
         $profile = $this->profiles->getPublicProfile($handle);
-        return View::render('youtube', [
+        return View::renderThemed('youtube', [
             'title' => 'YouTube · ' . $profile['display_name'],
             'profile' => $profile,
             'youtubeVideos' => $this->youtubeVideos((int) $profile['user_id']),
-        ]);
+        ], $this->activeThemeForNode((int) $profile['node_id']));
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -100,10 +107,10 @@ final class ContentPageController
     {
         $post = $this->posts->get($publicId);
 
-        return View::render('post', [
+        return View::renderThemed('post', [
             'title' => ($post['title'] ?: 'Post by ' . $post['display_name']) . ' · FPDP',
             'post' => $post,
-        ]);
+        ], $this->activeThemeForNode((int) $post['node_id']));
     }
 
     public function editor(): string
@@ -145,14 +152,14 @@ final class ContentPageController
     {
         $profile = $this->profiles->getPublicProfile($handle);
 
-        return View::render('public-cv', ['title' => 'CV ' . $profile['display_name'] . ' · FPDP', 'profile' => $profile]);
+        return View::renderThemed('public-cv', ['title' => 'CV ' . $profile['display_name'] . ' · FPDP', 'profile' => $profile], $this->activeThemeForNode((int) $profile['node_id']));
     }
 
     public function wallCoretan(string $handle): string
     {
         $profile = $this->profiles->getPublicProfile($handle);
 
-        return View::render('wall-coretan', ['title' => 'Coretan · ' . $profile['display_name'], 'profile' => $profile]);
+        return View::renderThemed('wall-coretan', ['title' => 'Coretan · ' . $profile['display_name'], 'profile' => $profile], $this->activeThemeForNode((int) $profile['node_id']));
     }
 
     public function wallCoretanManager(): string
@@ -163,5 +170,10 @@ final class ContentPageController
     public function federationManager(): string
     {
         return View::render('dashboard-federation', ['title' => 'Federasi · Dashboard · FPDP']);
+    }
+
+    public function themeManager(): string
+    {
+        return View::render('dashboard-themes', ['title' => 'Template · Dashboard · FPDP']);
     }
 }

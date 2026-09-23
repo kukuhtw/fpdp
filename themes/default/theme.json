@@ -1,0 +1,7 @@
+{
+    "name": "Default",
+    "description": "Tampilan bawaan FPDP: hijau tenang, serif untuk judul, kartu lembut. Tidak meng-override halaman apa pun — selalu memakai template inti di app/Views.",
+    "author": "FPDP",
+    "version": "1.0.0",
+    "preview_color": "#185f48"
+}

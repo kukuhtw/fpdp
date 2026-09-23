@@ -11,6 +11,7 @@ use App\Controllers\HomeController;
 use App\Controllers\MediaController;
 use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
+use App\Controllers\ThemeController;
 use App\Controllers\ExternalContentController;
 use App\Controllers\LinkedInIntegrationController;
 use App\Controllers\DashboardController;
@@ -53,6 +54,7 @@ use App\Services\Auth\AuthService;
 use App\Services\Analytics\AnalyticsService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Federation\FederationService;
+use App\Services\Theme\ThemeService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Cv\CvDocumentService;
 use App\Services\Payment\PaymentService;
@@ -103,13 +105,18 @@ $buildPostController = static function () use ($buildAuthService, $buildAnalytic
     );
 };
 
-$buildContentPageController = static function (): ContentPageController {
+$buildThemeService = static function (): ThemeService {
+    return new ThemeService(new NodeRepository(Database::connection()), __DIR__ . '/../themes');
+};
+
+$buildContentPageController = static function () use ($buildThemeService): ContentPageController {
     $connection = Database::connection();
 
     return new ContentPageController(
         new PostService(new PostRepository($connection)),
         new ProfileService(new ProfileRepository($connection)),
         new ExternalPostRepository($connection),
+        $buildThemeService(),
     );
 };
 
@@ -212,6 +219,10 @@ $buildFederationService = static function (): FederationService {
 
 $buildFederationController = static function () use ($buildAuthService, $buildFederationService): FederationController {
     return new FederationController($buildAuthService(), $buildFederationService());
+};
+
+$buildThemeController = static function () use ($buildAuthService, $buildThemeService): ThemeController {
+    return new ThemeController($buildAuthService(), $buildThemeService());
 };
 
 $buildDashboardController = static function () use ($buildAuthService, $buildFederationService, $buildAnalyticsService): DashboardController {
@@ -336,6 +347,10 @@ $router->get('/dashboard/cv', function (Request $request, array $params) use ($b
 
 $router->get('/dashboard/federation', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->federationManager());
+});
+
+$router->get('/dashboard/themes', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->themeManager());
 });
 
 $router->get('/dashboard', function (Request $request, array $params) use ($buildContentPageController): Response {
@@ -615,6 +630,16 @@ $router->post('/api/v1/me/federation/follow-requests/{followId}/approve', functi
 });
 $router->post('/api/v1/me/federation/follow-requests/{followId}/reject', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->rejectFollowRequest($request, $params);
+});
+
+$router->get('/api/v1/me/themes', function (Request $request, array $params) use ($buildThemeController): Response {
+    return $buildThemeController()->list($request);
+});
+$router->patch('/api/v1/me/theme', function (Request $request, array $params) use ($buildThemeController): Response {
+    return $buildThemeController()->update($request);
+});
+$router->get('/themes/{slug}/assets/{file}', function (Request $request, array $params) use ($buildThemeController): Response {
+    return $buildThemeController()->asset($request, $params);
 });
 
 $router->post('/api/v1/federation/process-undo', function (Request $request, array $params) use ($buildFederationController): Response {

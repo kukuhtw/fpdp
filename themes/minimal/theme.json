@@ -1,0 +1,7 @@
+{
+    "name": "Minimal",
+    "description": "Monokrom bersih: putih-hitam, sans-serif, garis tipis, tanpa bayangan/kartu membulat, whitespace lega. Meng-override halaman profil (beranda).",
+    "author": "FPDP",
+    "version": "1.0.0",
+    "preview_color": "#111111"
+}

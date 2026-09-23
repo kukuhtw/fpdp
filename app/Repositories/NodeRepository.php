@@ -87,6 +87,14 @@ final class NodeRepository
         $statement->execute(['gateway' => $gatewayCode, 'id' => $id]);
     }
 
+    public function updateTheme(int $id, string $slug): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE nodes SET theme = :theme WHERE id = :id',
+        );
+        $statement->execute(['theme' => $slug, 'id' => $id]);
+    }
+
     /**
      * Returns the first locally-hosted node. FPDP deployments currently host
      * a single owner node, so this is used to resolve "our own node" for
