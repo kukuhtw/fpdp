@@ -68,7 +68,14 @@
                 <button type="button" data-cmd="insertVideo" title="Embed video (YouTube, TikTok, Instagram)">▶️</button>
               </div>
               <div id="editor-content" contenteditable="true" role="textbox" aria-label="Post content"></div>
-              <p class="muted" style="margin:.35em 0 0;font-size:.85rem;">Klik <strong>▶️</strong> lalu tempel URL video YouTube, TikTok, atau Instagram (post/reel) untuk menyisipkannya sebagai embed.</p></label>
+              <div class="muted" style="margin:.35em 0 0;font-size:.85rem;line-height:1.5;">
+                <p style="margin:0 0 .3em;">Klik <strong>▶️</strong> lalu tempel URL untuk menyisipkan embed:</p>
+                <ul style="margin:0 0 .3em;padding-left:1.2em;">
+                  <li><strong>YouTube, TikTok, Instagram</strong> (post/reel) — otomatis tertanam sebagai video/embed.</li>
+                  <li><strong>kumpulblogger.com/blogs</strong> — otomatis tertanam sebagai embed halaman.</li>
+                </ul>
+                <p style="margin:0;"><strong>Medium (kukuhtw.medium.com), LinkedIn, Facebook, X (Twitter), dan Threads</strong> memblokir tampilan iframe dari situs lain, sehingga tidak bisa di-embed langsung di sini. Untuk artikel/post dari platform ini, gunakan tombol <strong>🔗</strong> dan tempel URL-nya sebagai tautan biasa (mis. https://kukuhtw.medium.com/judul-artikel), lalu tambahkan konteks singkat di teks sekitarnya.</p>
+              </div></label>
             <fieldset class="media-fields"><legend>Media attachments <span class="muted">optional, up to 10</span></legend>
                 <div id="media-list" class="stack"></div>
                 <template id="media-row-template">
