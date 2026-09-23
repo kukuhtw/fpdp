@@ -147,4 +147,16 @@ final class ContentPageController
 
         return View::render('public-cv', ['title' => 'CV ' . $profile['display_name'] . ' · FPDP', 'profile' => $profile]);
     }
+
+    public function wallCoretan(string $handle): string
+    {
+        $profile = $this->profiles->getPublicProfile($handle);
+
+        return View::render('wall-coretan', ['title' => 'Coretan · ' . $profile['display_name'], 'profile' => $profile]);
+    }
+
+    public function wallCoretanManager(): string
+    {
+        return View::render('dashboard-wall-coretan', ['title' => 'Coretan · Dashboard · FPDP']);
+    }
 }

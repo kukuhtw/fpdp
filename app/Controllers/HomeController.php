@@ -39,6 +39,11 @@ final class HomeController
         return $this->ownerPage('youtube');
     }
 
+    public function wallCoretan(): string
+    {
+        return $this->ownerPage('wallCoretan');
+    }
+
     private function ownerPage(string $page): string
     {
         $node = $this->nodes->findFirst();

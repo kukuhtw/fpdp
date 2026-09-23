@@ -29,8 +29,13 @@ final class VisitorAuthController
         $handle = $params['handle'];
         $this->profiles->getPublicProfile($handle);
 
+        $returnTo = (string) ($request->query['return_to'] ?? '');
+        if (!self::isSafeReturnPath($returnTo)) {
+            $returnTo = '';
+        }
+
         $redirectUri = self::callbackUrl($request, $handle);
-        $state = $this->stateSigner->sign($handle, $redirectUri);
+        $state = $this->stateSigner->sign($handle, $redirectUri, 600, $returnTo !== '' ? $returnTo : null);
 
         return Response::redirect($this->visitorAuth->getAuthorizationUrl($state, $redirectUri));
     }
@@ -66,8 +71,13 @@ final class VisitorAuthController
         ];
 
         if (str_contains(strtolower((string) ($request->header('accept') ?? '')), 'text/html')) {
+            $returnTo = $verified['return_to'] ?? null;
+            if ($returnTo === null || !self::isSafeReturnPath($returnTo)) {
+                $returnTo = '/@' . rawurlencode($handle) . '/cv';
+            }
+
             $token = json_encode((string) $result['token']['access_token'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-            $target = json_encode('/@' . rawurlencode($handle) . '/cv', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $target = json_encode($returnTo, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
             return Response::html('<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Login berhasil</title></head><body><p>Login berhasil. Mengalihkan…</p><script>sessionStorage.setItem("fpdp_visitor_token", ' . $token . ');location.replace(' . $target . ');</script></body></html>');
         }
@@ -81,5 +91,15 @@ final class VisitorAuthController
         $host = $request->header('host') ?? 'localhost';
 
         return sprintf('%s://%s/api/v1/profiles/%s/visitor-auth/google/callback', $scheme, $host, $handle);
+    }
+
+    /** Only same-site, single-segment-safe relative paths are allowed as a post-login redirect target. */
+    private static function isSafeReturnPath(string $path): bool
+    {
+        return $path !== ''
+            && str_starts_with($path, '/')
+            && !str_starts_with($path, '//')
+            && !str_contains($path, '\\')
+            && preg_match('/[\x00-\x1f]/', $path) !== 1;
     }
 }

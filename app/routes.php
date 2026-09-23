@@ -18,6 +18,7 @@ use App\Controllers\MarketplaceController;
 use App\Controllers\PaymentController;
 use App\Controllers\PostController;
 use App\Controllers\VisitorAuthController;
+use App\Controllers\WallCommentController;
 use App\Core\Config;
 use App\Core\Database;
 use App\Core\Http\Request;
@@ -47,6 +48,7 @@ use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
 use App\Repositories\VisitorTokenRepository;
+use App\Repositories\WallCommentRepository;
 use App\Services\Auth\AuthService;
 use App\Services\Analytics\AnalyticsService;
 use App\Services\Dashboard\DashboardService;
@@ -57,6 +59,7 @@ use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
 use App\Services\Content\MediaUploadService;
 use App\Services\Content\PostService;
+use App\Services\Content\WallCommentService;
 use App\Services\External\SyncWorker;
 use App\Services\External\LinkedInIntegrationService;
 use App\Services\Marketplace\MarketplaceService;
@@ -133,6 +136,18 @@ $buildVisitorAuthController = static function () use ($buildVisitorAuthService):
         new ProfileService(new ProfileRepository($connection)),
         $buildVisitorAuthService(),
         $stateSigner,
+    );
+};
+
+$buildWallCommentController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildRateLimiter): WallCommentController {
+    $connection = Database::connection();
+
+    return new WallCommentController(
+        $buildAuthService(),
+        $buildVisitorAuthService(),
+        new ProfileService(new ProfileRepository($connection)),
+        new WallCommentService(new WallCommentRepository($connection)),
+        $buildRateLimiter(),
     );
 };
 

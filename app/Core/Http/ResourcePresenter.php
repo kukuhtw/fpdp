@@ -93,6 +93,25 @@ final class ResourcePresenter
         ];
     }
 
+    /**
+     * @param array<string, mixed> $comment
+     * @return array<string, mixed>
+     */
+    public static function wallComment(array $comment): array
+    {
+        return [
+            'id' => $comment['public_id'],
+            'content' => $comment['content'],
+            'author' => [
+                'display_name' => $comment['visitor_display_name'],
+                'avatar_url' => $comment['visitor_avatar_url'],
+            ],
+            'admin_reply' => $comment['admin_reply'],
+            'admin_reply_at' => $comment['admin_reply_at'] === null ? null : self::timestamp((string) $comment['admin_reply_at']),
+            'created_at' => self::timestamp((string) $comment['created_at']),
+        ];
+    }
+
     private static function timestamp(string $value): string
     {
         return (new DateTimeImmutable($value, new DateTimeZone('UTC')))->format(DATE_ATOM);

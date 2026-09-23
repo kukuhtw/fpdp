@@ -18,11 +18,12 @@ final class OAuthStateSigner
     {
     }
 
-    public function sign(string $handle, string $redirectUri, int $ttlSeconds = 600): string
+    public function sign(string $handle, string $redirectUri, int $ttlSeconds = 600, ?string $returnTo = null): string
     {
         $payload = json_encode([
             'handle' => $handle,
             'redirect_uri' => $redirectUri,
+            'return_to' => $returnTo,
             'expires_at' => time() + $ttlSeconds,
         ]);
 
@@ -33,7 +34,7 @@ final class OAuthStateSigner
     }
 
     /**
-     * @return array{handle: string, redirect_uri: string}
+     * @return array{handle: string, redirect_uri: string, return_to: ?string}
      */
     public function verify(string $state): array
     {
@@ -55,6 +56,9 @@ final class OAuthStateSigner
         return [
             'handle' => (string) ($payload['handle'] ?? ''),
             'redirect_uri' => (string) ($payload['redirect_uri'] ?? ''),
+            'return_to' => isset($payload['return_to']) && is_string($payload['return_to']) && $payload['return_to'] !== ''
+                ? $payload['return_to']
+                : null,
         ];
     }
 
