@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title><link rel="stylesheet" href="/themes/editorial/assets/theme.css"></head>
+<body>
+<nav class="ed-nav"><a class="ed-brand" href="/">FPDP</a><div class="ed-nav-links"><a href="/">Beranda</a><a href="/about-me">Tentang</a><a href="/youtube">YouTube</a><a href="/coretan">Coretan</a><a href="/about">About FPDP</a><a href="/timeline">Timeline</a><a href="/dashboard" class="owner-nav hidden">Dashboard</a><a href="/dashboard/federation" class="owner-nav hidden">Federasi</a><a href="/dashboard/themes" class="owner-nav hidden">Template</a></div></nav>
+<main class="ed-main">
+  <header class="ed-panel">
+    <p class="ed-eyebrow">Channel terhubung</p>
+    <h1>Video YouTube</h1>
+    <p class="ed-muted">Video terbaru hasil syndication channel <?= htmlspecialchars((string) $profile['display_name'], ENT_QUOTES, 'UTF-8') ?>.</p>
+  </header>
+  <?php if (($youtubeVideos ?? []) === []): ?>
+    <p class="ed-empty">Belum ada video YouTube yang tersinkronisasi.</p>
+  <?php else: ?>
+    <div class="ed-youtube-grid">
+      <?php foreach ($youtubeVideos as $video): ?>
+        <article class="ed-youtube-card">
+          <div class="ed-youtube-frame"><iframe src="<?= htmlspecialchars((string) $video['embed_url'], ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars((string) $video['title'], ENT_QUOTES, 'UTF-8') ?>" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
+          <div class="ed-youtube-copy">
+            <h3><?= htmlspecialchars((string) $video['title'], ENT_QUOTES, 'UTF-8') ?></h3>
+            <p><?= htmlspecialchars((string) $video['author_name'], ENT_QUOTES, 'UTF-8') ?><?php if ($video['published_at'] !== null): ?> · <?= htmlspecialchars(date('j M Y', strtotime((string) $video['published_at'])), ENT_QUOTES, 'UTF-8') ?><?php endif; ?></p>
+            <a href="<?= htmlspecialchars((string) $video['watch_url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer">Tonton di YouTube ↗</a>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</main>
+</body></html>
