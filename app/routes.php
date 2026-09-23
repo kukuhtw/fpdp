@@ -303,6 +303,11 @@ $router->get('/youtube', function (Request $request, array $params) use ($buildC
     $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
     return Response::html($home->youtube());
 });
+$router->get('/coretan', function (Request $request, array $params) use ($buildContentPageController): Response {
+    $connection = Database::connection();
+    $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
+    return Response::html($home->wallCoretan());
+});
 $router->get('/dashboard/posts', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->editor());
 });
@@ -320,6 +325,9 @@ $router->get('/dashboard/settings', function (Request $request, array $params) u
 });
 $router->get('/dashboard/about-me', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->aboutMeManager());
+});
+$router->get('/dashboard/coretan', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->wallCoretanManager());
 });
 
 $router->get('/dashboard/cv', function (Request $request, array $params) use ($buildContentPageController): Response {
@@ -396,6 +404,22 @@ $router->get('/api/v1/profiles/{handle}/visitor-auth/google/redirect', function 
 
 $router->get('/api/v1/profiles/{handle}/visitor-auth/google/callback', function (Request $request, array $params) use ($buildVisitorAuthController): Response {
     return $buildVisitorAuthController()->callback($request, $params);
+});
+
+$router->get('/api/v1/profiles/{handle}/wall/comments', function (Request $request, array $params) use ($buildWallCommentController): Response {
+    return $buildWallCommentController()->index($request, $params);
+});
+
+$router->post('/api/v1/profiles/{handle}/wall/comments', function (Request $request, array $params) use ($buildWallCommentController): Response {
+    return $buildWallCommentController()->create($request, $params);
+});
+
+$router->delete('/api/v1/me/wall/comments/{commentId}', function (Request $request, array $params) use ($buildWallCommentController): Response {
+    return $buildWallCommentController()->delete($request, $params);
+});
+
+$router->post('/api/v1/me/wall/comments/{commentId}/reply', function (Request $request, array $params) use ($buildWallCommentController): Response {
+    return $buildWallCommentController()->reply($request, $params);
 });
 
 $router->post('/api/v1/me/cv', function (Request $request, array $params) use ($buildCvController): Response {
