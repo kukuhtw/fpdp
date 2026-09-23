@@ -159,4 +159,9 @@ final class ContentPageController
     {
         return View::render('dashboard-wall-coretan', ['title' => 'Coretan · Dashboard · FPDP']);
     }
+
+    public function federationManager(): string
+    {
+        return View::render('dashboard-federation', ['title' => 'Federasi · Dashboard · FPDP']);
+    }
 }

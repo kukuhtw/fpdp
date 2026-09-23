@@ -185,6 +185,7 @@ final class FederationService
         return [
             'follower_count' => $fr->countByDirection($profileId, 'INCOMING'),
             'following_count' => $fr->countByDirection($profileId, 'OUTGOING'),
+            'pending_follow_requests' => $fr->countPendingByProfileId($profileId),
             'capabilities' => $this->readNodeCapabilities($nodeId),
         ];
     }
@@ -446,6 +447,12 @@ final class FederationService
         return ['follow_id' => $followPubId, 'activity_id' => (string) $activity['id'], 'status' => 'PENDING'];
     }
 
+    /**
+     * Handles an inbound Follow activity: records it as PENDING and leaves
+     * it for the owner to approve or reject from the dashboard — see
+     * approveFollowRequest()/rejectFollowRequest(). It no longer auto-
+     * accepts, except for the pre-existing BLOCKED short-circuit below.
+     */
     public function processFollow(int $nodeId, array $activity, int $localProfileId): array
     {
         $actorUri = $activity['actor'] ?? '';
@@ -460,24 +467,116 @@ final class FederationService
             $this->queueOutgoingActivity($nodeId, 'Reject', $objectUri, parse_url($actorUri, PHP_URL_HOST) ?? '', $actorUri);
             return ['status' => 'rejected', 'message' => 'Blocked actor'];
         }
+        if ($existing !== null && $existing['status'] === 'ACCEPTED') {
+            return ['status' => 'accepted', 'message' => 'Already following'];
+        }
+
         $followPublicId = $existing['public_id'] ?? Uuid::v4();
         if ($existing === null) {
             $fr->create($followPublicId, $localProfileId, $actorUri, $remoteActor['federated_address'] ?? null, (int) $remoteActor['id'], $activity['id'] ?? null, 'INCOMING');
+        } else {
+            // Resent while still pending — refresh which activity id Accept/Reject will reference.
+            $fr->updateStatus($followPublicId, 'PENDING', $activity['id'] ?? null);
         }
-        $fr->updateStatus($followPublicId, 'ACCEPTED', $activity['id'] ?? null);
 
-        $localProfile = $this->profiles->findById($localProfileId);
-        $localActorUri = $localProfile ? "https://{$localProfile['node_domain']}/@" . $localProfile['handle'] : '';
-        $acceptId = Uuid::v4();
-        $this->queueOutgoingActivity($nodeId, 'Accept', $localActorUri, parse_url($actorUri, PHP_URL_HOST) ?? '', $actorUri, [
-            'id' => $acceptId, 'actor' => $localActorUri, 'object' => $activity['id'] ?? null,
+        return ['status' => 'pending', 'message' => "Follow request from {$actorUri} is awaiting approval", 'follow_id' => $followPublicId];
+    }
+
+    /**
+     * Owner-only list of incoming follow requests awaiting approve/reject.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listFollowRequests(int $profileId): array
+    {
+        return array_map(static function (array $row): array {
+            return [
+                'id' => $row['public_id'],
+                'actor' => [
+                    'actor_uri' => $row['target_actor_uri'],
+                    'federated_address' => $row['federated_address'] ?? $row['target_federated_address'],
+                    'display_name' => $row['actor_display_name'],
+                    'avatar_url' => $row['actor_avatar_url'],
+                    'node_domain' => $row['node_domain'],
+                ],
+                'requested_at' => $row['created_at'],
+            ];
+        }, $this->getFollowRepo()->findPendingByProfileId($profileId));
+    }
+
+    /**
+     * Owner approves a pending incoming follow request: sends a signed
+     * Accept back to the requester and establishes the connection.
+     *
+     * @return array<string, mixed>
+     */
+    public function approveFollowRequest(int $nodeId, int $profileId, string $followPublicId): array
+    {
+        $follow = $this->requireOwnedPendingFollow($profileId, $followPublicId);
+
+        $localActorUri = $this->localActorUri($profileId);
+        $this->queueOutgoingActivity($nodeId, 'Accept', $localActorUri, parse_url((string) $follow['target_actor_uri'], PHP_URL_HOST) ?? '', (string) $follow['target_actor_uri'], [
+            'id' => Uuid::v4(), 'actor' => $localActorUri, 'object' => $follow['activity_public_id'],
         ]);
 
-        $conn = $this->connections->findByProfileAndActorId($localProfileId, (int) $remoteActor['id']);
-        if ($conn === null) {
-            $this->connections->create(Uuid::v4(), $localProfileId, (int) $remoteActor['id'], 'CONNECTED');
+        $this->getFollowRepo()->updateStatus($followPublicId, 'ACCEPTED', null);
+
+        $remoteActor = $follow['remote_actor_id'] !== null
+            ? $this->actors->findById((int) $follow['remote_actor_id'])
+            : $this->actors->findByActorUri((string) $follow['target_actor_uri']);
+        if ($remoteActor !== null) {
+            $conn = $this->connections->findByProfileAndActorId($profileId, (int) $remoteActor['id']);
+            if ($conn === null) {
+                $this->connections->create(Uuid::v4(), $profileId, (int) $remoteActor['id'], 'CONNECTED');
+            }
         }
-        return ['status' => 'accepted', 'message' => "Follow from {$actorUri} accepted"];
+
+        return ['status' => 'accepted', 'follow_id' => $followPublicId];
+    }
+
+    /**
+     * Owner rejects a pending incoming follow request: sends a signed
+     * Reject back to the requester. No connection is created.
+     *
+     * @return array<string, mixed>
+     */
+    public function rejectFollowRequest(int $nodeId, int $profileId, string $followPublicId): array
+    {
+        $follow = $this->requireOwnedPendingFollow($profileId, $followPublicId);
+
+        $localActorUri = $this->localActorUri($profileId);
+        $this->queueOutgoingActivity($nodeId, 'Reject', $localActorUri, parse_url((string) $follow['target_actor_uri'], PHP_URL_HOST) ?? '', (string) $follow['target_actor_uri'], [
+            'id' => Uuid::v4(), 'actor' => $localActorUri, 'object' => $follow['activity_public_id'],
+        ]);
+
+        $this->getFollowRepo()->updateStatus($followPublicId, 'REJECTED', null);
+
+        return ['status' => 'rejected', 'follow_id' => $followPublicId];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function requireOwnedPendingFollow(int $profileId, string $followPublicId): array
+    {
+        $follow = $this->getFollowRepo()->findByPublicId($followPublicId);
+        if ($follow === null) {
+            throw new NotFoundException('Follow request not found.');
+        }
+        if ((int) $follow['profile_id'] !== $profileId || $follow['direction'] !== 'INCOMING') {
+            throw new ForbiddenException('You do not own this follow request.');
+        }
+        if ($follow['status'] !== 'PENDING') {
+            throw new ValidationException([['field' => 'status', 'reason' => 'not_pending']]);
+        }
+
+        return $follow;
+    }
+
+    private function localActorUri(int $profileId): string
+    {
+        $localProfile = $this->profiles->findById($profileId);
+        return $localProfile !== null ? "https://{$localProfile['node_domain']}/@" . $localProfile['handle'] : '';
     }
 
     public function sendUndo(int $nodeId, int $profileId, string $followPublicId): array

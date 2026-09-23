@@ -77,7 +77,7 @@ finbox_assert($register['status'] === 201, 'Owner registration failed: ' . json_
 $ownerToken = $register['body']['data']['token']['access_token'];
 $ownerProfileId = (int) $db->query("SELECT id FROM profiles WHERE handle = 'owner'")->fetch()['id'];
 
-// ---- Test 1: valid signed Follow is verified, auto-accepted, and creates a connection ----
+// ---- Test 1: valid signed Follow is verified and left PENDING for manual approval ----
 $kp = sodium_crypto_sign_keypair();
 $secretKey = sodium_crypto_sign_secretkey($kp);
 $publicKeyB64 = base64_encode(sodium_crypto_sign_publickey($kp));
@@ -97,16 +97,41 @@ $followPayload['signature'] = $signature;
 $result1 = $dispatch('POST', '/api/v1/federation/inbox', $followPayload);
 finbox_assert($result1['status'] === 202, 'Signed Follow should be accepted: ' . json_encode($result1));
 finbox_assert($result1['body']['data']['verified'] === true, 'Signed Follow should be marked verified');
-finbox_assert($result1['body']['data']['status'] === 'accepted', 'Signed Follow should be auto-accepted');
+finbox_assert($result1['body']['data']['status'] === 'pending', 'Signed Follow should be left PENDING for manual approval');
 
 $followRow = $db->query("SELECT * FROM follows WHERE target_actor_uri = 'https://sender.example/@alice'")->fetch();
-finbox_assert($followRow !== false && $followRow['status'] === 'ACCEPTED', 'Follow row should be ACCEPTED');
+finbox_assert($followRow !== false && $followRow['status'] === 'PENDING', 'Follow row should be PENDING until the owner approves it');
 
-$connRow = $db->query("SELECT fc.* FROM federated_connections fc INNER JOIN remote_actors ra ON ra.id = fc.remote_actor_id WHERE ra.actor_uri = 'https://sender.example/@alice'")->fetch();
-finbox_assert($connRow !== false && $connRow['relationship_status'] === 'CONNECTED', 'Connection should be CONNECTED after signed Follow');
+$connRowBeforeApproval = $db->query("SELECT fc.* FROM federated_connections fc INNER JOIN remote_actors ra ON ra.id = fc.remote_actor_id WHERE ra.actor_uri = 'https://sender.example/@alice'")->fetch();
+finbox_assert($connRowBeforeApproval === false, 'No connection should exist before the owner approves the follow request');
 
 $activityRow = $db->query("SELECT * FROM federation_activities WHERE public_id = 'act-follow-1'")->fetch();
 finbox_assert($activityRow !== false && $activityRow['status'] === 'VERIFIED', 'Activity should be stored as VERIFIED');
+
+// ---- Test 1b: the owner can list, then approve, the pending follow request ----
+$unauthRequests = $dispatch('GET', '/api/v1/me/federation/follow-requests');
+finbox_assert($unauthRequests['status'] === 401, 'Follow-requests list should require auth');
+
+$requestsList = $dispatch('GET', '/api/v1/me/federation/follow-requests', null, $ownerToken);
+finbox_assert($requestsList['status'] === 200, 'Follow-requests list should succeed for the owner: ' . json_encode($requestsList));
+$aliceRequest = current(array_filter($requestsList['body']['data']['follow_requests'], fn ($r) => $r['actor']['actor_uri'] === 'https://sender.example/@alice'));
+finbox_assert($aliceRequest !== false, 'Pending list should include alice\'s follow request');
+
+$approve = $dispatch('POST', "/api/v1/me/federation/follow-requests/{$aliceRequest['id']}/approve", null, $ownerToken);
+finbox_assert($approve['status'] === 200, 'Approving a follow request should succeed: ' . json_encode($approve));
+finbox_assert($approve['body']['data']['status'] === 'accepted', 'Approve should report accepted');
+
+$followRowAfterApproval = $db->query("SELECT * FROM follows WHERE target_actor_uri = 'https://sender.example/@alice'")->fetch();
+finbox_assert($followRowAfterApproval !== false && $followRowAfterApproval['status'] === 'ACCEPTED', 'Follow row should be ACCEPTED after approval');
+
+$connRow = $db->query("SELECT fc.* FROM federated_connections fc INNER JOIN remote_actors ra ON ra.id = fc.remote_actor_id WHERE ra.actor_uri = 'https://sender.example/@alice'")->fetch();
+finbox_assert($connRow !== false && $connRow['relationship_status'] === 'CONNECTED', 'Connection should be CONNECTED after the owner approves');
+
+$acceptActivity = $db->query("SELECT * FROM federation_activities WHERE activity_type = 'Accept' AND direction = 'OUTGOING' ORDER BY id DESC LIMIT 1")->fetch();
+finbox_assert($acceptActivity !== false, 'Approving should queue an outgoing Accept activity');
+
+$reapprove = $dispatch('POST', "/api/v1/me/federation/follow-requests/{$aliceRequest['id']}/approve", null, $ownerToken);
+finbox_assert($reapprove['status'] === 422, 'Approving an already-ACCEPTED follow request should 422: ' . json_encode($reapprove));
 
 // ---- Test 2: tampered signature is rejected, no state changes ----
 $tamperedPayload = $followPayload;
@@ -141,9 +166,31 @@ $unsignedPayload = [
 $result4 = $dispatch('POST', '/api/v1/federation/inbox', $unsignedPayload);
 finbox_assert($result4['status'] === 202, 'Unsigned Follow from known domain should still be processed: ' . json_encode($result4));
 finbox_assert($result4['body']['data']['verified'] === false, 'Unsigned Follow should be marked unverified');
+finbox_assert($result4['body']['data']['status'] === 'pending', 'Unsigned Follow should also be left PENDING for manual approval');
 
 $unsignedActivity = $db->query("SELECT * FROM federation_activities WHERE public_id = 'act-follow-4'")->fetch();
 finbox_assert($unsignedActivity !== false && $unsignedActivity['status'] === 'UNSIGNED', 'Unsigned activity should be stored with status UNSIGNED');
+
+// ---- Test 4b: the owner can reject a pending follow request instead of approving it ----
+$daveRequestsList = $dispatch('GET', '/api/v1/me/federation/follow-requests', null, $ownerToken);
+$daveRequest = current(array_filter($daveRequestsList['body']['data']['follow_requests'], fn ($r) => $r['actor']['actor_uri'] === 'https://open-sender.example/@dave'));
+finbox_assert($daveRequest !== false, 'Pending list should include dave\'s follow request');
+
+$reject = $dispatch('POST', "/api/v1/me/federation/follow-requests/{$daveRequest['id']}/reject", null, $ownerToken);
+finbox_assert($reject['status'] === 200, 'Rejecting a follow request should succeed: ' . json_encode($reject));
+finbox_assert($reject['body']['data']['status'] === 'rejected', 'Reject should report rejected');
+
+$daveFollowRow = $db->query("SELECT * FROM follows WHERE target_actor_uri = 'https://open-sender.example/@dave'")->fetch();
+finbox_assert($daveFollowRow !== false && $daveFollowRow['status'] === 'REJECTED', 'Follow row should be REJECTED');
+
+$daveConnRow = $db->query("SELECT fc.* FROM federated_connections fc INNER JOIN remote_actors ra ON ra.id = fc.remote_actor_id WHERE ra.actor_uri = 'https://open-sender.example/@dave'")->fetch();
+finbox_assert($daveConnRow === false, 'No connection should be created for a rejected follow request');
+
+$rejectActivity = $db->query("SELECT * FROM federation_activities WHERE activity_type = 'Reject' AND direction = 'OUTGOING' ORDER BY id DESC LIMIT 1")->fetch();
+finbox_assert($rejectActivity !== false, 'Rejecting should queue an outgoing Reject activity');
+
+$foreignReject = $dispatch('POST', "/api/v1/me/federation/follow-requests/nonexistent-id/reject", null, $ownerToken);
+finbox_assert($foreignReject['status'] === 404, 'Rejecting an unknown follow request id should 404: ' . json_encode($foreignReject));
 
 // ---- Test 5: full send-follow -> inbound Accept round trip ----
 finbox_seed_remote_node($db, 'remote-target.example', 'UNKNOWN', null);
@@ -222,18 +269,20 @@ $unknownDomainTrust = $dispatch('PATCH', '/api/v1/me/federation/remote-nodes/nev
 finbox_assert($unknownDomainTrust['status'] === 404, 'Unknown remote-node domain should 404');
 
 // ---- Test 10: federation summary reports accepted followers/following separately ----
-// By this point: alice (test 1) and dave (test 4) are accepted INCOMING follows
-// (followers), and bob (test 5) is an accepted OUTGOING follow (following) —
-// this is exactly the case findFollowersByProfileId/findFollowingByProfileId
-// used to be unable to tell apart (identical queries prior to the `direction`
+// By this point: alice (test 1b) was approved as an INCOMING follow
+// (follower), dave (test 4b) was rejected so does not count, and bob
+// (test 5) is an accepted OUTGOING follow (following) — this is exactly
+// the case findFollowersByProfileId/findFollowingByProfileId used to be
+// unable to tell apart (identical queries prior to the `direction`
 // column), so a wrong count here would mean that regressed.
 $unauthSummary = $dispatch('GET', '/api/v1/me/federation/summary');
 finbox_assert($unauthSummary['status'] === 401, 'Federation summary should require auth');
 
 $summary = $dispatch('GET', '/api/v1/me/federation/summary', null, $ownerToken);
 finbox_assert($summary['status'] === 200, 'Federation summary should succeed for an authenticated owner: ' . json_encode($summary));
-finbox_assert($summary['body']['data']['follower_count'] === 2, 'Expected 2 followers (alice, dave), got ' . json_encode($summary['body']['data']));
+finbox_assert($summary['body']['data']['follower_count'] === 1, 'Expected 1 follower (alice; dave was rejected), got ' . json_encode($summary['body']['data']));
 finbox_assert($summary['body']['data']['following_count'] === 1, 'Expected 1 following (bob), got ' . json_encode($summary['body']['data']));
+finbox_assert($summary['body']['data']['pending_follow_requests'] === 0, 'Expected 0 pending requests (alice approved, dave rejected), got ' . json_encode($summary['body']['data']));
 finbox_assert($summary['body']['data']['capabilities'] === ['PROFILE', 'CONTENT'], 'A node with no capabilities set yet should default to [PROFILE, CONTENT]');
 
 // ---- Test 11: owner can update node capabilities; invalid values are rejected ----

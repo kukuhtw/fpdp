@@ -102,6 +102,36 @@ final class FollowRepository
         return (int) $statement->fetchColumn();
     }
 
+    public function countPendingByProfileId(int $profileId): int
+    {
+        $statement = $this->connection->prepare(
+            "SELECT COUNT(*) FROM follows WHERE profile_id = :profile_id AND status = 'PENDING' AND direction = 'INCOMING'",
+        );
+        $statement->execute(['profile_id' => $profileId]);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * Incoming follow requests awaiting the owner's manual approve/reject.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findPendingByProfileId(int $profileId): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT f.*, ra.display_name AS actor_display_name, ra.avatar_url AS actor_avatar_url, ra.federated_address, rn.domain AS node_domain
+             FROM follows f
+             LEFT JOIN remote_actors ra ON ra.id = f.remote_actor_id
+             LEFT JOIN remote_nodes rn ON rn.id = ra.remote_node_id
+             WHERE f.profile_id = :profile_id AND f.status = 'PENDING' AND f.direction = 'INCOMING'
+             ORDER BY f.created_at ASC",
+        );
+        $statement->execute(['profile_id' => $profileId]);
+
+        return $statement->fetchAll();
+    }
+
     public function updateStatus(string $publicId, string $status, ?string $activityPublicId = null): void
     {
         $statement = $this->connection->prepare(

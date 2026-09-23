@@ -334,6 +334,10 @@ $router->get('/dashboard/cv', function (Request $request, array $params) use ($b
     return Response::html($buildContentPageController()->cvManager());
 });
 
+$router->get('/dashboard/federation', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->federationManager());
+});
+
 $router->get('/dashboard', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->dashboardOverview());
 });
@@ -601,6 +605,16 @@ $router->post('/api/v1/federation/send-block', function (Request $request, array
 
 $router->post('/api/v1/federation/process-follow', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->processFollow($request);
+});
+
+$router->get('/api/v1/me/federation/follow-requests', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->listFollowRequests($request);
+});
+$router->post('/api/v1/me/federation/follow-requests/{followId}/approve', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->approveFollowRequest($request, $params);
+});
+$router->post('/api/v1/me/federation/follow-requests/{followId}/reject', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->rejectFollowRequest($request, $params);
 });
 
 $router->post('/api/v1/federation/process-undo', function (Request $request, array $params) use ($buildFederationController): Response {

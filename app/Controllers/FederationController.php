@@ -199,6 +199,50 @@ final class FederationController
         ));
     }
 
+    /**
+     * GET /api/v1/me/federation/follow-requests
+     *
+     * Owner-only list of incoming follow requests awaiting approve/reject.
+     */
+    public function listFollowRequests(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success(['follow_requests' => $this->federation->listFollowRequests((int) $context['profile']['id'])]);
+    }
+
+    /**
+     * POST /api/v1/me/federation/follow-requests/{followId}/approve
+     *
+     * @param array<string, string> $params
+     */
+    public function approveFollowRequest(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->federation->approveFollowRequest(
+            (int) $context['node']['id'],
+            (int) $context['profile']['id'],
+            $params['followId'],
+        ));
+    }
+
+    /**
+     * POST /api/v1/me/federation/follow-requests/{followId}/reject
+     *
+     * @param array<string, string> $params
+     */
+    public function rejectFollowRequest(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->federation->rejectFollowRequest(
+            (int) $context['node']['id'],
+            (int) $context['profile']['id'],
+            $params['followId'],
+        ));
+    }
+
     public function processFollow(Request $request): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
