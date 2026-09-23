@@ -60,7 +60,7 @@ DB_DATABASE={$dbPath}
 NODE_DOMAIN=test.local
 AUTH_TOKEN_TTL=3600
 VISITOR_TOKEN_TTL=3600
-RATE_LIMIT_CORETAN_MAX=2
+RATE_LIMIT_CORETAN_MAX=5
 RATE_LIMIT_CORETAN_WINDOW=600
 ENV);
 
@@ -270,12 +270,21 @@ assert_that($listAfterDelete === [], 'Deleted comment still appeared in the publ
 $redeleteMissing = $router->dispatch(new Request('DELETE', "/api/v1/me/wall/comments/{$commentId}", [], null, bearer($ownerToken)));
 assert_that($redeleteMissing->status === 404, "Deleting an already-deleted comment did not return 404, got {$redeleteMissing->status}");
 
-// 12. RATE_LIMIT_CORETAN_MAX=2: a third comment from the same visitor within the window is throttled.
-$hit1 = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/wall/comments', [], json_encode(['content' => 'Coretan 1']), bearer($visitorToken)));
-$hit2 = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/wall/comments', [], json_encode(['content' => 'Coretan 2']), bearer($visitorToken)));
-$hit3 = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/wall/comments', [], json_encode(['content' => 'Coretan 3']), bearer($visitorToken)));
-assert_that($hit1->status === 201 && $hit2->status === 201, "Comments within the rate limit were unexpectedly rejected: {$hit1->status}, {$hit2->status}");
-assert_that($hit3->status === 429, "Comment beyond the rate limit did not return 429, got {$hit3->status}");
+// 12. RATE_LIMIT_CORETAN_MAX=5: a fresh visitor (own counter, unaffected by the
+// attempts above) gets exactly 5 comments through; the 6th is throttled.
+$secondVisitorAuthService = new VisitorAuthService(
+    new FakeGoogleOAuthClientForWall('google-sub-wall-test-2'),
+    new VisitorRepository($connection),
+    new VisitorTokenRepository($connection),
+);
+$secondVisitorToken = $secondVisitorAuthService->handleCallback($nodeId, 'any-code', 'https://example.test/callback')['token']['access_token'];
+
+for ($i = 1; $i <= 5; $i++) {
+    $withinLimit = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/wall/comments', [], json_encode(['content' => "Coretan {$i}"]), bearer($secondVisitorToken)));
+    assert_that($withinLimit->status === 201, "Comment #{$i} within the rate limit was unexpectedly rejected: {$withinLimit->status}");
+}
+$throttled = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/wall/comments', [], json_encode(['content' => 'One too many']), bearer($secondVisitorToken)));
+assert_that($throttled->status === 429, "Comment beyond the rate limit did not return 429, got {$throttled->status}");
 
 unset($router, $controller, $commentService, $profileService, $visitorAuthService, $authService, $rateLimiter, $connection);
 Database::reset();

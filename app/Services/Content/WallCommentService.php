@@ -104,7 +104,7 @@ final class WallCommentService
      */
     private function owned(array $context, string $publicId): array
     {
-        $comment = $this->comments->findByPublicId((int) $context['node']['id'], $publicId);
+        $comment = $this->comments->findByPublicId((int) $context['node']['id'], $publicId, false);
         if ($comment === null) {
             throw new NotFoundException('Comment not found.');
         }
