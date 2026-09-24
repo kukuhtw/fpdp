@@ -18,15 +18,24 @@ final class OrderRepository
     {
     }
 
-    public function create(string $publicId, int $nodeId, string $totalAmount, string $currency = 'IDR', ?string $buyerEmail = null, ?string $buyerName = null, ?string $notes = null): array
-    {
+    public function create(
+        string $publicId,
+        int $nodeId,
+        string $totalAmount,
+        string $currency = 'IDR',
+        ?string $buyerEmail = null,
+        ?string $buyerName = null,
+        ?string $notes = null,
+        ?int $visitorId = null,
+    ): array {
         $statement = $this->connection->prepare(
-            'INSERT INTO orders (public_id, node_id, buyer_email, buyer_name, total_amount, currency, notes)
-             VALUES (:public_id, :node_id, :buyer_email, :buyer_name, :total_amount, :currency, :notes)',
+            'INSERT INTO orders (public_id, node_id, visitor_id, buyer_email, buyer_name, total_amount, currency, notes)
+             VALUES (:public_id, :node_id, :visitor_id, :buyer_email, :buyer_name, :total_amount, :currency, :notes)',
         );
         $statement->execute([
             'public_id' => $publicId,
             'node_id' => $nodeId,
+            'visitor_id' => $visitorId,
             'buyer_email' => $buyerEmail,
             'buyer_name' => $buyerName,
             'total_amount' => $totalAmount,
@@ -97,6 +106,22 @@ final class OrderRepository
             "UPDATE orders SET status = :status WHERE public_id = :public_id",
         );
         $statement->execute(['public_id' => $publicId, 'status' => $status]);
+
+        return $this->findByPublicId($publicId);
+    }
+
+    /**
+     * Marks an order paid/fulfilled and records the payment that did it —
+     * called from the checkout path (synchronous gateway) or from
+     * PaymentController's webhook fulfillment (asynchronous gateway),
+     * never directly by an owner API call (see updateStatus() for that).
+     */
+    public function markPaid(string $publicId, string $status, ?string $paymentReference): array
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE orders SET status = :status, payment_reference = :payment_reference WHERE public_id = :public_id',
+        );
+        $statement->execute(['public_id' => $publicId, 'status' => $status, 'payment_reference' => $paymentReference]);
 
         return $this->findByPublicId($publicId);
     }

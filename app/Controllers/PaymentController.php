@@ -9,6 +9,7 @@ use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Services\Auth\AuthService;
 use App\Services\Cv\CvAccessService;
+use App\Services\Marketplace\MarketplaceService;
 use App\Services\Payment\PaymentService;
 
 final class PaymentController
@@ -17,6 +18,7 @@ final class PaymentController
         private readonly AuthService $auth,
         private readonly PaymentService $payments,
         private readonly CvAccessService $cvAccess,
+        private readonly ?MarketplaceService $marketplace = null,
     ) {
     }
 
@@ -133,6 +135,13 @@ final class PaymentController
             $visitorId = (int) ($metadata['visitor_id'] ?? 0);
             if ($documentId > 0 && $visitorId > 0) {
                 $this->cvAccess->confirmPayment($documentId, $visitorId, (string) $payment['order_id']);
+            }
+        }
+
+        if (($metadata['purpose'] ?? null) === 'marketplace_order') {
+            $orderPublicId = (string) ($metadata['order_public_id'] ?? '');
+            if ($orderPublicId !== '') {
+                $this->marketplace?->confirmPayment($orderPublicId, (string) $payment['order_id']);
             }
         }
     }

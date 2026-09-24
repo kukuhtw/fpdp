@@ -36,7 +36,7 @@ final class OrderItemRepository
     public function findByProductId(int $productId): array
     {
         $statement = $this->connection->prepare(
-            'SELECT oi.*, o.status AS order_status, o.public_id AS order_public_id
+            'SELECT oi.*, o.status AS order_status, o.public_id AS order_public_id, o.visitor_id AS order_visitor_id
              FROM order_items oi
              INNER JOIN orders o ON o.id = oi.order_id
              WHERE oi.product_id = :product_id

@@ -174,6 +174,18 @@ $buildPaymentService = static function (): PaymentService {
     );
 };
 
+$buildMarketplaceService = static function () use ($buildPaymentService): MarketplaceService {
+    $connection = Database::connection();
+
+    return new MarketplaceService(
+        new ProductRepository($connection),
+        new OrderRepository($connection),
+        new OrderItemRepository($connection),
+        $buildPaymentService(),
+        new NodeRepository($connection),
+    );
+};
+
 $buildCvAccessService = static function () use ($cvStorageDirectory, $buildPaymentService): CvAccessService {
     $connection = Database::connection();
 
@@ -198,11 +210,12 @@ $buildCvController = static function () use ($buildAuthService, $buildVisitorAut
     );
 };
 
-$buildPaymentController = static function () use ($buildAuthService, $buildCvAccessService, $buildPaymentService): PaymentController {
+$buildPaymentController = static function () use ($buildAuthService, $buildCvAccessService, $buildPaymentService, $buildMarketplaceService): PaymentController {
     return new PaymentController(
         $buildAuthService(),
         $buildPaymentService(),
         $buildCvAccessService(),
+        $buildMarketplaceService(),
     );
 };
 $buildFederationService = static function (): FederationService {
@@ -248,16 +261,14 @@ $buildDashboardController = static function () use ($buildAuthService, $buildFed
 $buildAnalyticsController = static function () use ($buildAuthService, $buildProfileService, $buildAnalyticsService): AnalyticsController {
     return new AnalyticsController($buildAuthService(), $buildProfileService(), $buildAnalyticsService());
 };
-$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService): MarketplaceController {
+$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService, $buildMarketplaceService, $buildVisitorAuthService): MarketplaceController {
     $connection = Database::connection();
     return new MarketplaceController(
         $buildAuthService(),
-        new MarketplaceService(
-            new ProductRepository($connection),
-            new OrderRepository($connection),
-            new OrderItemRepository($connection),
-        ),
+        $buildMarketplaceService(),
         $buildAnalyticsService(),
+        new ProfileService(new ProfileRepository($connection)),
+        $buildVisitorAuthService(),
     );
 };
 $buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {
@@ -606,6 +617,10 @@ $router->get('/api/v1/orders/{orderId}', function (Request $request, array $para
 
 $router->patch('/api/v1/orders/{orderId}/status', function (Request $request, array $params) use ($buildMarketplaceController): Response {
     return $buildMarketplaceController()->updateOrderStatus($request, $params);
+});
+
+$router->post('/api/v1/profiles/{handle}/orders', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->checkout($request, $params);
 });
 
 $router->get('/api/v1/products/{productId}/download', function (Request $request, array $params) use ($buildMarketplaceController): Response {
