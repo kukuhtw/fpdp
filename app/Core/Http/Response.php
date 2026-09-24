@@ -31,6 +31,16 @@ final class Response
         return new self($status, ['Content-Type' => 'application/json'], $body === false ? '{}' : $body);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
+    public static function activityJson(array $data, int $status = 200): self
+    {
+        $body = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return new self($status, ['Content-Type' => 'application/activity+json'], $body === false ? '{}' : $body);
+    }
+
     public static function noContent(): self
     {
         return new self(204, [], '');

@@ -766,7 +766,6 @@ final class FederationService
         if ($this->discovery === null) {
             $this->discovery = new NodeDiscoveryService(
                 $this->nodes,
-                $this->getRemoteNodeKeyRepo(),
                 $this->actors,
                 new \App\Core\Http\HttpClient(),
             );

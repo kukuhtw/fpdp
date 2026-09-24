@@ -7,30 +7,36 @@ namespace App\Services\Federation;
 use App\Core\Http\HttpClient;
 use App\Core\Uuid;
 use App\Repositories\RemoteActorRepository;
-use App\Repositories\RemoteNodeKeyRepository;
 use App\Repositories\RemoteNodeRepository;
 use Throwable;
 
 /**
- * Resolves a remote domain into a known remote_nodes/remote_node_keys record,
- * fetching and caching the remote node's federation capability document
- * (and its public key) over HTTP when it is unknown or stale.
+ * Real ActivityPub discovery: resolving a `user@domain` handle or a raw
+ * actor URI into a cached remote_actors row with its actual inbox URL and
+ * RSA public key, fetched over HTTP per the ActivityPub/WebFinger specs —
+ * this is what makes following a real Mastodon account possible at all.
+ * (The pre-AP version of this class only cached a domain-level key via
+ * FPDP's own proprietary, non-standard capability document; that's gone —
+ * a Mastodon server doesn't have one, and keys are per-actor in real AP,
+ * not per-domain.)
  */
 final class NodeDiscoveryService
 {
     private const CACHE_TTL_SECONDS = 3600;
+    private const FETCH_TIMEOUT_SECONDS = 8;
+    private const ACCEPT_HEADER = 'application/activity+json, application/ld+json';
 
     public function __construct(
         private readonly RemoteNodeRepository $nodes,
-        private readonly RemoteNodeKeyRepository $keys,
         private readonly RemoteActorRepository $actors,
         private readonly HttpClient $http,
     ) {
     }
 
     /**
-     * Returns the remote node row (with a merged 'public_key' field) for a
-     * domain, discovering it via its capability document if unknown or stale.
+     * Bare bookkeeping row for a domain (trust state, blocking, last-seen)
+     * — no HTTP fetch. Real per-actor data (key, inbox) lives on
+     * remote_actors via resolveActorByUri()/resolveActorByAccount().
      *
      * @return array<string, mixed>|null
      */
@@ -42,25 +48,10 @@ final class NodeDiscoveryService
         }
 
         $node = $this->nodes->findByDomain($domain);
-        $key = $node !== null ? $this->keys->findByRemoteNodeId((int) $node['id']) : null;
-
-        if ($node === null || $this->isStale($key['fetched_at'] ?? null)) {
-            $publicKey = $this->fetchPublicKey($domain);
-            if ($node === null) {
-                $nodeId = $this->nodes->create(Uuid::v4(), $domain);
-                $node = $this->nodes->findById($nodeId);
-            }
-            if ($publicKey !== null && $node !== null) {
-                $this->keys->upsert((int) $node['id'], 'ed25519', $publicKey);
-                $key = $this->keys->findByRemoteNodeId((int) $node['id']);
-            }
-        }
-
         if ($node === null) {
-            return null;
+            $nodeId = $this->nodes->create(Uuid::v4(), $domain);
+            $node = $this->nodes->findById($nodeId);
         }
-
-        $node['public_key'] = $key['public_key'] ?? null;
 
         return $node;
     }
@@ -74,44 +65,31 @@ final class NodeDiscoveryService
     }
 
     /**
-     * Registers a stub remote actor from its actor URI (https://domain/@handle)
-     * the first time it is seen, so inbound activities from unknown actors
-     * can still be processed instead of being rejected as "unknown actor".
+     * WebFinger resolution: "user@domain" (with or without a leading '@')
+     * -> the actor's ActivityPub document, cached. This is what lets an
+     * owner type `@alice@mastodon.social` into the follow form instead of
+     * having to know Mastodon's internal actor URI shape.
      *
-     * @param array<string, mixed> $remoteNode
      * @return array<string, mixed>|null
      */
-    public function ensureRemoteActor(string $actorUri, array $remoteNode): ?array
+    public function resolveActorByAccount(string $account): ?array
     {
-        $existing = $this->actors->findByActorUri($actorUri);
-        if ($existing !== null) {
-            return $existing;
-        }
-
-        $path = parse_url($actorUri, PHP_URL_PATH) ?: '';
-        if (!str_starts_with($path, '/@') || strlen($path) <= 2) {
+        $account = ltrim(trim($account), '@');
+        if (!str_contains($account, '@')) {
             return null;
         }
-        $handle = substr($path, 2);
+        [, $domain] = explode('@', $account, 2);
+        $domain = strtolower(trim($domain));
+        if ($domain === '') {
+            return null;
+        }
 
-        $federatedAddress = '@' . $handle . '@' . $remoteNode['domain'];
-        $actorId = $this->actors->create(
-            Uuid::v4(),
-            (int) $remoteNode['id'],
-            $actorUri,
-            $federatedAddress,
-            null,
-            null,
-            $actorUri,
-        );
-
-        return $this->actors->findById($actorId);
-    }
-
-    private function fetchPublicKey(string $domain): ?string
-    {
         try {
-            $response = $this->http->get("https://{$domain}/api/v1/federation/capability", [], 8);
+            $response = $this->http->get(
+                "https://{$domain}/.well-known/webfinger?resource=" . rawurlencode('acct:' . $account),
+                ['Accept' => 'application/jrd+json, application/json'],
+                self::FETCH_TIMEOUT_SECONDS,
+            );
         } catch (Throwable) {
             return null;
         }
@@ -120,14 +98,119 @@ final class NodeDiscoveryService
             return null;
         }
 
-        $decoded = json_decode($response['body'], true);
-        $payload = is_array($decoded) ? ($decoded['data'] ?? $decoded) : null;
-
-        if (!is_array($payload) || ($payload['domain'] ?? null) !== $domain) {
+        $jrd = json_decode($response['body'], true);
+        if (!is_array($jrd) || !is_array($jrd['links'] ?? null)) {
             return null;
         }
 
-        return is_string($payload['public_key'] ?? null) ? $payload['public_key'] : null;
+        $actorUri = null;
+        foreach ($jrd['links'] as $link) {
+            if (!is_array($link)) {
+                continue;
+            }
+            $type = (string) ($link['type'] ?? '');
+            if (($link['rel'] ?? null) === 'self' && (str_contains($type, 'activity+json') || str_contains($type, 'ld+json'))) {
+                $actorUri = (string) ($link['href'] ?? '');
+                break;
+            }
+        }
+
+        return $actorUri !== null && $actorUri !== '' ? $this->resolveActorByUri($actorUri) : null;
+    }
+
+    /**
+     * Fetches (or returns the cached copy of, if fresh) a remote actor's
+     * ActivityPub document by its actor URI, caching inbox URL, public
+     * key, and display info into remote_actors.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function resolveActorByUri(string $actorUri, bool $forceRefresh = false): ?array
+    {
+        $existing = $this->actors->findByActorUri($actorUri);
+        if ($existing !== null && !$forceRefresh && !$this->isStale($existing['fetched_at'] ?? null)) {
+            return $existing;
+        }
+
+        $document = $this->fetchActorDocument($actorUri);
+        if ($document === null) {
+            // A stale-but-previously-known actor is still usable (e.g. the
+            // remote server is briefly unreachable) — only a genuinely
+            // never-seen actor fails outright.
+            return $existing;
+        }
+
+        $domain = (string) parse_url($actorUri, PHP_URL_HOST);
+        $node = $this->ensureRemoteNode($domain);
+        if ($node === null) {
+            return $existing;
+        }
+
+        $handle = (string) ($document['preferredUsername'] ?? '');
+        $displayName = is_string($document['name'] ?? null) ? $document['name'] : $handle;
+        $avatarUrl = is_array($document['icon'] ?? null) ? ($document['icon']['url'] ?? null) : null;
+        $inboxUrl = is_string($document['inbox'] ?? null) ? $document['inbox'] : null;
+        $sharedInboxUrl = is_array($document['endpoints'] ?? null) && is_string($document['endpoints']['sharedInbox'] ?? null)
+            ? $document['endpoints']['sharedInbox']
+            : null;
+        $publicKey = is_array($document['publicKey'] ?? null) ? $document['publicKey'] : [];
+        $publicKeyId = is_string($publicKey['id'] ?? null) ? $publicKey['id'] : null;
+        $publicKeyPem = is_string($publicKey['publicKeyPem'] ?? null) ? $publicKey['publicKeyPem'] : null;
+        $federatedAddress = $handle !== '' ? "@{$handle}@{$domain}" : $actorUri;
+
+        if ($existing === null) {
+            $actorId = $this->actors->create(
+                Uuid::v4(),
+                (int) $node['id'],
+                $actorUri,
+                $federatedAddress,
+                $displayName,
+                $avatarUrl,
+                $actorUri,
+                $inboxUrl,
+                $sharedInboxUrl,
+                $publicKeyId,
+                $publicKeyPem,
+            );
+        } else {
+            $actorId = (int) $existing['id'];
+            $this->actors->updateActivityPubFields($actorId, $displayName, $avatarUrl, $inboxUrl, $sharedInboxUrl, $publicKeyId, $publicKeyPem);
+        }
+
+        return $this->actors->findById($actorId);
+    }
+
+    /**
+     * Registers/refreshes a remote actor the first time an inbound
+     * activity references one we haven't seen — thin wrapper so
+     * FederationService doesn't need to know discovery is a real HTTP
+     * fetch now (it used to just parse the actor URI's path locally).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function ensureRemoteActor(string $actorUri): ?array
+    {
+        return $this->resolveActorByUri($actorUri);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function fetchActorDocument(string $actorUri): ?array
+    {
+        try {
+            $response = $this->http->get($actorUri, ['Accept' => self::ACCEPT_HEADER], self::FETCH_TIMEOUT_SECONDS);
+        } catch (Throwable) {
+            return null;
+        }
+
+        if ($response['status'] < 200 || $response['status'] >= 300) {
+            return null;
+        }
+
+        $document = json_decode($response['body'], true);
+
+        return is_array($document) && ($document['id'] ?? null) === $actorUri ? $document : null;
     }
 
     private function isStale(?string $fetchedAt): bool
@@ -137,6 +220,7 @@ final class NodeDiscoveryService
         }
 
         $timestamp = strtotime($fetchedAt);
+
         return $timestamp === false || (time() - $timestamp) > self::CACHE_TTL_SECONDS;
     }
 }
