@@ -281,12 +281,10 @@ public function listProducts(int $nodeId, array $query = []): array
             if (!in_array($input['product_type'], self::PRODUCT_TYPES, true)) {
                 $errors[] = ['field' => 'product_type', 'reason' => 'invalid_value'];
             }
-            if ($input['product_type'] === 'DIGITAL') {
-                // Digital goods require a download URL
-                if (empty($input['digital_asset_url'])) {
-                    $errors[] = ['field' => 'digital_asset_url', 'reason' => 'required_for_digital'];
-                }
-            }
+            // A digital product's file(s) can be an external digital_asset_url
+            // (below) and/or a gated upload (ProductDigitalAssetService,
+            // uploaded separately once the product exists — it needs a
+            // product_id, so it can never be required at create time).
         }
         if (array_key_exists('digital_asset_url', $input) && $input['digital_asset_url'] !== null) {
             $url = (string) $input['digital_asset_url'];

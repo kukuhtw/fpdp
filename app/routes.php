@@ -46,6 +46,7 @@ use App\Repositories\OrderItemRepository;
 use App\Repositories\OrderRepository;
 use App\Repositories\PaymentGatewayConfigRepository;
 use App\Repositories\PaymentRepository;
+use App\Repositories\ProductDigitalAssetRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;

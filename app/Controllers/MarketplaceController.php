@@ -10,6 +10,7 @@ use App\Core\Http\Response;
 use App\Services\Analytics\AnalyticsService;
 use App\Services\Auth\AuthService;
 use App\Services\Marketplace\MarketplaceService;
+use App\Services\Marketplace\ProductDigitalAssetService;
 use App\Services\Profile\ProfileService;
 use App\Services\Visitor\VisitorAuthService;
 
@@ -21,6 +22,7 @@ final class MarketplaceController
         private readonly ?AnalyticsService $analytics = null,
         private readonly ?ProfileService $profiles = null,
         private readonly ?VisitorAuthService $visitorAuth = null,
+        private readonly ?ProductDigitalAssetService $productAssets = null,
     ) {
     }
 
@@ -155,7 +157,65 @@ final class MarketplaceController
             'title' => $product['title'],
             'digital_asset_url' => $product['digital_asset_url'],
             'digital_asset_metadata' => $product['digital_asset_metadata'],
+            'digital_assets' => $this->requireProductAssets()->listForProduct((int) $product['id']),
         ]);
+    }
+
+    /**
+     * POST /api/v1/me/products/{productId}/digital-assets
+     *
+     * Owner-only. Uploads (or replaces) a gated file for a DIGITAL product —
+     * a PDF and/or a source-code archive, one of each at most. Never served
+     * publicly; downloadDigitalAsset() below gates every read on proof of
+     * purchase, same as the legacy digital_asset_url flow.
+     *
+     * @param array<string, string> $params
+     */
+    public function uploadDigitalAsset(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $result = $this->requireProductAssets()->upload(
+            (int) $context['node']['id'],
+            $params['productId'],
+            $request->json() ?? [],
+        );
+
+        return JsonEnvelope::success($result, 201);
+    }
+
+    /**
+     * GET /api/v1/products/{productId}/digital-assets/{kind}/download
+     *
+     * Visitor-facing, gated: streams the uploaded PDF or source-code file
+     * for a DIGITAL product once the caller's purchase is verified — same
+     * gating call as getDigitalDownload() above, just serving the file
+     * itself instead of a legacy external URL.
+     *
+     * @param array<string, string> $params
+     */
+    public function downloadDigitalAsset(Request $request, array $params): Response
+    {
+        $visitor = $this->requireVisitor($request);
+        $product = $this->marketplace->getProduct($params['productId']);
+
+        if (($product['product_type'] ?? 'PHYSICAL') !== 'DIGITAL') {
+            throw new \App\Core\Exceptions\ValidationException([['field' => 'product_type', 'reason' => 'not_a_digital_product']]);
+        }
+
+        $this->marketplace->verifyDigitalPurchase((int) $visitor['id'], (int) $product['id']);
+
+        $file = $this->requireProductAssets()->readForDownload((int) $product['id'], (string) ($params['kind'] ?? ''));
+
+        return Response::binary($file['content'], $file['content_type'], $file['filename']);
+    }
+
+    private function requireProductAssets(): ProductDigitalAssetService
+    {
+        if ($this->productAssets === null) {
+            throw new \RuntimeException('MarketplaceController was not wired with a ProductDigitalAssetService.');
+        }
+
+        return $this->productAssets;
     }
 
     /**
