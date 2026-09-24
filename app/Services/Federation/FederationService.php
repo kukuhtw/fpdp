@@ -491,10 +491,22 @@ final class FederationService
         }
 
         $discovery = $this->getDiscoveryService();
-        $looksLikeUrl = str_starts_with($accountOrUrl, 'http://') || str_starts_with($accountOrUrl, 'https://');
-        $actor = $looksLikeUrl
-            ? $discovery->resolveActorByUri($accountOrUrl)
-            : $discovery->resolveActorByAccount($accountOrUrl);
+
+        // Mastodon's own web UI shows a remote account you're browsing to
+        // (e.g. via search) as https://<the-instance-you're-on>/@user@theiractualdomain
+        // — a local "viewing" URL, not the account's real canonical address.
+        // People naturally copy this straight out of the address bar, so
+        // detect it and resolve @user@theiractualdomain via WebFinger
+        // against its real home instead of fetching the viewing URL itself
+        // (which isn't a dereferenceable ActivityPub actor document).
+        if (preg_match('#^https?://[^/]+/@([^@/\s]+)@([^/\s]+)/?$#', $accountOrUrl, $matches) === 1) {
+            $actor = $discovery->resolveActorByAccount($matches[1] . '@' . $matches[2]);
+        } else {
+            $looksLikeUrl = str_starts_with($accountOrUrl, 'http://') || str_starts_with($accountOrUrl, 'https://');
+            $actor = $looksLikeUrl
+                ? $discovery->resolveActorByUri($accountOrUrl)
+                : $discovery->resolveActorByAccount($accountOrUrl);
+        }
 
         if ($actor === null || empty($actor['inbox_url'])) {
             throw new ValidationException([['field' => 'account', 'reason' => 'resolution_failed']], "Could not resolve \"{$accountOrUrl}\" to a reachable ActivityPub actor.");
