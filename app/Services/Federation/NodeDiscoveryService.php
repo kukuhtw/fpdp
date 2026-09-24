@@ -220,8 +220,21 @@ final class NodeDiscoveryService
         }
 
         $document = json_decode($response['body'], true);
+        if (!is_array($document) || !is_string($document['id'] ?? null) || $document['id'] === '') {
+            return null;
+        }
 
-        return is_array($document) && ($document['id'] ?? null) === $actorUri ? $document : null;
+        // The returned actor's own id must be on the SAME HOST we fetched
+        // from — not an exact URL match, since a real actor's canonical id
+        // legitimately differs in path from the URL used to reach it
+        // (Mastodon's /@handle vanity URL canonicalizes to /users/handle).
+        // A different HOST, though, would mean this server is vouching for
+        // an identity it doesn't own — that's the actual spoofing case this
+        // guards against.
+        $requestedHost = strtolower((string) parse_url($actorUri, PHP_URL_HOST));
+        $documentHost = strtolower((string) parse_url($document['id'], PHP_URL_HOST));
+
+        return $requestedHost !== '' && $requestedHost === $documentHost ? $document : null;
     }
 
     private function isStale(?string $fetchedAt): bool
