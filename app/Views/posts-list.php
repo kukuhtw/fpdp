@@ -12,7 +12,7 @@
     <section class="panel">
         <p class="eyebrow">Owner dashboard</p><h1>My posts</h1>
         <p id="auth-summary" class="muted">Sign in to view your posts.</p>
-        <form id="login-form" class="stack">
+        <form id="login-form" class="stack" method="post">
             <label>Email<input name="email" type="email" autocomplete="email" required></label>
             <label class="password-field">Password
                 <span class="password-wrapper">

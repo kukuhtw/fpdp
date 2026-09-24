@@ -6,7 +6,7 @@
   <section class="panel">
     <p class="eyebrow">Owner dashboard</p><h1>Products</h1>
     <p id="auth-summary" class="muted">Masuk untuk mengelola produk.</p>
-    <form id="login-form" class="stack">
+    <form id="login-form" class="stack" method="post">
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
       <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
       <button>Masuk</button>

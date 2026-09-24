@@ -7,7 +7,7 @@
     <p class="eyebrow">Owner dashboard</p><h1>RAG Documents</h1>
     <p class="muted">Upload dokumen tentang diri Anda (teks/markdown), lalu generate FAQ darinya. FAQ akan dipakai sebagai grounding untuk fitur chatbot pengunjung (menyusul).</p>
     <p id="auth-summary" class="muted">Masuk untuk mengelola dokumen RAG.</p>
-    <form id="login-form" class="stack">
+    <form id="login-form" class="stack" method="post">
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
       <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
       <button>Masuk</button>

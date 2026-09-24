@@ -12,7 +12,7 @@
     <section class="panel">
         <p class="eyebrow">Owner dashboard</p><h1>Integrasi konten</h1>
         <p id="auth-summary" class="muted">Masuk untuk mengelola sumber konten.</p>
-        <form id="login-form" class="stack">
+        <form id="login-form" class="stack" method="post">
             <label>Email<input name="email" type="email" autocomplete="email" required></label>
             <label class="password-field">Password<span class="password-wrapper"><input name="password" type="password" autocomplete="current-password" required><button type="button" class="toggle-password" data-show="Tampilkan" data-hide="Sembunyikan">Tampilkan</button></span></label>
             <button type="submit">Masuk</button>
