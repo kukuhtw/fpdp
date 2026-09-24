@@ -11,7 +11,9 @@ final class RemoteActorRepository
     private const SELECT = '
         SELECT ra.id, ra.public_id, ra.remote_node_id, ra.actor_uri,
                ra.federated_address, ra.display_name, ra.avatar_url,
-               ra.canonical_url, ra.fetched_at, ra.created_at, ra.updated_at,
+               ra.canonical_url, ra.inbox_url, ra.shared_inbox_url,
+               ra.public_key_id, ra.public_key_pem,
+               ra.fetched_at, ra.created_at, ra.updated_at,
                rn.domain AS node_domain, rn.name AS node_name,
                rn.trust_state AS node_trust_state, rn.status AS node_status
         FROM remote_actors ra
@@ -30,12 +32,18 @@ final class RemoteActorRepository
         ?string $displayName = null,
         ?string $avatarUrl = null,
         ?string $canonicalUrl = null,
+        ?string $inboxUrl = null,
+        ?string $sharedInboxUrl = null,
+        ?string $publicKeyId = null,
+        ?string $publicKeyPem = null,
     ): int {
         $statement = $this->connection->prepare(
             'INSERT INTO remote_actors (public_id, remote_node_id, actor_uri, federated_address,
-                                        display_name, avatar_url, canonical_url)
+                                        display_name, avatar_url, canonical_url,
+                                        inbox_url, shared_inbox_url, public_key_id, public_key_pem)
              VALUES (:public_id, :remote_node_id, :actor_uri, :federated_address,
-                     :display_name, :avatar_url, :canonical_url)',
+                     :display_name, :avatar_url, :canonical_url,
+                     :inbox_url, :shared_inbox_url, :public_key_id, :public_key_pem)',
         );
         $statement->execute([
             'public_id' => $publicId,
@@ -45,9 +53,57 @@ final class RemoteActorRepository
             'display_name' => $displayName,
             'avatar_url' => $avatarUrl,
             'canonical_url' => $canonicalUrl,
+            'inbox_url' => $inboxUrl,
+            'shared_inbox_url' => $sharedInboxUrl,
+            'public_key_id' => $publicKeyId,
+            'public_key_pem' => $publicKeyPem,
         ]);
 
         return (int) $this->connection->lastInsertId();
+    }
+
+    /**
+     * Refreshes an already-known actor's ActivityPub metadata (re-fetched
+     * from its actor document) without touching its local public_id/relationships.
+     */
+    public function updateActivityPubFields(
+        int $id,
+        ?string $displayName,
+        ?string $avatarUrl,
+        ?string $inboxUrl,
+        ?string $sharedInboxUrl,
+        ?string $publicKeyId,
+        ?string $publicKeyPem,
+    ): void {
+        $statement = $this->connection->prepare(
+            'UPDATE remote_actors SET display_name = :display_name, avatar_url = :avatar_url,
+                 inbox_url = :inbox_url, shared_inbox_url = :shared_inbox_url,
+                 public_key_id = :public_key_id, public_key_pem = :public_key_pem,
+                 fetched_at = CURRENT_TIMESTAMP
+             WHERE id = :id',
+        );
+        $statement->execute([
+            'display_name' => $displayName,
+            'avatar_url' => $avatarUrl,
+            'inbox_url' => $inboxUrl,
+            'shared_inbox_url' => $sharedInboxUrl,
+            'public_key_id' => $publicKeyId,
+            'public_key_pem' => $publicKeyPem,
+            'id' => $id,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findByPublicKeyId(string $publicKeyId): ?array
+    {
+        $statement = $this->connection->prepare(self::SELECT . ' WHERE ra.public_key_id = :public_key_id');
+        $statement->execute(['public_key_id' => $publicKeyId]);
+
+        $row = $statement->fetch();
+
+        return $row === false ? null : $row;
     }
 
     /**
