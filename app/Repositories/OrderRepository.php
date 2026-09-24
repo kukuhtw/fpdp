@@ -27,10 +27,11 @@ final class OrderRepository
         ?string $buyerName = null,
         ?string $notes = null,
         ?int $visitorId = null,
+        ?string $shippingAddress = null,
     ): array {
         $statement = $this->connection->prepare(
-            'INSERT INTO orders (public_id, node_id, visitor_id, buyer_email, buyer_name, total_amount, currency, notes)
-             VALUES (:public_id, :node_id, :visitor_id, :buyer_email, :buyer_name, :total_amount, :currency, :notes)',
+            'INSERT INTO orders (public_id, node_id, visitor_id, buyer_email, buyer_name, total_amount, currency, notes, shipping_address)
+             VALUES (:public_id, :node_id, :visitor_id, :buyer_email, :buyer_name, :total_amount, :currency, :notes, :shipping_address)',
         );
         $statement->execute([
             'public_id' => $publicId,
@@ -41,6 +42,7 @@ final class OrderRepository
             'total_amount' => $totalAmount,
             'currency' => $currency,
             'notes' => $notes,
+            'shipping_address' => $shippingAddress,
         ]);
 
         return $this->findByPublicId($publicId);
