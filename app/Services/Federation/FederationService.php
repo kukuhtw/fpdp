@@ -1112,6 +1112,113 @@ final class FederationService
         };
     }
 
+    /**
+     * Delivers a promoted product to the owner's accepted followers as a
+     * signed Create/Update activity, formatted as a simple announcement
+     * post (title, price, short description, checkout link, photo as an
+     * attachment) rather than a structured commerce object — Mastodon and
+     * the rest of the Fediverse have no first-class "Product" type that
+     * renders meaningfully in a timeline. Only products explicitly marked
+     * is_promoted are federated; everything else stays local-only. There
+     * is no product delete/archive flow yet, so unlike
+     * publishLocalPost(), this never needs to handle 'Delete'.
+     *
+     * @param array<string, mixed> $product
+     */
+    public function publishLocalProduct(int $nodeId, array $product, string $activityType = 'Create'): void
+    {
+        if (!(bool) ($product['is_promoted'] ?? false)) {
+            return;
+        }
+        if ((string) ($product['visibility'] ?? 'PUBLIC') === 'PRIVATE') {
+            return;
+        }
+        if ((string) ($product['status'] ?? 'ACTIVE') !== 'ACTIVE') {
+            return;
+        }
+
+        $localProfile = $this->profiles->findByNodeId($nodeId);
+        if ($localProfile === null) {
+            return;
+        }
+
+        $followers = $this->getFollowRepo()->findFollowersByProfileId((int) $localProfile['id']);
+        if ($followers === []) {
+            return;
+        }
+
+        $domain = (string) $localProfile['node_domain'];
+        $actorUri = "https://{$domain}/@{$localProfile['handle']}";
+        $objectUri = "https://{$domain}/shop/{$product['public_id']}";
+        $object = self::buildFederatedProductObject($actorUri, $objectUri, $product);
+
+        foreach ($followers as $follower) {
+            $targetActorUri = (string) ($follower['target_actor_uri'] ?? '');
+            if ($targetActorUri === '') {
+                continue;
+            }
+            $targetDomain = (string) ($follower['node_domain'] ?? parse_url($targetActorUri, PHP_URL_HOST) ?? '');
+            $this->queueOutgoingActivity($nodeId, $activityType, $actorUri, $targetDomain, $objectUri, [
+                'object' => $object,
+            ], $targetActorUri);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $product
+     * @return array<string, mixed>
+     */
+    private static function buildFederatedProductObject(string $actorUri, string $objectUri, array $product): array
+    {
+        $title = (string) ($product['title'] ?? '');
+        $price = number_format((float) ($product['price'] ?? 0), 0, ',', '.');
+        $currency = (string) ($product['currency'] ?? 'IDR');
+        $descriptionText = trim(strip_tags((string) ($product['description'] ?? '')));
+        if (mb_strlen($descriptionText) > 280) {
+            $descriptionText = mb_substr($descriptionText, 0, 280) . '…';
+        }
+
+        $contentHtml = '<p><strong>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</strong> — '
+            . htmlspecialchars($currency, ENT_QUOTES, 'UTF-8') . ' ' . $price . '</p>';
+        if ($descriptionText !== '') {
+            $contentHtml .= '<p>' . htmlspecialchars($descriptionText, ENT_QUOTES, 'UTF-8') . '</p>';
+        }
+        $contentHtml .= '<p>Beli di sini: <a href="' . htmlspecialchars($objectUri, ENT_QUOTES, 'UTF-8') . '">'
+            . htmlspecialchars($objectUri, ENT_QUOTES, 'UTF-8') . '</a></p>';
+
+        $object = [
+            'id' => $objectUri,
+            'type' => 'Note',
+            'attributedTo' => $actorUri,
+            'content' => $contentHtml,
+            'name' => $title,
+            'url' => $objectUri,
+            'published' => self::toAs2Timestamp($product['updated_at'] ?? $product['created_at'] ?? null),
+            'to' => ['https://www.w3.org/ns/activitystreams#Public'],
+            'cc' => ["{$actorUri}/followers"],
+        ];
+
+        $media = $product['media'] ?? [];
+        if (is_array($media) && $media !== []) {
+            $attachments = array_values(array_filter(array_map(static function ($item): ?array {
+                if (!is_array($item) || !is_string($item['url'] ?? null) || $item['url'] === '') {
+                    return null;
+                }
+                return [
+                    'type' => 'Document',
+                    'mediaType' => self::guessAttachmentMediaType((string) ($item['type'] ?? 'IMAGE')),
+                    'url' => $item['url'],
+                    'name' => is_string($item['alt_text'] ?? null) ? $item['alt_text'] : null,
+                ];
+            }, $media)));
+            if ($attachments !== []) {
+                $object['attachment'] = $attachments;
+            }
+        }
+
+        return $object;
+    }
+
     private function getFollowRepo(): FollowRepository
     {
         if ($this->follows === null) {

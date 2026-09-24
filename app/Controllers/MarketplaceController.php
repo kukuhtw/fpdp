@@ -9,6 +9,7 @@ use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Services\Analytics\AnalyticsService;
 use App\Services\Auth\AuthService;
+use App\Services\Federation\FederationService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Marketplace\ProductDigitalAssetService;
 use App\Services\Profile\ProfileService;
@@ -23,6 +24,7 @@ final class MarketplaceController
         private readonly ?ProfileService $profiles = null,
         private readonly ?VisitorAuthService $visitorAuth = null,
         private readonly ?ProductDigitalAssetService $productAssets = null,
+        private readonly ?FederationService $federation = null,
     ) {
     }
 
