@@ -58,11 +58,13 @@ foreach ($pending as $activity) {
 
     if ($payload === null) {
         $activityRepo->markFailed((int) $activity['id'], 'Invalid payload JSON');
+        fwrite(STDERR, "[deliver-federation] activity {$activity['id']}: Invalid payload JSON\n");
         $failed++;
         continue;
     }
     if ($targetActorUri === '') {
         $activityRepo->markFailed((int) $activity['id'], 'No target actor URI');
+        fwrite(STDERR, "[deliver-federation] activity {$activity['id']}: No target actor URI\n");
         $failed++;
         continue;
     }
@@ -75,6 +77,7 @@ foreach ($pending as $activity) {
     $inboxUrl = $targetActor['inbox_url'] ?? null;
     if (!is_string($inboxUrl) || $inboxUrl === '') {
         $activityRepo->markFailed((int) $activity['id'], "Could not resolve an inbox URL for {$targetActorUri}");
+        fwrite(STDERR, "[deliver-federation] activity {$activity['id']}: Could not resolve an inbox URL for {$targetActorUri}\n");
         $failed++;
         continue;
     }
@@ -82,6 +85,7 @@ foreach ($pending as $activity) {
     $localProfile = $profiles->findByNodeId($nodeId);
     if ($localProfile === null) {
         $activityRepo->markFailed((int) $activity['id'], 'No local profile for this node');
+        fwrite(STDERR, "[deliver-federation] activity {$activity['id']}: No local profile for node {$nodeId}\n");
         $failed++;
         continue;
     }
@@ -108,6 +112,7 @@ foreach ($pending as $activity) {
         $signatureHeader = HttpSignature::buildSignatureHeader($keyId, HttpSignature::DEFAULT_SIGNED_HEADERS, $signature);
     } catch (\Throwable $e) {
         $activityRepo->markFailed((int) $activity['id'], 'Signing error: ' . $e->getMessage());
+        fwrite(STDERR, "[deliver-federation] activity {$activity['id']}: Signing error: " . $e->getMessage() . "\n");
         $failed++;
         continue;
     }
@@ -127,10 +132,12 @@ foreach ($pending as $activity) {
             $delivered++;
         } else {
             $activityRepo->markFailed((int) $activity['id'], "HTTP {$response['status']}");
+            fwrite(STDERR, "[deliver-federation] activity {$activity['id']}: POST {$inboxUrl} returned HTTP {$response['status']}: " . substr($response['body'], 0, 500) . "\n");
             $failed++;
         }
     } catch (\Throwable $e) {
         $activityRepo->markFailed((int) $activity['id'], 'Delivery error: ' . $e->getMessage());
+        fwrite(STDERR, "[deliver-federation] activity {$activity['id']}: Delivery error for {$inboxUrl}: " . $e->getMessage() . "\n");
         $failed++;
     }
 }
