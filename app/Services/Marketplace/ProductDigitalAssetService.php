@@ -40,7 +40,7 @@ final class ProductDigitalAssetService
 
     /**
      * @param array<string, mixed> $input
-     * @return array<string, mixed>
+     * @return array<int, array<string, mixed>>
      */
     public function upload(int $nodeId, string $productPublicId, array $input): array
     {

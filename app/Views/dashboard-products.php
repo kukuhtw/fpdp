@@ -18,8 +18,18 @@
       <h2 id="form-heading">Tambah produk</h2>
       <form id="product-form" class="stack">
         <input name="public_id" type="hidden">
+        <input name="media_url" type="hidden">
+        <label>Foto produk<div class="field-row">
+          <img id="product-photo-preview" class="hidden" alt="Pratinjau foto produk" style="width:96px;height:96px;object-fit:cover;border-radius:9px;border:1px solid var(--line)">
+          <input id="product-photo-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp" data-max-bytes="<?= (int) ($mediaMaxFileSizeBytes ?? 10485760) ?>">
+          <button id="product-photo-upload-button" class="secondary" type="button" disabled>Upload foto</button>
+        </div>
+        <progress id="product-photo-progress" class="hidden" value="0" max="100"></progress>
+        <p id="product-photo-status" class="status" role="status" aria-live="polite"></p></label>
         <label>Nama produk<input name="title" maxlength="255" required></label>
-        <label>Deskripsi<textarea name="description" rows="3"></textarea></label>
+        <label>Deskripsi<textarea name="description" rows="3"></textarea>
+          <button id="describe-with-ai-button" class="secondary hidden" type="button">Buat deskripsi dengan AI</button>
+        </label>
         <div class="field-row">
           <label>Harga<input name="price" type="number" min="0" step="0.01" value="0" required></label>
           <label>Mata uang<select name="currency"><option value="IDR">IDR</option><option value="USD">USD</option></select></label>
@@ -29,7 +39,23 @@
           <option value="DIGITAL">Barang digital</option>
           <option value="SERVICE">Jasa</option>
         </select></label>
-        <label id="digital-url-field" class="hidden">URL file digital<input name="digital_asset_url" type="url" placeholder="https://cdn.example.com/file.zip"></label>
+        <label id="digital-url-field" class="hidden">URL file digital (opsional, tautan eksternal)<input name="digital_asset_url" type="url" placeholder="https://cdn.example.com/file.zip"></label>
+        <div id="digital-assets-field" class="hidden">
+          <p class="muted" id="digital-assets-hint">Simpan produk terlebih dahulu untuk bisa upload file PDF / source code.</p>
+          <div id="digital-assets-uploaders" class="hidden stack">
+            <label>Upload PDF<div class="field-row">
+              <input id="digital-pdf-input" type="file" accept="application/pdf" data-max-bytes="<?= (int) ($productAssetMaxFileSizeBytes ?? 20971520) ?>">
+              <button id="digital-pdf-upload-button" class="secondary" type="button" disabled>Upload PDF</button>
+            </div></label>
+            <label>Upload source code (.zip)<div class="field-row">
+              <input id="digital-source-input" type="file" accept="application/zip" data-max-bytes="<?= (int) ($productAssetMaxFileSizeBytes ?? 20971520) ?>">
+              <button id="digital-source-upload-button" class="secondary" type="button" disabled>Upload source code</button>
+            </div></label>
+            <progress id="digital-asset-progress" class="hidden" value="0" max="100"></progress>
+            <div id="digital-assets-list" class="muted"></div>
+            <p id="digital-asset-status" class="status" role="status" aria-live="polite"></p>
+          </div>
+        </div>
         <div class="field-row">
           <label>Status<select name="status"><option value="ACTIVE">Aktif (bisa dibeli)</option><option value="INACTIVE">Nonaktif</option><option value="ARCHIVED">Diarsipkan</option></select></label>
           <label>Visibilitas<select name="visibility"><option value="PUBLIC">Publik</option><option value="UNLISTED">Unlisted</option><option value="PRIVATE">Privat</option></select></label>

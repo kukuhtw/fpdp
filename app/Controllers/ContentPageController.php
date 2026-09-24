@@ -210,7 +210,11 @@ final class ContentPageController
 
     public function productsManager(): string
     {
-        return View::render('dashboard-products', ['title' => 'Products · Dashboard · FPDP']);
+        return View::render('dashboard-products', [
+            'title' => 'Products · Dashboard · FPDP',
+            'mediaMaxFileSizeBytes' => (int) \App\Core\Config::get('MEDIA_MAX_FILE_SIZE_BYTES', '10485760'),
+            'productAssetMaxFileSizeBytes' => (int) \App\Core\Config::get('PRODUCT_ASSET_MAX_FILE_SIZE_BYTES', '20971520'),
+        ]);
     }
 
     public function ordersManager(): string

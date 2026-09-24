@@ -17,6 +17,7 @@ final class Request
         public readonly ?string $body = null,
         public readonly array $headers = [],
         public readonly string $ipAddress = '0.0.0.0',
+        public readonly bool $secure = true,
     ) {
     }
 
@@ -37,7 +38,32 @@ final class Request
             $body === false ? null : $body,
             self::headersFromGlobals(),
             (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
+            self::isSecureFromGlobals(),
         );
+    }
+
+    /**
+     * Whether the inbound request itself arrived over TLS — directly, or via
+     * a reverse proxy that sets X-Forwarded-Proto (e.g. behind Dokploy/nginx
+     * terminating TLS in front of PHP). Used only for building links back to
+     * this same request's own content (e.g. an uploaded media URL); it must
+     * NOT be used for anything with federation or webhook-callback semantics,
+     * which stay hardcoded to https since a real deployment is expected to
+     * always be reachable over TLS for those.
+     */
+    private static function isSecureFromGlobals(): bool
+    {
+        $https = (string) ($_SERVER['HTTPS'] ?? '');
+        if ($https !== '' && strtolower($https) !== 'off') {
+            return true;
+        }
+
+        return strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    }
+
+    public function scheme(): string
+    {
+        return $this->secure ? 'https' : 'http';
     }
 
     /**

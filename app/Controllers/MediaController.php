@@ -33,7 +33,8 @@ final class MediaController
         $result = $this->media->upload($request->json() ?? []);
 
         return JsonEnvelope::success([
-            'url' => 'https://' . $context['node']['domain'] . '/api/v1/media/' . $result['storage_key'],
+            'url' => $request->scheme() . '://' . $context['node']['domain'] . '/api/v1/media/' . $result['storage_key'],
+            'storage_key' => $result['storage_key'],
             'content_type' => $result['content_type'],
             'media_type' => $result['media_type'],
         ], 201);
