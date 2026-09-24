@@ -386,9 +386,10 @@ final class FederationService
         }
 
         $localNodeId = (int) $localProfile['node_id'];
-        $status = $verified ? 'VERIFIED' : (is_string($signature) ? 'UNVERIFIED_KEY_MISSING' : 'UNSIGNED');
-        $objectUri = is_string($activity['object'] ?? null) ? $activity['object'] : null;
-        $ar->create($activityId, $localNodeId, 'INCOMING', $type, $actorUri, $objectUri, $senderDomain, $activity, is_string($signature) ? $signature : null, $status);
+        $status = $verified ? 'VERIFIED' : ($signatureHeader !== null ? 'UNVERIFIED_KEY_MISSING' : 'UNSIGNED');
+        $rawObject = $activity['object'] ?? null;
+        $objectUri = is_string($rawObject) ? $rawObject : (is_array($rawObject) ? (string) ($rawObject['id'] ?? '') : null);
+        $ar->create($activityId, $localNodeId, 'INCOMING', $type, $actorUri, $objectUri !== '' ? $objectUri : null, $senderDomain, $activity, $signatureHeader, $status);
 
         if ($remoteNode !== null) {
             $discovery->touchRemoteNode($senderDomain);
@@ -406,12 +407,63 @@ final class FederationService
         return array_merge($result, ['verified' => $verified]);
     }
 
-    public function queueOutgoingActivity(int $nodeId, string $type, string $actorUri, string $targetDomain, ?string $objectUri = null, array $extra = []): array
+    public function queueOutgoingActivity(int $nodeId, string $type, string $actorUri, string $targetDomain, ?string $objectUri = null, array $extra = [], ?string $targetActorUri = null): array
     {
         $ar = $this->getActivityRepo();
-        $payload = array_merge(['@context' => 'https://fpdp.dev/ns/federation/v1', 'id' => Uuid::v4(), 'type' => $type, 'actor' => $actorUri, 'object' => $objectUri, 'published' => gmdate('c')], $extra);
-        $ar->create((string) $payload['id'], $nodeId, 'OUTGOING', $type, $actorUri, $objectUri, $targetDomain, $payload);
+        $payload = array_merge(['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => Uuid::v4(), 'type' => $type, 'actor' => $actorUri, 'object' => $objectUri, 'published' => gmdate('c')], $extra);
+        $ar->create((string) $payload['id'], $nodeId, 'OUTGOING', $type, $actorUri, $objectUri, $targetDomain, $payload, null, 'PENDING', $targetActorUri ?? $objectUri);
         return $payload;
+    }
+
+    /**
+     * Verifies an inbound HTTP Signature (draft-cavage — the header-based
+     * scheme Mastodon and the rest of the Fediverse actually use) against
+     * the claimed signer's published RSA key, resolved (and cached) from
+     * their Actor document via the keyId. Mirrors the old code's leniency:
+     * no Signature header at all is accepted as unverified (status
+     * UNSIGNED downstream); a header that's present but whose key can't be
+     * resolved is also accepted as unverified (UNVERIFIED_KEY_MISSING); a
+     * header that's present, resolvable, and simply doesn't verify is a
+     * hard rejection — that combination only happens for a forged/tampered
+     * request, never a legitimate misconfiguration.
+     *
+     * @param array<string, string> $headers
+     * @return array{0: bool, 1: ?string} [verified, raw Signature header value or null]
+     */
+    private function verifyInboundSignature(array $headers, string $rawBody, string $requestPath, string $actorUri): array
+    {
+        $signatureHeader = $headers['signature'] ?? null;
+        if (!is_string($signatureHeader) || $signatureHeader === '') {
+            return [false, null];
+        }
+
+        $parsed = HttpSignature::parseSignatureHeader($signatureHeader);
+        if ($parsed === null) {
+            return [false, $signatureHeader];
+        }
+
+        if (isset($headers['digest'])) {
+            $expectedDigest = HttpSignature::digestHeader($rawBody);
+            if (!hash_equals($expectedDigest, $headers['digest'])) {
+                throw new ForbiddenException('Digest header does not match the request body.');
+            }
+        }
+
+        $signerActorUri = explode('#', $parsed['keyId'], 2)[0];
+        $signerActor = $this->getDiscoveryService()->resolveActorByUri($signerActorUri);
+        $publicKeyPem = $signerActor['public_key_pem'] ?? null;
+        if ($publicKeyPem === null || $publicKeyPem === '') {
+            return [false, $signatureHeader];
+        }
+
+        $signingString = HttpSignature::buildSigningString('POST', $requestPath, $headers, $parsed['headers']);
+        $verified = $this->getKeyService()->verify($signingString, $parsed['signature'], $publicKeyPem);
+
+        if (!$verified) {
+            throw new ForbiddenException('Invalid activity signature.');
+        }
+
+        return [true, $signatureHeader];
     }
 
     public function ensureNodeKey(int $nodeId): array
@@ -422,6 +474,34 @@ final class FederationService
     }
 
     // ---- Follow / Accept / Reject / Block Flows ----
+
+    /**
+     * Owner-facing entry point: resolves whatever the owner typed — a
+     * `@user@domain` handle (WebFinger) or a direct profile/actor URL — into
+     * a real ActivityPub actor (inbox URL + RSA public key fetched and
+     * cached), then sends the Follow. This is what makes following a real
+     * Mastodon account possible without the owner needing to know Mastodon's
+     * internal actor URI shape.
+     */
+    public function sendFollowByAccount(int $nodeId, int $profileId, string $accountOrUrl): array
+    {
+        $accountOrUrl = trim($accountOrUrl);
+        if ($accountOrUrl === '') {
+            throw new ValidationException([['field' => 'account', 'reason' => 'required']]);
+        }
+
+        $discovery = $this->getDiscoveryService();
+        $looksLikeUrl = str_starts_with($accountOrUrl, 'http://') || str_starts_with($accountOrUrl, 'https://');
+        $actor = $looksLikeUrl
+            ? $discovery->resolveActorByUri($accountOrUrl)
+            : $discovery->resolveActorByAccount($accountOrUrl);
+
+        if ($actor === null || empty($actor['inbox_url'])) {
+            throw new ValidationException([['field' => 'account', 'reason' => 'resolution_failed']], "Could not resolve \"{$accountOrUrl}\" to a reachable ActivityPub actor.");
+        }
+
+        return $this->sendFollow($nodeId, $profileId, (string) $actor['actor_uri'], (string) $actor['node_domain'], (string) $actor['federated_address']);
+    }
 
     public function sendFollow(int $nodeId, int $profileId, string $targetActorUri, string $targetDomain, ?string $targetFedAddress = null): array
     {
@@ -510,8 +590,13 @@ final class FederationService
 
         $localActorUri = $this->localActorUri($profileId);
         $this->queueOutgoingActivity($nodeId, 'Accept', $localActorUri, parse_url((string) $follow['target_actor_uri'], PHP_URL_HOST) ?? '', (string) $follow['target_actor_uri'], [
-            'id' => Uuid::v4(), 'actor' => $localActorUri, 'object' => $follow['activity_public_id'],
-        ]);
+            'id' => Uuid::v4(), 'actor' => $localActorUri,
+            // Accept.object embeds the ORIGINAL Follow activity (spec
+            // requirement — Mastodon and other real AP servers expect
+            // this, not a bare id string): Follow.actor is the follower,
+            // Follow.object is us.
+            'object' => ['id' => $follow['activity_public_id'], 'type' => 'Follow', 'actor' => $follow['target_actor_uri'], 'object' => $localActorUri],
+        ], (string) $follow['target_actor_uri']);
 
         $this->getFollowRepo()->updateStatus($followPublicId, 'ACCEPTED', null);
 
@@ -540,8 +625,9 @@ final class FederationService
 
         $localActorUri = $this->localActorUri($profileId);
         $this->queueOutgoingActivity($nodeId, 'Reject', $localActorUri, parse_url((string) $follow['target_actor_uri'], PHP_URL_HOST) ?? '', (string) $follow['target_actor_uri'], [
-            'id' => Uuid::v4(), 'actor' => $localActorUri, 'object' => $follow['activity_public_id'],
-        ]);
+            'id' => Uuid::v4(), 'actor' => $localActorUri,
+            'object' => ['id' => $follow['activity_public_id'], 'type' => 'Follow', 'actor' => $follow['target_actor_uri'], 'object' => $localActorUri],
+        ], (string) $follow['target_actor_uri']);
 
         $this->getFollowRepo()->updateStatus($followPublicId, 'REJECTED', null);
 
@@ -586,7 +672,7 @@ final class FederationService
         $this->queueOutgoingActivity($nodeId, 'Undo', $actorUri, parse_url($follow['target_actor_uri'], PHP_URL_HOST) ?? '', $follow['activity_public_id'] ?? null, [
             'id' => $undoId, 'actor' => $actorUri,
             'object' => ['id' => $follow['activity_public_id'], 'type' => 'Follow', 'actor' => $actorUri, 'object' => $follow['target_actor_uri']],
-        ]);
+        ], (string) $follow['target_actor_uri']);
         $fr->updateStatus($followPublicId, 'DISCONNECTED', null);
         return ['status' => 'undone', 'undo_id' => $undoId];
     }
@@ -613,8 +699,8 @@ final class FederationService
      */
     public function processAccept(array $activity): array
     {
-        $objectId = $activity['object'] ?? null;
-        if (!is_string($objectId) || $objectId === '') {
+        $objectId = self::extractActivityObjectId($activity['object'] ?? null);
+        if ($objectId === null) {
             return ['status' => 'error', 'message' => 'Invalid Accept payload'];
         }
 
@@ -648,8 +734,8 @@ final class FederationService
      */
     public function processReject(array $activity): array
     {
-        $objectId = $activity['object'] ?? null;
-        if (!is_string($objectId) || $objectId === '') {
+        $objectId = self::extractActivityObjectId($activity['object'] ?? null);
+        if ($objectId === null) {
             return ['status' => 'error', 'message' => 'Invalid Reject payload'];
         }
 
@@ -712,6 +798,25 @@ final class FederationService
         }
         $fr->updateStatus($blockTargetPublicId, 'BLOCKED', null);
         return ['status' => 'blocked', 'block_id' => $blockId];
+    }
+
+    /**
+     * Actor URIs for a profile's accepted followers/following, for the
+     * ActivityPub followers/following OrderedCollection endpoints.
+     *
+     * @return array<int, string>
+     */
+    public function listFollowerActorUris(int $profileId): array
+    {
+        return array_map(static fn (array $row): string => (string) $row['target_actor_uri'], $this->getFollowRepo()->findFollowersByProfileId($profileId));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function listFollowingActorUris(int $profileId): array
+    {
+        return array_map(static fn (array $row): string => (string) $row['target_actor_uri'], $this->getFollowRepo()->findFollowingByProfileId($profileId));
     }
 
     private function getFollowRepo(): FollowRepository
@@ -782,7 +887,7 @@ final class FederationService
         return match ($type) {
             'Follow', 'Block' => $this->resolveLocalProfileFromActorUri((string) ($activity['object'] ?? '')),
             'Undo' => $this->resolveLocalProfileFromActorUri($this->extractUndoTargetUri($activity)),
-            'Accept', 'Reject' => $this->resolveLocalProfileFromFollowObject((string) ($activity['object'] ?? '')),
+            'Accept', 'Reject' => $this->resolveLocalProfileFromFollowObject(self::extractActivityObjectId($activity['object'] ?? null) ?? ''),
             default => null,
         };
     }
@@ -797,6 +902,25 @@ final class FederationService
             return (string) ($object['object'] ?? '');
         }
         return '';
+    }
+
+    /**
+     * Accept/Reject.object is, per spec, the embedded original Follow
+     * activity (`{id, type: 'Follow', actor, object}`) — real Fediverse
+     * servers (and our own outgoing Accept/Reject, see
+     * approveFollowRequest()/rejectFollowRequest()) always send it this
+     * way. A bare id string is still accepted defensively.
+     */
+    private static function extractActivityObjectId(mixed $object): ?string
+    {
+        if (is_string($object) && $object !== '') {
+            return $object;
+        }
+        if (is_array($object) && is_string($object['id'] ?? null) && $object['id'] !== '') {
+            return $object['id'];
+        }
+
+        return null;
     }
 
     /**

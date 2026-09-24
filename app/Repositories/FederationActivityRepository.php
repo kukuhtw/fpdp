@@ -12,11 +12,11 @@ final class FederationActivityRepository
     {
     }
 
-    public function create(string $publicId, int $nodeId, string $direction, string $activityType, string $actorUri, ?string $objectUri, ?string $targetDomain, array $payload, ?string $signature = null, ?string $status = null): int
+    public function create(string $publicId, int $nodeId, string $direction, string $activityType, string $actorUri, ?string $objectUri, ?string $targetDomain, array $payload, ?string $signature = null, ?string $status = null, ?string $targetActorUri = null): int
     {
         $statement = $this->connection->prepare(
-            'INSERT INTO federation_activities (public_id, node_id, direction, activity_type, actor_uri, object_uri, target_node_domain, payload, signature, status)
-             VALUES (:public_id, :node_id, :direction, :activity_type, :actor_uri, :object_uri, :target_node_domain, :payload, :signature, :status)',
+            'INSERT INTO federation_activities (public_id, node_id, direction, activity_type, actor_uri, object_uri, target_node_domain, target_actor_uri, payload, signature, status)
+             VALUES (:public_id, :node_id, :direction, :activity_type, :actor_uri, :object_uri, :target_node_domain, :target_actor_uri, :payload, :signature, :status)',
         );
         $statement->execute([
             'public_id' => $publicId,
@@ -26,6 +26,7 @@ final class FederationActivityRepository
             'actor_uri' => $actorUri,
             'object_uri' => $objectUri,
             'target_node_domain' => $targetDomain,
+            'target_actor_uri' => $targetActorUri,
             'payload' => json_encode($payload),
             'signature' => $signature,
             'status' => $status ?? ($direction === 'INCOMING' ? 'RECEIVED' : 'PENDING'),

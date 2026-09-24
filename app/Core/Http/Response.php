@@ -41,6 +41,18 @@ final class Response
         return new self($status, ['Content-Type' => 'application/activity+json'], $body === false ? '{}' : $body);
     }
 
+    /**
+     * WebFinger's JRD document — no {data,meta} envelope, per spec.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function jrdJson(array $data, int $status = 200): self
+    {
+        $body = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return new self($status, ['Content-Type' => 'application/jrd+json'], $body === false ? '{}' : $body);
+    }
+
     public static function noContent(): self
     {
         return new self(204, [], '');

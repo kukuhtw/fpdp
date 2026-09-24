@@ -163,16 +163,21 @@ final class FederationController
 
     // ---- Follow / Accept / Reject / Block ----
 
+    /**
+     * POST /api/v1/federation/send-follow
+     *
+     * Owner types either a `@user@domain` handle or a profile/actor URL —
+     * resolved server-side via WebFinger/actor-fetch (NodeDiscoveryService)
+     * rather than requiring the owner to know the remote's actor URI shape.
+     */
     public function sendFollow(Request $request): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
         $input = $request->json() ?? [];
-        return JsonEnvelope::success($this->federation->sendFollow(
+        return JsonEnvelope::success($this->federation->sendFollowByAccount(
             (int) $context['node']['id'],
             (int) $context['profile']['id'],
-            (string) ($input['target_actor_uri'] ?? ''),
-            (string) ($input['target_domain'] ?? ''),
-            $input['target_federated_address'] ?? null,
+            (string) ($input['account'] ?? ''),
         ), 201);
     }
 
@@ -298,19 +303,6 @@ final class FederationController
     {
         $context = $this->auth->authenticate($request->bearerToken());
         return JsonEnvelope::success($this->federation->ensureNodeKey((int) $context['node']['id']));
-    }
-
-    /**
-     * POST /api/v1/federation/inbox
-     *
-     * Public federation delivery endpoint — remote servers deliver signed
-     * Follow/Undo/Accept/Reject/Block activities here without any local
-     * credentials, matching the inbox URL we advertise in our own
-     * capability document.
-     */
-    public function inbox(Request $request): Response
-    {
-        return JsonEnvelope::success($this->federation->receiveActivity($request->json() ?? []), 202);
     }
 
     public function outbox(Request $request): Response

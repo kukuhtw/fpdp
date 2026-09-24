@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\AnalyticsController;
+use App\Controllers\ActivityPubController;
 use App\Controllers\AuthController;
 use App\Controllers\ChatbotController;
 use App\Controllers\CvController;
@@ -37,6 +38,7 @@ use App\Repositories\ChatSessionRepository;
 use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
 use App\Repositories\LlmConfigRepository;
+use App\Repositories\NodeKeyRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\PostRepository;
@@ -67,6 +69,7 @@ use App\Services\Chatbot\ChatbotService;
 use App\Services\Chatbot\VisitorWalletService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Federation\FederationService;
+use App\Services\Federation\NodeKeyService;
 use App\Services\Theme\ThemeService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Cv\CvDocumentService;
@@ -315,6 +318,16 @@ $buildFederationController = static function () use ($buildAuthService, $buildFe
     return new FederationController($buildAuthService(), $buildFederationService());
 };
 
+$buildActivityPubController = static function () use ($buildFederationService): ActivityPubController {
+    $connection = Database::connection();
+
+    return new ActivityPubController(
+        new ProfileService(new ProfileRepository($connection)),
+        new NodeKeyService(new NodeKeyRepository($connection)),
+        $buildFederationService(),
+    );
+};
+
 $buildThemeController = static function () use ($buildAuthService, $buildThemeService): ThemeController {
     return new ThemeController($buildAuthService(), $buildThemeService());
 };
@@ -390,8 +403,29 @@ $router->get('/timeline', function (Request $request, array $params) use ($build
     return Response::html($buildContentPageController()->timeline($request->query));
 });
 
-$router->get('/@{handle}', function (Request $request, array $params) use ($buildContentPageController): Response {
+$router->get('/@{handle}', function (Request $request, array $params) use ($buildContentPageController, $buildActivityPubController): Response {
+    $accept = (string) ($request->header('accept') ?? '');
+    if (str_contains($accept, 'application/activity+json') || str_contains($accept, 'application/ld+json')) {
+        return $buildActivityPubController()->actor($params);
+    }
+
     return Response::html($buildContentPageController()->profile($params['handle'], $request->query));
+});
+
+$router->post('/@{handle}/inbox', function (Request $request, array $params) use ($buildActivityPubController): Response {
+    return $buildActivityPubController()->inbox($request, $params);
+});
+
+$router->get('/@{handle}/followers', function (Request $request, array $params) use ($buildActivityPubController): Response {
+    return $buildActivityPubController()->followers($params);
+});
+
+$router->get('/@{handle}/following', function (Request $request, array $params) use ($buildActivityPubController): Response {
+    return $buildActivityPubController()->following($params);
+});
+
+$router->get('/.well-known/webfinger', function (Request $request, array $params) use ($buildActivityPubController): Response {
+    return $buildActivityPubController()->webfinger($request);
 });
 
 $router->get('/posts/{postId}', function (Request $request, array $params) use ($buildContentPageController): Response {
@@ -735,10 +769,6 @@ $router->get('/api/v1/federation/capability', function (Request $request, array 
 
 $router->post('/api/v1/federation/ensure-key', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->ensureKey($request);
-});
-
-$router->post('/api/v1/federation/inbox', function (Request $request, array $params) use ($buildFederationController): Response {
-    return $buildFederationController()->inbox($request);
 });
 
 $router->post('/api/v1/federation/outbox', function (Request $request, array $params) use ($buildFederationController): Response {
