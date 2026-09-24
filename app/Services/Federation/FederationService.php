@@ -321,15 +321,18 @@ final class FederationService
     }
 
     /**
-     * Entry point for the public /api/v1/federation/inbox endpoint: verifies
-     * the activity's signature against the sender's discovered public key,
-     * rejects blocked/unverified senders, and dispatches Follow/Undo/Accept/
-     * Reject/Block activities to their handlers.
+     * Entry point for a node's /@{handle}/inbox endpoint: verifies the
+     * request's HTTP Signature (RFC draft-cavage, as Mastodon and the rest
+     * of the Fediverse send it — a `Signature:` header over the actual
+     * HTTP request, not a field embedded in the JSON body) against the
+     * sending actor's published RSA key, rejects blocked/unverified
+     * senders, and dispatches Follow/Undo/Accept/Reject/Block activities
+     * to their handlers.
      *
      * @param array<string, mixed> $activity
-     * @return array<string, mixed>
+     * @param array<string, string> $headers Lowercase header names, as Request exposes them.
      */
-    public function receiveActivity(array $activity): array
+    public function receiveActivity(array $activity, array $headers = [], string $rawBody = '', string $requestPath = ''): array
     {
         $type = (string) ($activity['type'] ?? '');
         $actorUri = (string) ($activity['actor'] ?? '');
@@ -364,19 +367,10 @@ final class FederationService
         $discovery = $this->getDiscoveryService();
         $remoteNode = $discovery->ensureRemoteNode($senderDomain);
 
-        $signature = $activity['signature'] ?? null;
-        $verified = false;
-        if (is_string($signature) && $remoteNode !== null && !empty($remoteNode['public_key'])) {
-            $payloadToVerify = $activity;
-            unset($payloadToVerify['signature']);
-            $verified = $this->getKeyService()->verify((string) json_encode($payloadToVerify), $signature, (string) $remoteNode['public_key']);
-            if (!$verified) {
-                throw new ForbiddenException('Invalid activity signature.');
-            }
-        }
+        [$verified, $signatureHeader] = $this->verifyInboundSignature($headers, $rawBody, $requestPath, $actorUri);
 
-        if (in_array($type, ['Follow', 'Block'], true) && $remoteNode !== null) {
-            $discovery->ensureRemoteActor($actorUri, $remoteNode);
+        if (in_array($type, ['Follow', 'Block'], true)) {
+            $discovery->ensureRemoteActor($actorUri);
         }
 
         $localProfile = $this->resolveLocalProfileForActivity($type, $activity);
