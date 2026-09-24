@@ -180,8 +180,10 @@
     });
     xhr.addEventListener('load', () => {
       let payload = null;
-      try { payload = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (_) { /* non-JSON response */ }
-      if (xhr.status >= 200 && xhr.status < 300) resolve(payload);
+      let parseFailed = false;
+      try { payload = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (_) { parseFailed = true; }
+      if (xhr.status >= 200 && xhr.status < 300 && !parseFailed) resolve(payload);
+      else if (parseFailed) reject(new Error(`The server returned an invalid response (HTTP ${xhr.status}). Check the server's error log — a stray warning before the JSON output is the usual cause.`));
       else reject(new Error(payload?.error?.message || `Request failed (${xhr.status})`));
     });
     xhr.addEventListener('error', () => reject(new Error('Network error while uploading.')));
