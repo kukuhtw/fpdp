@@ -48,10 +48,11 @@ $router = require __DIR__ . '/../app/routes.php';
 
 /**
  * @param array<string, string> $headers
+ * @param array<string, string> $query
  * @return array{status: int, body: mixed, contentType: ?string}
  */
-$dispatch = static function (string $method, string $path, ?string $rawBody = null, array $headers = []) use ($router): array {
-    $response = $router->dispatch(new Request($method, $path, [], $rawBody, $headers));
+$dispatch = static function (string $method, string $path, ?string $rawBody = null, array $headers = [], array $query = []) use ($router): array {
+    $response = $router->dispatch(new Request($method, $path, $query, $rawBody, $headers));
 
     return [
         'status' => $response->status,
@@ -142,7 +143,7 @@ finbox_assert(str_starts_with((string) $actorDoc['body']['publicKey']['publicKey
 finbox_assert($actorDoc['body']['publicKey']['id'] === 'https://test.local/@owner#main-key', 'publicKey id should match the keyId used for signing');
 
 // ---- Test 2: WebFinger resolves acct:owner@test.local to the actor URI ----
-$webfinger = $dispatch('GET', '/.well-known/webfinger?resource=' . rawurlencode('acct:owner@test.local'));
+$webfinger = $dispatch('GET', '/.well-known/webfinger', null, [], ['resource' => 'acct:owner@test.local']);
 finbox_assert($webfinger['status'] === 200, 'WebFinger lookup failed: ' . json_encode($webfinger));
 finbox_assert($webfinger['contentType'] === 'application/jrd+json', 'WebFinger response should be application/jrd+json');
 $selfLink = current(array_filter($webfinger['body']['links'], fn ($l) => $l['rel'] === 'self'));
@@ -168,9 +169,12 @@ finbox_assert($follow1['body']['data']['status'] === 'pending', 'A new inbound F
 $storedActivity = $db->query("SELECT status FROM federation_activities WHERE public_id = " . $db->quote($followActivityId))->fetch();
 finbox_assert($storedActivity['status'] === 'VERIFIED', 'A verified Follow should be persisted with status VERIFIED');
 
-// ---- Test 4: the same signature replayed against a different (tampered) body is rejected — digest mismatch ----
-$tamperedBody = str_replace('Follow', 'FollowXX', $signed['body']);
-$tampered = $dispatch('POST', $inboxPath, $tamperedBody, $signed['headers']);
+// ---- Test 4: a body tampered after signing (so it no longer matches the signed Digest header) is rejected ----
+$tamperActivityId = 'https://sender.example/activities/' . Uuid::v4();
+$tamperPayload = ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => $tamperActivityId, 'type' => 'Follow', 'actor' => $remote['actorUri'], 'object' => 'https://test.local/@owner', 'published' => gmdate('c')];
+$tamperSigned = finbox_sign_request($remote['privateKey'], $remote['keyId'], 'POST', $inboxPath, 'test.local', $tamperPayload);
+$tamperedBody = str_replace($tamperActivityId, $tamperActivityId . '-tampered', $tamperSigned['body']);
+$tampered = $dispatch('POST', $inboxPath, $tamperedBody, $tamperSigned['headers']);
 finbox_assert($tampered['status'] === 403, 'A body that no longer matches the signed Digest header should be rejected: ' . json_encode($tampered));
 
 // ---- Test 5: a signature made with the WRONG private key is rejected ----
