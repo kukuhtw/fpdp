@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Controllers\AnalyticsController;
 use App\Controllers\AuthController;
+use App\Controllers\ChatbotController;
 use App\Controllers\CvController;
 use App\Controllers\ContentPageController;
 use App\Controllers\HealthController;
@@ -30,6 +31,9 @@ use App\Core\Router;
 use App\Repositories\AnalyticsEventRepository;
 use App\Repositories\AuditEventRepository;
 use App\Repositories\AuthTokenRepository;
+use App\Repositories\ChatbotSettingsRepository;
+use App\Repositories\ChatMessageRepository;
+use App\Repositories\ChatSessionRepository;
 use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
 use App\Repositories\LlmConfigRepository;
@@ -55,9 +59,12 @@ use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
 use App\Repositories\VisitorTokenRepository;
+use App\Repositories\VisitorWalletRepository;
 use App\Repositories\WallCommentRepository;
 use App\Services\Auth\AuthService;
 use App\Services\Analytics\AnalyticsService;
+use App\Services\Chatbot\ChatbotService;
+use App\Services\Chatbot\VisitorWalletService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Federation\FederationService;
 use App\Services\Theme\ThemeService;
@@ -247,12 +254,49 @@ $buildCvController = static function () use ($buildAuthService, $buildVisitorAut
     );
 };
 
-$buildPaymentController = static function () use ($buildAuthService, $buildCvAccessService, $buildPaymentService, $buildMarketplaceService): PaymentController {
+$buildVisitorWalletService = static function () use ($buildPaymentService): VisitorWalletService {
+    $connection = Database::connection();
+
+    return new VisitorWalletService(
+        new VisitorWalletRepository($connection),
+        new VisitorRepository($connection),
+        $buildPaymentService(),
+        new NodeRepository($connection),
+    );
+};
+
+$buildChatbotService = static function (): ChatbotService {
+    $connection = Database::connection();
+
+    return new ChatbotService(
+        new ChatbotSettingsRepository($connection),
+        new VisitorWalletRepository($connection),
+        new ChatSessionRepository($connection),
+        new ChatMessageRepository($connection),
+        new RagFaqRepository($connection),
+        new LlmConfigRepository($connection),
+    );
+};
+
+$buildChatbotController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildChatbotService, $buildVisitorWalletService): ChatbotController {
+    $connection = Database::connection();
+
+    return new ChatbotController(
+        $buildAuthService(),
+        new ProfileService(new ProfileRepository($connection)),
+        $buildVisitorAuthService(),
+        $buildChatbotService(),
+        $buildVisitorWalletService(),
+    );
+};
+
+$buildPaymentController = static function () use ($buildAuthService, $buildCvAccessService, $buildPaymentService, $buildMarketplaceService, $buildVisitorWalletService): PaymentController {
     return new PaymentController(
         $buildAuthService(),
         $buildPaymentService(),
         $buildCvAccessService(),
         $buildMarketplaceService(),
+        $buildVisitorWalletService(),
     );
 };
 $buildFederationService = static function (): FederationService {
@@ -607,6 +651,42 @@ $router->patch('/api/v1/me/rag/faqs/{faqId}', function (Request $request, array 
 
 $router->delete('/api/v1/me/rag/faqs/{faqId}', function (Request $request, array $params) use ($buildRagController): Response {
     return $buildRagController()->deleteFaq($request, $params);
+});
+
+// ---- Chatbot: owner-facing settings and visitor deposit management ----
+
+$router->get('/api/v1/me/chatbot-settings', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->getSettings($request);
+});
+
+$router->patch('/api/v1/me/chatbot-settings', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->updateSettings($request);
+});
+
+$router->get('/api/v1/me/visitors', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->listVisitors($request);
+});
+
+$router->post('/api/v1/me/visitors/{visitorId}/wallet/grant', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->grantDeposit($request, $params);
+});
+
+// ---- Chatbot: visitor-facing ----
+
+$router->get('/api/v1/profiles/{handle}/chatbot/settings', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->publicSettings($request, $params);
+});
+
+$router->get('/api/v1/profiles/{handle}/wallet', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->getWallet($request, $params);
+});
+
+$router->post('/api/v1/profiles/{handle}/wallet/topup', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->topUp($request, $params);
+});
+
+$router->post('/api/v1/profiles/{handle}/chatbot/messages', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->ask($request, $params);
 });
 
 $router->get('/api/v1/me/dashboard/analytics', function (Request $request, array $params) use ($buildAnalyticsController): Response {

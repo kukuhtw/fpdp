@@ -8,6 +8,7 @@ use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Services\Auth\AuthService;
+use App\Services\Chatbot\VisitorWalletService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Payment\PaymentService;
@@ -19,6 +20,7 @@ final class PaymentController
         private readonly PaymentService $payments,
         private readonly CvAccessService $cvAccess,
         private readonly ?MarketplaceService $marketplace = null,
+        private readonly ?VisitorWalletService $wallet = null,
     ) {
     }
 
@@ -142,6 +144,13 @@ final class PaymentController
             $orderPublicId = (string) ($metadata['order_public_id'] ?? '');
             if ($orderPublicId !== '') {
                 $this->marketplace?->confirmPayment($orderPublicId, (string) $payment['order_id']);
+            }
+        }
+
+        if (($metadata['purpose'] ?? null) === 'wallet_topup') {
+            $walletId = (int) ($metadata['wallet_id'] ?? 0);
+            if ($walletId > 0) {
+                $this->wallet?->confirmTopUp($walletId, (string) $payment['amount'], (string) $payment['order_id']);
             }
         }
     }
