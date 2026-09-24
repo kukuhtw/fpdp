@@ -148,25 +148,60 @@ final class View
      * safely close whatever tags it cuts through. Callers append their own
      * "read more" link for the full, formatted post.
      */
+    /**
+     * Caller is responsible for htmlspecialchars()-ing this result exactly
+     * once before output (the same as any other plain-text value), then
+     * nl2br()-ing it if paragraph breaks should render — this returns plain
+     * text with single `\n`s between paragraphs, not HTML.
+     */
     public static function excerpt(string $html, int $maxWords = 50): string
     {
         // Post content is stored already HTML-escaped (post-card.php's
-        // non-excerpt path echoes it raw) — strip_tags() only removes real
-        // markup tags, leaving entities like `&lt;` as literal text, so
-        // decode those back to plain characters here. The caller is
-        // responsible for htmlspecialchars()-ing this result exactly once
-        // before output, the same as any other plain-text value.
-        $decoded = html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8');
-        $text = trim(preg_replace('/\s+/', ' ', $decoded) ?? '');
-        if ($text === '') {
+        // non-excerpt path echoes it raw) and authored as HTML — turn its
+        // block boundaries into newlines before stripping tags, so
+        // paragraph breaks survive into the plain-text excerpt instead of
+        // the whole thing collapsing onto one line.
+        $withBreaks = preg_replace('/<\/p>|<br\s*\/?>|<\/div>|<\/li>/i', "\n", $html) ?? $html;
+        $decoded = html_entity_decode(strip_tags($withBreaks), ENT_QUOTES, 'UTF-8');
+
+        // Collapse horizontal whitespace and runs of blank lines, but keep
+        // single newlines between paragraphs.
+        $normalized = preg_replace('/[ \t]+/', ' ', $decoded) ?? $decoded;
+        $normalized = preg_replace('/ *\n */', "\n", $normalized) ?? $normalized;
+        $normalized = trim(preg_replace('/\n{2,}/', "\n", $normalized) ?? $normalized, "\n ");
+        if ($normalized === '') {
             return '';
         }
 
-        $words = preg_split('/ /', $text) ?: [];
-        if (count($words) <= $maxWords) {
-            return $text;
+        // Split into words and the whitespace (including newlines) between
+        // them, so truncation can stop at a word boundary while keeping
+        // whichever paragraph breaks fall within the kept portion.
+        $tokens = preg_split('/(\s+)/', $normalized, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $wordCount = 0;
+        $totalWords = 0;
+        foreach ($tokens as $token) {
+            if (trim($token) !== '') {
+                $totalWords++;
+            }
+        }
+        if ($totalWords <= $maxWords) {
+            return $normalized;
         }
 
-        return implode(' ', array_slice($words, 0, $maxWords)) . '…';
+        $result = '';
+        foreach ($tokens as $token) {
+            if (trim($token) === '') {
+                $result .= $token;
+                continue;
+            }
+            if ($wordCount >= $maxWords) {
+                break;
+            }
+            $result .= $token;
+            $wordCount++;
+        }
+
+        return rtrim($result) . '…';
     }
 }

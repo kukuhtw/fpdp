@@ -19,7 +19,7 @@ $profileUrl = '/@' . rawurlencode((string) $post['handle']);
         <h2><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) $post['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
     <?php endif; ?>
     <?php if (!empty($excerpt)): ?>
-        <div class="post-content"><?= htmlspecialchars(\App\Core\View::excerpt((string) $post['content']), ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="post-content"><?= nl2br(htmlspecialchars(\App\Core\View::excerpt((string) $post['content']), ENT_QUOTES, 'UTF-8')) ?></div>
     <?php else: ?>
         <div class="post-content"><?= (string) $post['content'] ?></div>
     <?php endif; ?>
