@@ -65,7 +65,7 @@ interface LLMProviderInterface
 }
 ```
 
-`LLMProviderFactory::create(string $providerCode, array $config)` supports `OPENAI` and `ANTHROPIC` at launch and throws the same `UnsupportedProviderException` used by the payment and connector factories for any other code — no silent fallback to a default provider, for the same reason a wrong payment gateway must never be silently substituted.
+`LLMProviderFactory::create(string $providerCode, array $config)` supports `OPENAI`, `ANTHROPIC`, and `OPENROUTER` at launch and throws the same `UnsupportedProviderException` used by the payment and connector factories for any other code — no silent fallback to a default provider, for the same reason a wrong payment gateway must never be silently substituted.
 
 ### 4.2 Configuration
 
@@ -222,7 +222,7 @@ No new payment code path is introduced. CV access, chatbot sessions, and ad book
 ## 12. Recommended implementation order
 
 1. **Delivered.** **Visitor identity (Google OAuth).** Must exist before any other item in this addendum, since every paid or interactive feature depends on it. Deliverable: `visitor_accounts`, `visitor_tokens` migrations; OAuth redirect/callback endpoints; visitor bearer-token issuance and verification mirroring the owner `AuthService` pattern.
-2. **LLM provider abstraction.** Deliverable: `LLMProviderInterface`, `LLMProviderFactory` (OpenAI, Anthropic), `llm_configs` migration, owner-facing config endpoint. No visitor-facing surface yet.
+2. **Done.** **LLM provider abstraction.** Deliverable: `LLMProviderInterface`, `LLMProviderFactory` (OpenAI, Anthropic, OpenRouter), `llm_configs` migration (including `supports_vision`, an owner-set flag rather than something auto-detected from the model name), owner-facing config endpoint. Added beyond the original scope: `POST /api/v1/me/llm-config/describe-image`, which sends an already-uploaded product photo to the configured vision provider and returns a draft product description — manually triggered by an owner-clicked button (not automatic on every photo upload), since each call is a billed request against the owner's own provider account. Rate-limited by the same `RateLimiter` with key `(node_id, 'llm_call')` per §4.3. No visitor-facing chatbot surface yet.
 3. **Delivered.** **Paid CV/resume access.** Deliverable: `cv_documents`, `cv_access_grants` migrations; upload endpoint; gated read endpoint reusing `PaymentGatewayInterface`. The simplest paywall — good end-to-end proof of visitor identity + payment before the more complex chatbot. Implementation note: since Phase 5 has not yet built payment persistence or webhook confirmation, a successful `PaymentGatewayInterface::createPayment()` call is treated as confirmed for the DUMMY gateway (the only one implemented); a real gateway must switch this to webhook-driven confirmation. A CV upload replaces the node's single active document and revokes all prior grants against it, since a grant is a purchase of that specific content, not a standing subscription.
 4. **Paid chatbot.** Deliverable: `chat_sessions`, `chat_messages` migrations; chat endpoint combining LLM abstraction (step 2), visitor identity (step 1), and payment (step 3's pattern); grounding-context builder; rate limiting.
 5. **Traffic analytics.** Deliverable: `page_views`, `analytics_daily` migrations; view-recording middleware/hook; daily rollup job; owner-facing read endpoint. Independent of steps 2–4; can run in parallel once step 1 exists for authenticated-visitor fingerprints (anonymous fingerprinting does not even need step 1).

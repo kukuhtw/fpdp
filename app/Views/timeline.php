@@ -12,7 +12,7 @@
     <header class="page-heading"><p class="eyebrow">Discover</p><h1>Local timeline</h1><p>Published posts from this FPDP installation.</p></header>
     <section class="feed">
         <?php if ($posts === []): ?><div class="empty">No published posts yet.</div><?php endif; ?>
-        <?php foreach ($posts as $post): require __DIR__ . '/partials/post-card.php'; endforeach; ?>
+        <?php foreach ($posts as $post): \App\Core\View::partial('post-card', ['post' => $post, 'excerpt' => true]); endforeach; ?>
     </section>
     <?php if ($nextCursor !== null): ?><a class="button secondary" href="/timeline?cursor=<?= rawurlencode($nextCursor) ?>">Older posts</a><?php endif; ?>
 </main>

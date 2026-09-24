@@ -10,6 +10,9 @@
   const gatewayForm = document.querySelector('#gateway-form');
   const gatewayFields = document.querySelector('#gateway-fields');
   const configSubtitle = document.querySelector('#config-subtitle');
+  const llmForm = document.querySelector('#llm-form');
+  const llmStatus = document.querySelector('#llm-status');
+  const llmKeyHint = document.querySelector('#llm-key-hint');
 
   const token = () => sessionStorage.getItem(tokenKey);
   const showStatus = (message, error = false) => {
@@ -177,6 +180,54 @@
     }
   });
 
+  const showLlmStatus = (message, error = false) => {
+    llmStatus.textContent = message;
+    llmStatus.className = `status ${error ? 'error' : 'success'}`;
+  };
+
+  const loadLlmSettings = async () => {
+    try {
+      const result = await api('/api/v1/me/llm-config');
+      const data = result.data;
+      if (data.provider_code) llmForm.elements.provider_code.value = data.provider_code;
+      llmForm.elements.model.value = data.model || '';
+      llmForm.elements.supports_vision.checked = !!data.supports_vision;
+      if (data.key_configured) {
+        llmKeyHint.textContent = `Current key: ${data.key_hint}`;
+        llmKeyHint.classList.remove('hidden');
+      } else {
+        llmKeyHint.classList.add('hidden');
+      }
+    } catch (error) {
+      showLlmStatus(error.message, true);
+    }
+  };
+
+  llmForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const apiKey = llmForm.elements.api_key.value;
+    if (!apiKey) {
+      showLlmStatus('Enter the API key to save (it is never shown back in full, so it must be re-entered to change it).', true);
+      return;
+    }
+    try {
+      await api('/api/v1/me/llm-config', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          provider_code: llmForm.elements.provider_code.value,
+          model: llmForm.elements.model.value.trim(),
+          api_key: apiKey,
+          supports_vision: llmForm.elements.supports_vision.checked,
+        }),
+      });
+      llmForm.elements.api_key.value = '';
+      showLlmStatus('LLM settings saved.');
+      await loadLlmSettings();
+    } catch (error) {
+      showLlmStatus(error.message, true);
+    }
+  });
+
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const fields = new FormData(loginForm);
@@ -190,6 +241,7 @@
       if (await verifySession()) {
         showStatus('Signed in successfully.');
         loadGateways();
+        loadLlmSettings();
       } else {
         showStatus('Session verification failed. Please try again.', true);
       }
@@ -222,6 +274,7 @@
   (async () => {
     if (await verifySession()) {
       await loadGateways();
+      await loadLlmSettings();
     }
   })();
 })();

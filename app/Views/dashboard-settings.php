@@ -47,6 +47,24 @@
         </div>
 
         <section class="panel">
+            <h2>AI / LLM Provider</h2>
+            <p class="muted">Configure an LLM provider for AI features (e.g. generating a product description from a photo). The API key is encrypted at rest and never shown in full again.</p>
+            <p id="llm-key-hint" class="muted hidden"></p>
+            <form id="llm-form" class="stack">
+                <label>Provider<select name="provider_code">
+                    <option value="OPENAI">OpenAI</option>
+                    <option value="ANTHROPIC">Anthropic</option>
+                    <option value="OPENROUTER">OpenRouter</option>
+                </select></label>
+                <label>Model<input name="model" placeholder="gpt-4o-mini" required></label>
+                <label>API Key<input name="api_key" type="password" placeholder="Enter to set or replace the stored key" autocomplete="off"></label>
+                <label class="check"><input name="supports_vision" type="checkbox"> This model can read images (vision)</label>
+                <button type="submit">Save LLM Settings</button>
+            </form>
+            <p id="llm-status" class="status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel">
             <h2>Install another gateway (plugin)</h2>
             <p class="muted">Beyond the built-in gateways above, you can add your own by copying a folder to <code>/gateways/&lt;slug&gt;/</code> on the server — the same no-upload-from-browser model as Template. No restart needed; reload this page and it appears in the list above, ready to configure and activate. Full guide: <code>documentation/PAYMENT-GATEWAY-PLUGIN-GUIDE.id.md</code>. A working example ships at <code>gateways/manual-transfer/</code>.</p>
         </section>

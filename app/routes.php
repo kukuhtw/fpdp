@@ -8,6 +8,7 @@ use App\Controllers\CvController;
 use App\Controllers\ContentPageController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
+use App\Controllers\LlmController;
 use App\Controllers\MediaController;
 use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
@@ -30,6 +31,7 @@ use App\Repositories\AuditEventRepository;
 use App\Repositories\AuthTokenRepository;
 use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
+use App\Repositories\LlmConfigRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\PostRepository;
@@ -57,6 +59,7 @@ use App\Services\Federation\FederationService;
 use App\Services\Theme\ThemeService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Cv\CvDocumentService;
+use App\Services\Llm\LLMConfigService;
 use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
 use App\Services\Content\MediaUploadService;
@@ -163,6 +166,19 @@ $mediaStorageDirectory = dirname(__DIR__) . '/storage/media';
 
 $buildMediaController = static function () use ($buildAuthService, $mediaStorageDirectory): MediaController {
     return new MediaController($buildAuthService(), new MediaUploadService($mediaStorageDirectory));
+};
+
+$buildLlmController = static function () use ($buildAuthService, $mediaStorageDirectory, $buildRateLimiter): LlmController {
+    $connection = Database::connection();
+
+    return new LlmController(
+        $buildAuthService(),
+        new LLMConfigService(
+            new LlmConfigRepository($connection),
+            new MediaUploadService($mediaStorageDirectory),
+            $buildRateLimiter(),
+        ),
+    );
 };
 
 $buildPaymentService = static function (): PaymentService {
@@ -521,6 +537,18 @@ $router->patch('/api/v1/me/payment-gateways/{code}', function (Request $request,
 
 $router->put('/api/v1/me/payment-gateways/{code}/activate', function (Request $request, array $params) use ($buildPaymentController): Response {
     return $buildPaymentController()->activateGateway($request, $params);
+});
+
+$router->get('/api/v1/me/llm-config', function (Request $request, array $params) use ($buildLlmController): Response {
+    return $buildLlmController()->getSettings($request);
+});
+
+$router->patch('/api/v1/me/llm-config', function (Request $request, array $params) use ($buildLlmController): Response {
+    return $buildLlmController()->updateSettings($request);
+});
+
+$router->post('/api/v1/me/llm-config/describe-image', function (Request $request, array $params) use ($buildLlmController): Response {
+    return $buildLlmController()->describeImage($request);
 });
 
 $router->get('/api/v1/me/dashboard/analytics', function (Request $request, array $params) use ($buildAnalyticsController): Response {

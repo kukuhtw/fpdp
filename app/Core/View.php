@@ -141,4 +141,25 @@ final class View
             $escapedText
         ) ?? $escapedText;
     }
+
+    /**
+     * Plain-text excerpt of a post's (HTML) content: strips tags rather than
+     * attempting to preserve formatting, since a truncated word count can't
+     * safely close whatever tags it cuts through. Callers append their own
+     * "read more" link for the full, formatted post.
+     */
+    public static function excerpt(string $html, int $maxWords = 50): string
+    {
+        $text = trim(preg_replace('/\s+/', ' ', strip_tags($html)) ?? '');
+        if ($text === '') {
+            return '';
+        }
+
+        $words = preg_split('/ /', $text) ?: [];
+        if (count($words) <= $maxWords) {
+            return $text;
+        }
+
+        return implode(' ', array_slice($words, 0, $maxWords)) . '…';
+    }
 }
