@@ -50,6 +50,8 @@ final class MarketplaceService
             $input['digital_asset_url'] ?? null,
             $input['digital_asset_metadata'] ?? null,
             (bool) ($input['is_promoted'] ?? false),
+            $input['status'] ?? 'ACTIVE',
+            $input['visibility'] ?? 'PUBLIC',
         );
     }
 
