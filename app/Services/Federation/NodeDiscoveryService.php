@@ -103,11 +103,13 @@ final class NodeDiscoveryService
                 array_merge(['Accept' => 'application/jrd+json, application/json'], $this->signedGetHeaders($webfingerUrl)),
                 self::FETCH_TIMEOUT_SECONDS,
             );
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log("[NodeDiscoveryService] WebFinger request threw for {$webfingerUrl}: " . $e->getMessage());
             return null;
         }
 
         if ($response['status'] < 200 || $response['status'] >= 300) {
+            error_log("[NodeDiscoveryService] WebFinger fetch for {$webfingerUrl} returned HTTP {$response['status']}: " . substr($response['body'], 0, 500));
             return null;
         }
 
@@ -228,16 +230,19 @@ final class NodeDiscoveryService
                 array_merge(['Accept' => self::ACCEPT_HEADER], $this->signedGetHeaders($actorUri)),
                 self::FETCH_TIMEOUT_SECONDS,
             );
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log("[NodeDiscoveryService] Actor document request threw for {$actorUri}: " . $e->getMessage());
             return null;
         }
 
         if ($response['status'] < 200 || $response['status'] >= 300) {
+            error_log("[NodeDiscoveryService] Actor document fetch for {$actorUri} returned HTTP {$response['status']}: " . substr($response['body'], 0, 500));
             return null;
         }
 
         $document = json_decode($response['body'], true);
         if (!is_array($document) || !is_string($document['id'] ?? null) || $document['id'] === '') {
+            error_log("[NodeDiscoveryService] Actor document fetch for {$actorUri} returned an unparseable/id-less body: " . substr($response['body'], 0, 500));
             return null;
         }
 
