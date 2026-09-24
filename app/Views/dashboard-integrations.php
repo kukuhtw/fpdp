@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
-<nav class="topbar"><a class="brand" href="/">FPDP</a><div class="nav-links"><a href="/">Home</a><a href="/about">About</a><a href="/dashboard">Dashboard</a><a href="/dashboard/posts" class="owner-nav hidden">Post editor</a><a href="/dashboard/posts/list" class="owner-nav hidden">My posts</a><a href="/dashboard/cv" class="owner-nav hidden">CV &amp; Resume</a><a href="/dashboard/integrations" class="owner-nav hidden">Integrations</a><a href="/dashboard/settings" class="owner-nav hidden">Settings</a><a href="/timeline">Timeline</a><a href="/dashboard/federation" class="owner-nav hidden">Federasi</a><a href="/dashboard/themes" class="owner-nav hidden">Template</a></div></nav>
+<?php \App\Core\View::partial('topnav'); ?>
 <main class="shell dashboard-shell">
     <section class="panel">
         <p class="eyebrow">Owner dashboard</p><h1>Integrasi konten</h1>
@@ -17,7 +17,6 @@
             <label class="password-field">Password<span class="password-wrapper"><input name="password" type="password" autocomplete="current-password" required><button type="button" class="toggle-password" data-show="Tampilkan" data-hide="Sembunyikan">Tampilkan</button></span></label>
             <button type="submit">Masuk</button>
         </form>
-        <button id="logout-button" class="secondary hidden" type="button">Keluar</button>
     </section>
     <section id="integration-content" class="hidden stack">
         <section class="provider-grid" aria-label="Platform konten">

@@ -1,16 +1,23 @@
 <nav class="topbar">
   <a class="brand" href="/">FPDP</a>
-  <span class="nav-links">
+  <div class="nav-links">
     <a href="/">Home</a>
     <a href="/about-me">About Me</a>
     <a href="/youtube">YouTube</a>
+    <a href="/coretan">Coretan</a>
     <a href="/about">About FPDP</a>
-    <a href="/dashboard">Dashboard</a>
+    <a href="/timeline">Timeline</a>
+    <a href="/cv" class="guest-nav">CV &amp; Resume</a>
+    <a href="/dashboard" class="guest-nav">Dashboard</a>
     <a href="/dashboard/about-me" class="owner-nav hidden">Edit About Me</a>
+    <a href="/dashboard/coretan" class="owner-nav hidden">Kelola Coretan</a>
     <a href="/dashboard/posts" class="owner-nav hidden">Post editor</a>
     <a href="/dashboard/posts/list" class="owner-nav hidden">My posts</a>
     <a href="/dashboard/cv" class="owner-nav hidden">CV &amp; Resume</a>
     <a href="/dashboard/integrations" class="owner-nav hidden">Integrations</a>
-    <a href="/timeline">Timeline</a>
-  </span>
+    <a href="/dashboard/settings" class="owner-nav hidden">Settings</a>
+    <a href="/dashboard/federation" class="owner-nav hidden">Federasi</a>
+    <a href="/dashboard/themes" class="owner-nav hidden">Template</a>
+    <button id="logout-button" class="owner-nav hidden nav-logout" type="button">LogOut</button>
+  </div>
 </nav>

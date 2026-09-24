@@ -101,6 +101,7 @@
       logoutButton.classList.add('hidden');
       content.classList.add('hidden');
       document.querySelectorAll('.owner-nav').forEach((el) => el.classList.add('hidden'));
+      document.querySelectorAll('.guest-nav').forEach((el) => el.classList.remove('hidden'));
       return;
     }
     try {
@@ -110,6 +111,7 @@
       logoutButton.classList.remove('hidden');
       content.classList.remove('hidden');
       document.querySelectorAll('.owner-nav').forEach((el) => el.classList.remove('hidden'));
+      document.querySelectorAll('.guest-nav').forEach((el) => el.classList.add('hidden'));
       loadThemes();
     } catch (error) {
       sessionStorage.removeItem(tokenKey);

@@ -22,6 +22,7 @@
     logoutButton.classList.toggle('hidden', !authenticated);
     settingsContent.classList.toggle('hidden', !authenticated);
     authSummary.textContent = authenticated ? `Signed in${label ? ` as ${label}` : ''}.` : 'Sign in to manage settings.';
+    document.querySelectorAll('.guest-nav').forEach((el) => el.classList.toggle('hidden', authenticated));
     if (authenticated) showOwnerNav();
   };
   const api = async (path, options = {}) => {

@@ -33,6 +33,7 @@
   const setAuthenticated = (authenticated, label = '') => {
     loginForm.classList.toggle('hidden', authenticated); logoutButton.classList.toggle('hidden', !authenticated); content.classList.toggle('hidden', !authenticated);
     authSummary.textContent = authenticated ? `Masuk sebagai ${label}.` : 'Masuk untuk mengelola sumber konten.';
+    document.querySelectorAll('.guest-nav').forEach((el) => el.classList.toggle('hidden', authenticated));
     if (authenticated) showOwnerNav();
   };
   const renderSources = (sources) => {

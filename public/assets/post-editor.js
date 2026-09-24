@@ -154,6 +154,7 @@
     loginForm.classList.toggle('hidden', authenticated);
     logoutButton.classList.toggle('hidden', !authenticated);
     authSummary.textContent = authenticated ? `Signed in${label ? ` as ${label}` : ''}.` : 'Sign in to create and manage local posts.';
+    document.querySelectorAll('.guest-nav').forEach((el) => el.classList.toggle('hidden', authenticated));
     if (authenticated) showOwnerNav();
   };
   const api = async (path, options = {}) => {

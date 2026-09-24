@@ -24,6 +24,7 @@
     logoutButton.classList.toggle('hidden', !authenticated);
     content.classList.toggle('hidden', !authenticated);
     authSummary.textContent = authenticated ? `Signed in${label ? ` as ${label}` : ''}.` : 'Sign in to view your dashboard.';
+    document.querySelectorAll('.guest-nav').forEach((el) => el.classList.toggle('hidden', authenticated));
     if (authenticated) showOwnerNav();
   };
   const api = async (path, options = {}) => {

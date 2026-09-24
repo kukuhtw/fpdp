@@ -44,6 +44,11 @@ final class HomeController
         return $this->ownerPage('wallCoretan');
     }
 
+    public function cv(): string
+    {
+        return $this->ownerPage('publicCv');
+    }
+
     private function ownerPage(string $page): string
     {
         $node = $this->nodes->findFirst();

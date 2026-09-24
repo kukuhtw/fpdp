@@ -25,7 +25,7 @@
     </style>
 </head>
 <body>
-<nav class="topbar"><a class="brand" href="/">FPDP</a><div class="nav-links"><a href="/">Home</a><a href="/about">About</a><a href="/dashboard">Dashboard</a><a href="/dashboard/posts" class="owner-nav hidden">Post editor</a><a href="/dashboard/posts/list" class="owner-nav hidden">My posts</a><a href="/dashboard/cv" class="owner-nav hidden">CV &amp; Resume</a><a href="/dashboard/integrations" class="owner-nav hidden">Integrations</a><a href="/dashboard/settings" class="owner-nav hidden">Settings</a><a href="/timeline">Timeline</a><a href="/dashboard/federation" class="owner-nav hidden">Federasi</a><a href="/dashboard/themes" class="owner-nav hidden">Template</a></div></nav>
+<?php \App\Core\View::partial('topnav'); ?>
 <main class="shell editor-grid">
     <section class="panel">
         <p class="eyebrow">Owner dashboard</p><h1>Post editor</h1>
@@ -40,7 +40,6 @@
             </label>
             <button type="submit">Sign in</button>
         </form>
-        <button id="logout-button" class="secondary hidden" type="button">Sign out</button>
     </section>
     <section class="panel">
         <form id="post-form" class="stack">

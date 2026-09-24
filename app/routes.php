@@ -319,6 +319,11 @@ $router->get('/coretan', function (Request $request, array $params) use ($buildC
     $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
     return Response::html($home->wallCoretan());
 });
+$router->get('/cv', function (Request $request, array $params) use ($buildContentPageController): Response {
+    $connection = Database::connection();
+    $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
+    return Response::html($home->cv());
+});
 $router->get('/dashboard/posts', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->editor());
 });

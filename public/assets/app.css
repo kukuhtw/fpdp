@@ -7,6 +7,8 @@ a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:under
 .nav-links { display:flex; align-items:center; gap:2px; flex-wrap:wrap; }
 .nav-links a { font-size:.85rem; font-weight:600; padding:6px 10px; border-radius:7px; white-space:nowrap; }
 .nav-links a:hover { background:#eaebe3; text-decoration:none; }
+.nav-links .nav-logout { font:inherit; font-size:.85rem; font-weight:600; padding:6px 10px; border-radius:7px; white-space:nowrap; border:0; background:transparent; color:var(--ink); cursor:pointer; }
+.nav-links .nav-logout:hover { background:#eaebe3; }
 .shell { width:min(760px,calc(100% - 32px)); margin:56px auto; }.shell.narrow{width:min(680px,calc(100% - 32px));}
 .page-heading,.profile-hero { margin-bottom:32px; }.page-heading h1,.profile-hero h1,.panel h1{font:700 clamp(2rem,6vw,3.5rem)/1.05 Georgia,serif;margin:.15em 0;}
 .eyebrow { margin:0; color:var(--accent); font-size:.75rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
