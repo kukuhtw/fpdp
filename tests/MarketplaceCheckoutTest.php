@@ -161,6 +161,7 @@ $connection->exec('
         digital_asset_metadata TEXT,
         status TEXT NOT NULL DEFAULT "ACTIVE",
         visibility TEXT NOT NULL DEFAULT "PUBLIC",
+        is_promoted INTEGER NOT NULL DEFAULT 0,
         media TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
