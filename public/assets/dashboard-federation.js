@@ -240,9 +240,7 @@
       const result = await api('/api/v1/federation/send-follow', {
         method: 'POST',
         body: JSON.stringify({
-          target_actor_uri: sendFollowForm.elements.target_actor_uri.value,
-          target_domain: sendFollowForm.elements.target_domain.value,
-          target_federated_address: sendFollowForm.elements.target_federated_address.value || null,
+          account: sendFollowForm.elements.account.value,
         }),
       });
       sendFollowStatus.classList.add('success');

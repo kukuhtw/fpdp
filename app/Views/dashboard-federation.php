@@ -38,11 +38,9 @@
 
     <section class="panel">
       <h2>Ikuti profil lain</h2>
-      <p class="muted">Minta alamat federasi (mis. <code>@handle@domain</code>) atau actor URI dari pemilik profil yang ingin Anda ikuti. Status permintaan akan &ldquo;Pending&rdquo; sampai mereka approve di node mereka.</p>
+      <p class="muted">Masukkan alamat Fediverse (mis. <code>@handle@mastodon.social</code>, atau node FPDP lain) atau tempel URL profilnya. Sistem akan mencari (WebFinger) dan memverifikasi profil tersebut secara otomatis. Status permintaan akan &ldquo;Pending&rdquo; sampai mereka approve.</p>
       <form id="send-follow-form" class="stack">
-        <label>Actor URI target<input name="target_actor_uri" type="url" placeholder="https://contoh.domain/@handle" required></label>
-        <label>Domain target<input name="target_domain" type="text" placeholder="contoh.domain" required></label>
-        <label>Alamat federasi (opsional)<input name="target_federated_address" type="text" placeholder="@handle@contoh.domain"></label>
+        <label>Akun atau URL profil<input name="account" type="text" placeholder="@handle@mastodon.social atau https://contoh.domain/@handle" required></label>
         <button type="submit">Kirim permintaan follow</button>
       </form>
       <p id="send-follow-status" class="status" role="status" aria-live="polite"></p>
