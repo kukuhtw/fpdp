@@ -522,7 +522,14 @@ final class FederationService
     {
         $fr = $this->getFollowRepo();
         $existing = $fr->findByProfileAndTarget($profileId, $targetActorUri);
-        if ($existing !== null) {
+        // PENDING and DISCONNECTED are not active relationships: PENDING
+        // means the remote server's Accept was never received (e.g. their
+        // side accepted before our inbox/WebFinger was reachable, and gave
+        // up retrying delivery — there is no other way to recover than
+        // resending), and DISCONNECTED means the owner explicitly
+        // unfollowed. Both should allow a fresh attempt rather than
+        // permanently blocking re-follows the way any existing row used to.
+        if ($existing !== null && !in_array($existing['status'], ['PENDING', 'DISCONNECTED'], true)) {
             throw new ValidationException(
                 [['field' => 'target_actor_uri', 'reason' => 'already_following']],
                 'You already have a follow request or connection to this account (status: ' . $existing['status'] . '). Check Federasi > Koneksi.',
@@ -531,11 +538,21 @@ final class FederationService
         $localProfile = $this->profiles->findById($profileId);
         if ($localProfile === null) throw new NotFoundException('Profile not found.');
         $actorUri = "https://{$localProfile['node_domain']}/@" . $localProfile['handle'];
-        $followPubId = Uuid::v4();
+        // The follow's own public_id (our internal identifier for this
+        // relationship row) stays stable across resends; the AS2 activity's
+        // own id must be a fresh UUID every attempt — it's what Mastodon
+        // echoes back in Accept.object.id, and federation_activities.public_id
+        // is unique, so reusing the follow's id here would collide on resend.
+        $followPubId = $existing !== null ? (string) $existing['public_id'] : Uuid::v4();
+        $followActivityId = Uuid::v4();
         $activity = $this->queueOutgoingActivity($nodeId, 'Follow', $actorUri, $targetDomain, $targetActorUri, [
-            'id' => $followPubId, 'actor' => $actorUri, 'object' => $targetActorUri, 'target_domain' => $targetDomain,
+            'id' => $followActivityId, 'actor' => $actorUri, 'object' => $targetActorUri, 'target_domain' => $targetDomain,
         ]);
-        $fr->create($followPubId, $profileId, $targetActorUri, $targetFedAddress, null, (string) $activity['id']);
+        if ($existing !== null) {
+            $fr->updateStatus($followPubId, 'PENDING', (string) $activity['id']);
+        } else {
+            $fr->create($followPubId, $profileId, $targetActorUri, $targetFedAddress, null, (string) $activity['id']);
+        }
         return ['follow_id' => $followPubId, 'activity_id' => (string) $activity['id'], 'status' => 'PENDING'];
     }
 
