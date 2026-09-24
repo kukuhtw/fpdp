@@ -66,7 +66,7 @@ $pe = $d('POST', '/api/v1/products', ['price' => 100], $t);
 mp_assert($pe['s'] === 422, 'Empty title should 422');
 
 // Create order
-$o = $d('POST', '/api/v1/orders', ['items' => [['product_id' => $pid, 'quantity' => 2]]], $t);
+$o = $d('POST', '/api/v1/orders', ['items' => [['product_id' => $pid, 'quantity' => 2]], 'shipping_address' => 'Jl. Contoh No. 1, Jakarta'], $t);
 mp_assert($o['s'] === 201, 'Create order failed');
 mp_assert($o['b']['data']['status'] === 'PENDING', 'Order status should be PENDING');
 mp_assert((float) $o['b']['data']['total_amount'] > 0, 'Order should have total');

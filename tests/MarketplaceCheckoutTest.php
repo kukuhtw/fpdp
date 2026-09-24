@@ -339,7 +339,7 @@ $unauthCheckout = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/o
 assert_that($unauthCheckout->status === 401, "Checkout without a visitor token did not return 401, got {$unauthCheckout->status}");
 
 // 3. Checkout before any gateway is active is refused with a clear error, not a silent charge.
-$noGateway = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode(['items' => [['product_id' => $physicalId, 'quantity' => 1]]]), bearer($buyerToken)));
+$noGateway = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode(['items' => [['product_id' => $physicalId, 'quantity' => 1]], 'shipping_address' => 'Jl. Contoh No. 1, Jakarta']), bearer($buyerToken)));
 assert_that($noGateway->status === 409, "Checkout with no active gateway did not return 409, got {$noGateway->status}: {$noGateway->body}");
 
 // The owner activates DUMMY (no credentials required for it, same as CV's flow).
@@ -349,6 +349,7 @@ assert_that($activate->status === 200, "Activating DUMMY failed: {$activate->bod
 // 4. Real checkout: DUMMY confirms synchronously, so the order is COMPLETED immediately and carries the buyer's visitor_id.
 $checkout = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode([
     'items' => [['product_id' => $physicalId, 'quantity' => 2]],
+    'shipping_address' => 'Jl. Contoh No. 1, Jakarta',
 ]), bearer($buyerToken)));
 assert_that($checkout->status === 201, "Checkout failed: {$checkout->body}");
 $checkoutData = json_decode($checkout->body, true)['data'];
@@ -406,6 +407,7 @@ assert_that($activateManual->status === 200, "Activating manual-transfer failed:
 
 $asyncCheckout = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode([
     'items' => [['product_id' => $physicalId, 'quantity' => 1]],
+    'shipping_address' => 'Jl. Contoh No. 1, Jakarta',
 ]), bearer($buyerToken)));
 assert_that($asyncCheckout->status === 201, "Async-gateway checkout failed: {$asyncCheckout->body}");
 $asyncData = json_decode($asyncCheckout->body, true)['data'];
