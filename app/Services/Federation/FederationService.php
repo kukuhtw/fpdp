@@ -487,7 +487,7 @@ final class FederationService
     {
         $accountOrUrl = trim($accountOrUrl);
         if ($accountOrUrl === '') {
-            throw new ValidationException([['field' => 'account', 'reason' => 'required']]);
+            throw new ValidationException([['field' => 'account', 'reason' => 'required']], 'Enter an account (e.g. @user@mastodon.social) or a profile URL to follow.');
         }
 
         $discovery = $this->getDiscoveryService();
@@ -508,7 +508,10 @@ final class FederationService
         $fr = $this->getFollowRepo();
         $existing = $fr->findByProfileAndTarget($profileId, $targetActorUri);
         if ($existing !== null) {
-            throw new ValidationException([['field' => 'target_actor_uri', 'reason' => 'already_following']]);
+            throw new ValidationException(
+                [['field' => 'target_actor_uri', 'reason' => 'already_following']],
+                'You already have a follow request or connection to this account (status: ' . $existing['status'] . '). Check Federasi > Koneksi.',
+            );
         }
         $localProfile = $this->profiles->findById($profileId);
         if ($localProfile === null) throw new NotFoundException('Profile not found.');
