@@ -301,6 +301,7 @@
       product_type: form.elements.product_type.value,
       status: form.elements.status.value,
       visibility: form.elements.visibility.value,
+      is_promoted: form.elements.is_promoted.checked,
       media: form.elements.media_url.value ? [{ type: 'IMAGE', url: form.elements.media_url.value }] : [],
     };
     if (body.product_type === 'DIGITAL' && form.elements.digital_asset_url.value.trim()) {
