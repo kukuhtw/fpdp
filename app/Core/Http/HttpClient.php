@@ -10,7 +10,7 @@ use RuntimeException;
  * SSRF-safe HTTP client with URL validation, timeouts, size limits,
  * and controlled redirects. Replaces raw file_get_contents/simplexml_load_file calls.
  */
-final class HttpClient
+class HttpClient
 {
     private const DEFAULT_TIMEOUT = 15;
     private const DEFAULT_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
