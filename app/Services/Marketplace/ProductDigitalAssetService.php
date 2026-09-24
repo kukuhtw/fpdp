@@ -83,13 +83,34 @@ final class ProductDigitalAssetService
         $storageKey = Uuid::v4() . '.' . $extension;
         $this->writeFile($storageKey, $decoded);
 
-        $assetId = $this->assets->upsert((int) $product['id'], $kind, $storageKey, $originalFilename, $detectedType, strlen($decoded));
+        $this->assets->upsert((int) $product['id'], $kind, $storageKey, $originalFilename, $detectedType, strlen($decoded));
 
         if ($previous !== null && $previous['storage_key'] !== $storageKey) {
             @unlink(rtrim($this->storageDirectory, '/') . '/' . $previous['storage_key']);
         }
 
-        return $this->assets->listByProduct((int) $product['id'])[0] ?? ['id' => $assetId];
+        return $this->listForProduct((int) $product['id']);
+    }
+
+    /**
+     * Owner-only: same metadata as listForProduct(), but resolves the
+     * product by public_id and enforces ownership first — used by the
+     * product edit form to show what's already uploaded, without requiring
+     * a "purchase" the owner would never make of their own product.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listForOwnedProduct(int $nodeId, string $productPublicId): array
+    {
+        $product = $this->products->findByPublicId($productPublicId);
+        if ($product === null) {
+            throw new NotFoundException('Product not found.');
+        }
+        if ((int) $product['node_id'] !== $nodeId) {
+            throw new ForbiddenException('You do not own this product.');
+        }
+
+        return $this->listForProduct((int) $product['id']);
     }
 
     /**

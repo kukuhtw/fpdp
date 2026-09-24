@@ -184,6 +184,22 @@ final class MarketplaceController
     }
 
     /**
+     * GET /api/v1/me/products/{productId}/digital-assets
+     *
+     * Owner-only metadata list (kind, filename, size — no file content) of
+     * what's already uploaded for a product, for the edit form.
+     *
+     * @param array<string, string> $params
+     */
+    public function listDigitalAssets(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $result = $this->requireProductAssets()->listForOwnedProduct((int) $context['node']['id'], $params['productId']);
+
+        return JsonEnvelope::success($result);
+    }
+
+    /**
      * GET /api/v1/products/{productId}/digital-assets/{kind}/download
      *
      * Visitor-facing, gated: streams the uploaded PDF or source-code file
