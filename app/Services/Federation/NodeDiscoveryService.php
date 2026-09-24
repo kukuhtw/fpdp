@@ -6,6 +6,8 @@ namespace App\Services\Federation;
 
 use App\Core\Http\HttpClient;
 use App\Core\Uuid;
+use App\Repositories\NodeRepository;
+use App\Repositories\ProfileRepository;
 use App\Repositories\RemoteActorRepository;
 use App\Repositories\RemoteNodeRepository;
 use Throwable;
@@ -19,6 +21,13 @@ use Throwable;
  * FPDP's own proprietary, non-standard capability document; that's gone —
  * a Mastodon server doesn't have one, and keys are per-actor in real AP,
  * not per-domain.)
+ *
+ * Outbound fetches (actor document, WebFinger) are signed with this node's
+ * own key when a signing identity is available: many real instances —
+ * mastodon.social among them — run "Authorized Fetch" (secure mode) and
+ * reject even public, read-only requests that aren't HTTP-Signature-signed
+ * ({"error":"Request not signed"}), so an unsigned GET simply cannot read
+ * their actor documents at all.
  */
 final class NodeDiscoveryService
 {
@@ -30,6 +39,9 @@ final class NodeDiscoveryService
         private readonly RemoteNodeRepository $nodes,
         private readonly RemoteActorRepository $actors,
         private readonly HttpClient $http,
+        private readonly ?NodeKeyService $keyService = null,
+        private readonly ?NodeRepository $localNodes = null,
+        private readonly ?ProfileRepository $localProfiles = null,
     ) {
     }
 
@@ -84,10 +96,11 @@ final class NodeDiscoveryService
             return null;
         }
 
+        $webfingerUrl = "https://{$domain}/.well-known/webfinger?resource=" . rawurlencode('acct:' . $account);
         try {
             $response = $this->http->get(
-                "https://{$domain}/.well-known/webfinger?resource=" . rawurlencode('acct:' . $account),
-                ['Accept' => 'application/jrd+json, application/json'],
+                $webfingerUrl,
+                array_merge(['Accept' => 'application/jrd+json, application/json'], $this->signedGetHeaders($webfingerUrl)),
                 self::FETCH_TIMEOUT_SECONDS,
             );
         } catch (Throwable) {
@@ -210,7 +223,11 @@ final class NodeDiscoveryService
     private function fetchActorDocument(string $actorUri): ?array
     {
         try {
-            $response = $this->http->get($actorUri, ['Accept' => self::ACCEPT_HEADER], self::FETCH_TIMEOUT_SECONDS);
+            $response = $this->http->get(
+                $actorUri,
+                array_merge(['Accept' => self::ACCEPT_HEADER], $this->signedGetHeaders($actorUri)),
+                self::FETCH_TIMEOUT_SECONDS,
+            );
         } catch (Throwable) {
             return null;
         }
@@ -235,6 +252,55 @@ final class NodeDiscoveryService
         $documentHost = strtolower((string) parse_url($document['id'], PHP_URL_HOST));
 
         return $requestedHost !== '' && $requestedHost === $documentHost ? $document : null;
+    }
+
+    /**
+     * Host/Date/Signature headers for an outbound GET, signed as this
+     * node's own local actor — empty if no signing identity is wired up
+     * (falls back to the unsigned request, which still works against
+     * instances that don't require Authorized Fetch).
+     *
+     * @return array<string, string>
+     */
+    private function signedGetHeaders(string $url): array
+    {
+        if ($this->keyService === null || $this->localNodes === null || $this->localProfiles === null) {
+            return [];
+        }
+
+        $localNode = $this->localNodes->findFirst();
+        if ($localNode === null) {
+            return [];
+        }
+        $nodeId = (int) $localNode['id'];
+
+        $localProfile = $this->localProfiles->findByNodeId($nodeId);
+        if ($localProfile === null) {
+            return [];
+        }
+
+        if (!$this->keyService->hasKey($nodeId)) {
+            $this->keyService->generateKeypair($nodeId);
+        }
+
+        $host = (string) parse_url($url, PHP_URL_HOST);
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $query = parse_url($url, PHP_URL_QUERY);
+        if (is_string($query) && $query !== '') {
+            $path .= '?' . $query;
+        }
+
+        $headers = ['host' => $host, 'date' => HttpSignature::httpDate()];
+        $signedHeaderNames = ['(request-target)', 'host', 'date'];
+        $signingString = HttpSignature::buildSigningString('GET', $path, $headers, $signedHeaderNames);
+        $signature = $this->keyService->sign($nodeId, $signingString);
+        $keyId = 'https://' . $localProfile['node_domain'] . '/@' . $localProfile['handle'] . '#main-key';
+
+        return [
+            'Host' => $host,
+            'Date' => $headers['date'],
+            'Signature' => HttpSignature::buildSignatureHeader($keyId, $signedHeaderNames, $signature),
+        ];
     }
 
     private function isStale(?string $fetchedAt): bool
