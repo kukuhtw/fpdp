@@ -252,6 +252,7 @@ final class PostService
             'display_name' => $row['actor_display_name'] !== null && $row['actor_display_name'] !== ''
                 ? $row['actor_display_name']
                 : $row['federated_address'],
+            'avatar_url' => $row['actor_avatar_url'] ?? null,
             'permalink' => $row['canonical_url'] ?: $row['actor_canonical_url'],
             'profile_link' => $row['actor_canonical_url'] ?: $row['canonical_url'],
             'media' => [],

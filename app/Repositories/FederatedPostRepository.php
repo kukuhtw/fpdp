@@ -203,7 +203,7 @@ final class FederatedPostRepository
 
         $statement = $this->connection->prepare(
             'SELECT fp.public_id, fp.title, fp.content, fp.canonical_url, fp.published_at,
-                    ra.display_name AS actor_display_name, ra.federated_address,
+                    ra.display_name AS actor_display_name, ra.federated_address, ra.avatar_url AS actor_avatar_url,
                     ra.canonical_url AS actor_canonical_url
              FROM federated_posts fp
              INNER JOIN federated_connections fc ON fc.remote_actor_id = fp.remote_actor_id
