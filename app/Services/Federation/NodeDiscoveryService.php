@@ -256,7 +256,12 @@ final class NodeDiscoveryService
         $requestedHost = strtolower((string) parse_url($actorUri, PHP_URL_HOST));
         $documentHost = strtolower((string) parse_url($document['id'], PHP_URL_HOST));
 
-        return $requestedHost !== '' && $requestedHost === $documentHost ? $document : null;
+        if ($requestedHost === '' || $requestedHost !== $documentHost) {
+            error_log("[NodeDiscoveryService] Actor document host mismatch: requested {$actorUri} (host {$requestedHost}) but document id was {$document['id']} (host {$documentHost})");
+            return null;
+        }
+
+        return $document;
     }
 
     /**
@@ -270,17 +275,20 @@ final class NodeDiscoveryService
     private function signedGetHeaders(string $url): array
     {
         if ($this->keyService === null || $this->localNodes === null || $this->localProfiles === null) {
+            error_log("[NodeDiscoveryService] signedGetHeaders({$url}): no signing identity wired up, sending unsigned");
             return [];
         }
 
         $localNode = $this->localNodes->findFirst();
         if ($localNode === null) {
+            error_log("[NodeDiscoveryService] signedGetHeaders({$url}): no local node found (findFirst), sending unsigned");
             return [];
         }
         $nodeId = (int) $localNode['id'];
 
         $localProfile = $this->localProfiles->findByNodeId($nodeId);
         if ($localProfile === null) {
+            error_log("[NodeDiscoveryService] signedGetHeaders({$url}): no local profile for node {$nodeId}, sending unsigned");
             return [];
         }
 
