@@ -7,6 +7,7 @@
     <div id="product-actions" class="actions hidden">
       <a id="google-login" class="button" href="/api/v1/profiles/<?= rawurlencode((string) $profile['handle']) ?>/visitor-auth/google/redirect?return_to=<?= rawurlencode('/shop/' . (string) $productId) ?>">Masuk dengan Google untuk membeli</a>
       <label id="quantity-field" class="hidden">Jumlah<input id="quantity-input" type="number" min="1" value="1" style="width:5rem"></label>
+      <label id="shipping-address-field" class="hidden">Alamat pengiriman<textarea id="shipping-address-input" rows="3" placeholder="Nama penerima, alamat lengkap, kota, kode pos, nomor telepon"></textarea></label>
       <button id="buy-button" class="hidden" type="button">Beli</button>
       <a id="download-button" class="button hidden" target="_blank" rel="noopener">Download</a>
       <div id="digital-assets-buttons" class="actions"></div>

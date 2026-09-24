@@ -8,6 +8,8 @@
   const googleLogin = document.querySelector('#google-login');
   const quantityField = document.querySelector('#quantity-field');
   const quantityInput = document.querySelector('#quantity-input');
+  const shippingAddressField = document.querySelector('#shipping-address-field');
+  const shippingAddressInput = document.querySelector('#shipping-address-input');
   const buyButton = document.querySelector('#buy-button');
   const downloadButton = document.querySelector('#download-button');
   const digitalAssetsButtons = document.querySelector('#digital-assets-buttons');
@@ -85,6 +87,7 @@
 
     if (!signedIn) {
       quantityField.classList.add('hidden');
+      shippingAddressField.classList.add('hidden');
       buyButton.classList.add('hidden');
       downloadButton.classList.add('hidden');
       return;
@@ -109,6 +112,7 @@
           digitalAssetsButtons.append(button);
         });
         quantityField.classList.add('hidden');
+        shippingAddressField.classList.add('hidden');
         buyButton.classList.add('hidden');
         return;
       } catch (_) {
@@ -119,6 +123,7 @@
     downloadButton.classList.add('hidden');
     digitalAssetsButtons.replaceChildren();
     quantityField.classList.remove('hidden');
+    shippingAddressField.classList.toggle('hidden', product.product_type !== 'PHYSICAL');
     buyButton.classList.remove('hidden');
   };
 
@@ -135,12 +140,18 @@
 
   buyButton.addEventListener('click', async () => {
     const quantity = Math.max(1, parseInt(quantityInput.value, 10) || 1);
+    const shippingAddress = shippingAddressInput.value.trim();
+    if (product.product_type === 'PHYSICAL' && !shippingAddress) {
+      return message('Isi alamat pengiriman terlebih dahulu.', true);
+    }
     buyButton.disabled = true;
     message('Memproses pembelian…');
     try {
+      const body = { items: [{ product_id: productId, quantity }] };
+      if (shippingAddress) body.shipping_address = shippingAddress;
       const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/orders`, {
         method: 'POST',
-        body: JSON.stringify({ items: [{ product_id: productId, quantity }] }),
+        body: JSON.stringify(body),
       });
       const { order, payment } = result.data;
       if (order.status === 'COMPLETED') {

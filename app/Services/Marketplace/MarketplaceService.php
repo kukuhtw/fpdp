@@ -180,6 +180,7 @@ public function listProducts(int $nodeId, array $query = []): array
         if ($errors !== []) throw new ValidationException($errors);
         $totalAmount = '0';
         $orderItems = [];
+        $hasPhysicalItem = false;
         foreach ($input['items'] as $i => $item) {
             $pid = $item['product_id'] ?? '';
             $qty = max(1, (int) ($item['quantity'] ?? 1));
@@ -187,14 +188,24 @@ public function listProducts(int $nodeId, array $query = []): array
             if ($product === null) { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_found']; continue; }
             if ((int) $product['node_id'] !== $nodeId) { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_found']; continue; }
             if ((string) ($product['status'] ?? 'ACTIVE') !== 'ACTIVE') { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_available']; continue; }
+            if ((string) ($product['product_type'] ?? 'PHYSICAL') === 'PHYSICAL') { $hasPhysicalItem = true; }
             $unitPrice = $product['price'];
             $subtotal = (string) ((float) $unitPrice * $qty);
             $totalAmount = (string) ((float) $totalAmount + (float) $subtotal);
             $orderItems[] = ['product' => $product, 'quantity' => $qty, 'unit_price' => $unitPrice, 'subtotal' => $subtotal];
         }
+
+        $shippingAddress = trim((string) ($input['shipping_address'] ?? ''));
+        if ($hasPhysicalItem && $shippingAddress === '') {
+            $errors[] = ['field' => 'shipping_address', 'reason' => 'required_for_physical_items'];
+        }
+        if ($shippingAddress !== '' && mb_strlen($shippingAddress) > 1000) {
+            $errors[] = ['field' => 'shipping_address', 'reason' => 'invalid_length'];
+        }
+
         if ($errors !== []) throw new ValidationException($errors);
         $orderPubId = Uuid::v4();
-        $order = $this->orders->create($orderPubId, $nodeId, $totalAmount, $input['currency'] ?? 'IDR', $buyerEmail, $buyerName, $input['notes'] ?? null, $visitorId);
+        $order = $this->orders->create($orderPubId, $nodeId, $totalAmount, $input['currency'] ?? 'IDR', $buyerEmail, $buyerName, $input['notes'] ?? null, $visitorId, $shippingAddress !== '' ? $shippingAddress : null);
         foreach ($orderItems as $oi) {
             $this->orderItems->create((int) $order['id'], (int) $oi['product']['id'], ['public_id' => $oi['product']['public_id'], 'title' => $oi['product']['title'], 'price' => $oi['product']['price']], $oi['quantity'], $oi['unit_price'], $oi['subtotal']);
         }

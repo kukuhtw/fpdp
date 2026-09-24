@@ -39,6 +39,13 @@
     meta.className = 'muted';
     meta.textContent = `${itemsText} · ${new Date(order.created_at).toLocaleString('id-ID')}${order.buyer_email ? ' · ' + order.buyer_email : ''}`;
 
+    const parts = [head, meta];
+    if (order.shipping_address) {
+      const address = document.createElement('p');
+      address.innerHTML = `<strong>Alamat kirim:</strong> ${escapeHtml(order.shipping_address).replace(/\n/g, '<br>')}`;
+      parts.push(address);
+    }
+
     const controls = document.createElement('div');
     controls.className = 'field-row';
     const select = document.createElement('select');
@@ -64,7 +71,7 @@
     });
     controls.append(select, updateButton);
 
-    card.append(head, meta, controls);
+    card.append(...parts, controls);
     return card;
   };
 
