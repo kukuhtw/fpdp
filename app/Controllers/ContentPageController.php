@@ -37,6 +37,7 @@ final class ContentPageController
 
     public function timeline(array $query = []): string
     {
+        $query['source_type'] = $query['source_type'] ?? 'ALL';
         $result = $this->posts->list($query);
 
         return View::renderThemed('timeline', [

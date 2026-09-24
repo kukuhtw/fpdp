@@ -178,4 +178,41 @@ final class FederatedPostRepository
         );
         $statement->execute(['object_uri' => $objectUri]);
     }
+
+    /**
+     * Visible posts from actors this profile actively follows, newest
+     * first — the federated half of the node's unified timeline (see
+     * PostService::listWithFederated()).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listForProfile(int $profileId, int $limit, ?string $beforePublishedAt = null): array
+    {
+        $where = [
+            'fc.profile_id = :profile_id',
+            "fc.relationship_status IN ('FOLLOWING', 'CONNECTED')",
+            "fp.visibility IN ('PUBLIC', 'UNLISTED')",
+            'fp.deleted_at IS NULL',
+            'fp.published_at IS NOT NULL',
+        ];
+        $parameters = ['profile_id' => $profileId];
+        if ($beforePublishedAt !== null) {
+            $where[] = 'fp.published_at < :before';
+            $parameters['before'] = $beforePublishedAt;
+        }
+
+        $statement = $this->connection->prepare(
+            'SELECT fp.public_id, fp.title, fp.content, fp.canonical_url, fp.published_at,
+                    ra.display_name AS actor_display_name, ra.federated_address,
+                    ra.canonical_url AS actor_canonical_url
+             FROM federated_posts fp
+             INNER JOIN federated_connections fc ON fc.remote_actor_id = fp.remote_actor_id
+             INNER JOIN remote_actors ra ON ra.id = fp.remote_actor_id
+             WHERE ' . implode(' AND ', $where)
+            . ' ORDER BY fp.published_at DESC, fp.id DESC LIMIT ' . $limit,
+        );
+        $statement->execute($parameters);
+
+        return $statement->fetchAll();
+    }
 }

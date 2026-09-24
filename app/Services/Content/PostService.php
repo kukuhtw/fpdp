@@ -117,7 +117,7 @@ final class PostService
     public function list(array $query): array
     {
         $sourceType = (string) ($query['source_type'] ?? 'LOCAL');
-        if (!in_array($sourceType, ['LOCAL', 'EXTERNAL', 'FEDERATED'], true)) {
+        if (!in_array($sourceType, self::SOURCE_TYPES, true)) {
             throw new ValidationException([['field' => 'source_type', 'reason' => 'invalid_value']]);
         }
 
@@ -126,6 +126,10 @@ final class PostService
         ]);
         if ($limit === false) {
             throw new ValidationException([['field' => 'limit', 'reason' => 'invalid_value']]);
+        }
+
+        if (in_array($sourceType, ['FEDERATED', 'ALL'], true)) {
+            return $this->listWithFederated($sourceType, (int) $limit, isset($query['cursor']) ? (string) $query['cursor'] : null);
         }
 
         $beforeId = null;
@@ -153,9 +157,104 @@ final class PostService
         $last = $rows === [] ? null : $rows[array_key_last($rows)];
 
         return [
-            'items' => $rows,
+            'items' => array_map(static fn (array $row): array => $row + ['is_federated' => false], $rows),
             'next_cursor' => $hasMore && $last !== null ? rtrim(strtr(base64_encode((string) $last['id']), '+/', '-_'), '=') : null,
             'has_more' => $hasMore,
+        ];
+    }
+
+    /**
+     * ALL merges local + federated posts (from actors the node's owner
+     * follows) into one chronological feed — this node's single-tenant
+     * "unified timeline". FEDERATED alone returns just the federated side.
+     *
+     * Pagination is timestamp-based (not the local side's id cursor) since
+     * the two sources don't share a sequence. Each page re-fetches the
+     * latest `limit` rows from each source and filters by timestamp in
+     * PHP; with more than `limit` posts from one source landing between
+     * two pages this can skip a post from the other source — an accepted
+     * simplification for a single-tenant feed, not a true merged cursor.
+     */
+    private function listWithFederated(string $sourceType, int $limit, ?string $cursor): array
+    {
+        $beforeTimestamp = null;
+        if ($cursor !== null && $cursor !== '') {
+            $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
+            if ($decoded === false) {
+                throw new ValidationException([['field' => 'cursor', 'reason' => 'invalid_value']]);
+            }
+            $beforeTimestamp = $decoded;
+        }
+
+        $localRows = [];
+        if ($sourceType === 'ALL') {
+            $localRows = $this->posts->listPublic($limit + 1, null);
+            if ($beforeTimestamp !== null) {
+                $localRows = array_values(array_filter(
+                    $localRows,
+                    static fn (array $row): bool => $row['published_at'] !== null && $row['published_at'] < $beforeTimestamp,
+                ));
+            }
+        }
+
+        $federatedRows = [];
+        $profileId = $this->resolveLocalProfileId();
+        if ($this->federatedPosts !== null && $profileId !== null) {
+            $federatedRows = $this->federatedPosts->listForProfile($profileId, $limit + 1, $beforeTimestamp);
+        }
+
+        $items = array_merge(
+            array_map(static fn (array $row): array => $row + ['is_federated' => false], $localRows),
+            array_map([self::class, 'normalizeFederatedRow'], $federatedRows),
+        );
+        usort($items, static fn (array $a, array $b): int => strcmp((string) $b['published_at'], (string) $a['published_at']));
+
+        $hasMore = count($items) > $limit;
+        $page = array_slice($items, 0, $limit);
+        $last = $page === [] ? null : $page[count($page) - 1];
+
+        return [
+            'items' => $page,
+            'next_cursor' => $hasMore && $last !== null ? rtrim(strtr(base64_encode((string) $last['published_at']), '+/', '-_'), '=') : null,
+            'has_more' => $hasMore,
+        ];
+    }
+
+    private function resolveLocalProfileId(): ?int
+    {
+        if ($this->nodes === null || $this->profiles === null) {
+            return null;
+        }
+        $node = $this->nodes->findFirst();
+        if ($node === null) {
+            return null;
+        }
+        $profile = $this->profiles->findByNodeId((int) $node['id']);
+        return $profile !== null ? (int) $profile['id'] : null;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function normalizeFederatedRow(array $row): array
+    {
+        return [
+            'is_federated' => true,
+            'public_id' => $row['public_id'],
+            'title' => $row['title'],
+            // Federated content is untrusted remote HTML — run it through
+            // the same allowlist sanitizer as locally-authored content
+            // before it can ever reach a template's raw-HTML output path.
+            'content' => self::sanitizeHtml((string) ($row['content'] ?? '')),
+            'published_at' => $row['published_at'],
+            'handle' => ltrim((string) $row['federated_address'], '@'),
+            'display_name' => $row['actor_display_name'] !== null && $row['actor_display_name'] !== ''
+                ? $row['actor_display_name']
+                : $row['federated_address'],
+            'permalink' => $row['canonical_url'] ?: $row['actor_canonical_url'],
+            'profile_link' => $row['actor_canonical_url'] ?: $row['canonical_url'],
+            'media' => [],
         ];
     }
 

@@ -311,9 +311,17 @@ $buildFederationController = static function () use ($buildAuthService, $buildFe
 };
 
 $buildPostController = static function () use ($buildAuthService, $buildAnalyticsService, $buildFederationService): PostController {
+    $connection = Database::connection();
     return new PostController(
         $buildAuthService(),
-        new PostService(new PostRepository(Database::connection())),
+        new PostService(
+            new PostRepository($connection),
+            null,
+            null,
+            new FederatedPostRepository($connection),
+            new NodeRepository($connection),
+            new ProfileRepository($connection),
+        ),
         $buildAnalyticsService(),
         $buildFederationService(),
     );
