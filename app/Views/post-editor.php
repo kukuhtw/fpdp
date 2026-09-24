@@ -90,6 +90,7 @@
                     <label class="upload-picker">Or upload a file<input id="media-file-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,audio/mpeg,audio/ogg,audio/wav,application/pdf"></label>
                     <button id="media-upload-button" class="secondary" type="button" disabled>Upload</button>
                 </div>
+                <progress id="media-upload-progress" class="hidden" value="0" max="100"></progress>
                 <p id="media-upload-status" class="status" role="status" aria-live="polite"></p>
             </fieldset>
             <div class="field-row">

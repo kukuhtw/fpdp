@@ -165,6 +165,29 @@
     if (!response.ok) throw new Error(payload?.error?.message || `Request failed (${response.status})`);
     return payload;
   };
+  /**
+   * fetch() has no way to report upload progress, so a real progress bar
+   * needs XMLHttpRequest instead — same request shape as api(), just with
+   * xhr.upload.onprogress wired to onProgress(percent).
+   */
+  const postJsonWithProgress = (path, body, onProgress) => new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', path);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    if (token()) xhr.setRequestHeader('Authorization', `Bearer ${token()}`);
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    });
+    xhr.addEventListener('load', () => {
+      let payload = null;
+      try { payload = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (_) { /* non-JSON response */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(payload);
+      else reject(new Error(payload?.error?.message || `Request failed (${xhr.status})`));
+    });
+    xhr.addEventListener('error', () => reject(new Error('Network error while uploading.')));
+    xhr.send(JSON.stringify(body));
+  });
+
   const verifySession = async () => {
     if (!token()) { setAuthenticated(false); return false; }
     try {
@@ -252,6 +275,8 @@
     showMediaStatus('');
   });
 
+  const mediaUploadProgress = document.querySelector('#media-upload-progress');
+
   mediaUploadButton.addEventListener('click', async () => {
     if (!token()) return showMediaStatus('Sign in before uploading media.', true);
     const file = mediaFileInput.files[0];
@@ -261,12 +286,15 @@
     const mediaType = guessedType || 'IMAGE';
 
     mediaUploadButton.disabled = true;
-    showMediaStatus('Uploading…');
+    mediaUploadProgress.value = 0;
+    mediaUploadProgress.classList.remove('hidden');
+    showMediaStatus('Reading file…');
     try {
       const contentBase64 = await readAsBase64(file);
-      const result = await api('/api/v1/me/media', {
-        method: 'POST',
-        body: JSON.stringify({ media_type: mediaType, content_base64: contentBase64 }),
+      showMediaStatus('Uploading… 0%');
+      const result = await postJsonWithProgress('/api/v1/me/media', { media_type: mediaType, content_base64: contentBase64 }, (percent) => {
+        mediaUploadProgress.value = percent;
+        showMediaStatus(`Uploading… ${percent}%`);
       });
       const emptyRow = Array.from(mediaList.querySelectorAll('.media-row')).find((row) => !row.querySelector('.media-url').value.trim());
       const targetRow = emptyRow || addMediaRow();
@@ -279,6 +307,7 @@
       showMediaStatus(error.message, true);
     } finally {
       mediaUploadButton.disabled = mediaFileInput.files.length === 0;
+      mediaUploadProgress.classList.add('hidden');
     }
   });
 
