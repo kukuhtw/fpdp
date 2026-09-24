@@ -78,7 +78,6 @@
       <div class="fed-node"><div class="domain">arinode.id</div><div class="handle">@ari</div><div>Colleague</div></div>
     </div>
     <ol>
-<ol>
       <li><strong>Follow:</strong> @kukuh sends a Follow request to @ari@arinode.id.</li>
       <li><strong>Accept:</strong> The arinode.id node verifies the request and accepts it.</li>
       <li><strong>Receive:</strong> When @ari publishes a new post, kukuhtw.com receives it and shows it in @kukuh's timeline.</li>
@@ -108,13 +107,13 @@
       <table class="status-table">
         <tr><th>Feature</th><th>Status</th></tr>
         <tr><td>Local content publishing</td><td><span class="status-tag status-done">Done</span></td></tr>
-        <tr><td>Node identity &amp; keys</td><td><span class="status-tag status-done">Done</span></td></tr>
-        <tr><td>Remote node discovery</td><td><span class="status-tag status-wip">In progress</span></td></tr>
-        <tr><td>Follow / Accept / Reject</td><td><span class="status-tag status-wip">In progress</span></td></tr>
-        <tr><td>Content delivery (federated)</td><td><span class="status-tag status-todo">Planned</span></td></tr>
-        <tr><td>Federated timeline</td><td><span class="status-tag status-todo">Planned</span></td></tr>
-        <tr><td>Block / mute / report</td><td><span class="status-tag status-todo">Planned</span></td></tr>
-        <tr><td>ActivityPub compatibility</td><td><span class="status-tag status-todo">Planned</span></td></tr>
+        <tr><td>Node identity &amp; keys (RSA / HTTP Signatures)</td><td><span class="status-tag status-done">Done</span></td></tr>
+        <tr><td>Remote node discovery (WebFinger + Actor documents)</td><td><span class="status-tag status-done">Done</span></td></tr>
+        <tr><td>Follow / Accept / Reject</td><td><span class="status-tag status-done">Done</span></td></tr>
+        <tr><td>Outgoing activity delivery (signed)</td><td><span class="status-tag status-done">Done</span></td></tr>
+        <tr><td>Incoming posts / federated timeline</td><td><span class="status-tag status-todo">Planned</span></td></tr>
+        <tr><td>Block / mute / report</td><td><span class="status-tag status-wip">In progress</span></td></tr>
+        <tr><td>ActivityPub compatibility</td><td><span class="status-tag status-done">Done</span></td></tr>
       </table>
     </article>
   </div>
