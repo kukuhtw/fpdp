@@ -10,17 +10,37 @@
   const quantityInput = document.querySelector('#quantity-input');
   const buyButton = document.querySelector('#buy-button');
   const downloadButton = document.querySelector('#download-button');
+  const digitalAssetsButtons = document.querySelector('#digital-assets-buttons');
   let product = null;
 
-  const api = async (path, options = {}) => {
+  const api = async (path, options = {}, binary = false) => {
     const headers = { ...(options.headers || {}) };
     const token = sessionStorage.getItem(tokenKey);
     if (token) headers.Authorization = `Bearer ${token}`;
     if (options.body) headers['Content-Type'] = 'application/json';
     const response = await fetch(path, { ...options, headers });
+    if (binary) {
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      return response.blob();
+    }
     const payload = response.status === 204 ? null : await response.json();
     if (!response.ok) throw new Error(payload?.error?.message || `Request failed (${response.status})`);
     return payload;
+  };
+
+  const kindLabels = { PDF: 'Download PDF', SOURCE_CODE: 'Download source code' };
+  const downloadGatedAsset = async (kind, filename) => {
+    try {
+      const blob = await api(`/api/v1/products/${encodeURIComponent(productId)}/digital-assets/${encodeURIComponent(kind)}/download`, {}, true);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || kind.toLowerCase();
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      message(error.message, true);
+    }
   };
 
   const message = (text, error = false) => {
@@ -38,6 +58,14 @@
 
   const renderDetails = () => {
     details.innerHTML = '';
+    const photoUrl = product.media && product.media[0] && product.media[0].url;
+    if (photoUrl) {
+      const img = document.createElement('img');
+      img.src = photoUrl;
+      img.alt = product.title;
+      img.style.cssText = 'width:100%;max-height:420px;object-fit:cover;border-radius:12px;border:1px solid var(--line);margin-bottom:16px';
+      details.append(img);
+    }
     const title = document.createElement('h1');
     title.textContent = product.title;
     const price = document.createElement('p');
@@ -65,8 +93,21 @@
     if (product.product_type === 'DIGITAL') {
       try {
         const download = await api(`/api/v1/products/${encodeURIComponent(productId)}/download`);
-        downloadButton.href = download.data.digital_asset_url;
-        downloadButton.classList.remove('hidden');
+        digitalAssetsButtons.replaceChildren();
+        if (download.data.digital_asset_url) {
+          downloadButton.href = download.data.digital_asset_url;
+          downloadButton.classList.remove('hidden');
+        } else {
+          downloadButton.classList.add('hidden');
+        }
+        (download.data.digital_assets || []).forEach((asset) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'button';
+          button.textContent = kindLabels[asset.kind] || `Download ${asset.kind}`;
+          button.addEventListener('click', () => downloadGatedAsset(asset.kind, asset.original_filename));
+          digitalAssetsButtons.append(button);
+        });
         quantityField.classList.add('hidden');
         buyButton.classList.add('hidden');
         return;
@@ -76,6 +117,7 @@
     }
 
     downloadButton.classList.add('hidden');
+    digitalAssetsButtons.replaceChildren();
     quantityField.classList.remove('hidden');
     buyButton.classList.remove('hidden');
   };

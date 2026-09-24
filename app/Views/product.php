@@ -9,6 +9,7 @@
       <label id="quantity-field" class="hidden">Jumlah<input id="quantity-input" type="number" min="1" value="1" style="width:5rem"></label>
       <button id="buy-button" class="hidden" type="button">Beli</button>
       <a id="download-button" class="button hidden" target="_blank" rel="noopener">Download</a>
+      <div id="digital-assets-buttons" class="actions"></div>
     </div>
     <p id="product-status" class="status" role="status" aria-live="polite"></p>
   </section>

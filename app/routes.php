@@ -69,6 +69,7 @@ use App\Services\Content\WallCommentService;
 use App\Services\External\SyncWorker;
 use App\Services\External\LinkedInIntegrationService;
 use App\Services\Marketplace\MarketplaceService;
+use App\Services\Marketplace\ProductDigitalAssetService;
 use App\Services\Security\RateLimiter;
 use App\Services\Visitor\GoogleOAuthClient;
 use App\Services\Visitor\OAuthStateSigner;
@@ -164,6 +165,7 @@ $buildWallCommentController = static function () use ($buildAuthService, $buildV
 
 $cvStorageDirectory = dirname(__DIR__) . '/storage/cv';
 $mediaStorageDirectory = dirname(__DIR__) . '/storage/media';
+$productAssetStorageDirectory = dirname(__DIR__) . '/storage/products';
 
 $buildMediaController = static function () use ($buildAuthService, $mediaStorageDirectory): MediaController {
     return new MediaController($buildAuthService(), new MediaUploadService($mediaStorageDirectory));
@@ -278,7 +280,7 @@ $buildDashboardController = static function () use ($buildAuthService, $buildFed
 $buildAnalyticsController = static function () use ($buildAuthService, $buildProfileService, $buildAnalyticsService): AnalyticsController {
     return new AnalyticsController($buildAuthService(), $buildProfileService(), $buildAnalyticsService());
 };
-$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService, $buildMarketplaceService, $buildVisitorAuthService): MarketplaceController {
+$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService, $buildMarketplaceService, $buildVisitorAuthService, $productAssetStorageDirectory): MarketplaceController {
     $connection = Database::connection();
     return new MarketplaceController(
         $buildAuthService(),
@@ -286,6 +288,11 @@ $buildMarketplaceController = static function () use ($buildAuthService, $buildA
         $buildAnalyticsService(),
         new ProfileService(new ProfileRepository($connection)),
         $buildVisitorAuthService(),
+        new ProductDigitalAssetService(
+            new ProductRepository($connection),
+            new ProductDigitalAssetRepository($connection),
+            $productAssetStorageDirectory,
+        ),
     );
 };
 $buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {
@@ -676,6 +683,18 @@ $router->get('/api/v1/profiles/{handle}/products', function (Request $request, a
 
 $router->get('/api/v1/products/{productId}/download', function (Request $request, array $params) use ($buildMarketplaceController): Response {
     return $buildMarketplaceController()->getDigitalDownload($request, $params);
+});
+
+$router->get('/api/v1/me/products/{productId}/digital-assets', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->listDigitalAssets($request, $params);
+});
+
+$router->post('/api/v1/me/products/{productId}/digital-assets', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->uploadDigitalAsset($request, $params);
+});
+
+$router->get('/api/v1/products/{productId}/digital-assets/{kind}/download', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->downloadDigitalAsset($request, $params);
 });
 $router->post('/api/v1/federation/send-follow', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->sendFollow($request);

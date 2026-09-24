@@ -22,6 +22,7 @@
 /storage/queue/
 /storage/cv/
 /storage/media/
+/storage/products/
 /storage/installed.lock
 /bootstrap/cache/*.php
 !/bootstrap/cache/.gitignore

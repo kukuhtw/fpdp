@@ -22,6 +22,15 @@
     card.className = 'provider-card available';
     const typeLabel = { PHYSICAL: 'Barang fisik', DIGITAL: 'Barang digital', SERVICE: 'Jasa' }[product.product_type] || product.product_type;
 
+    const photoUrl = product.media && product.media[0] && product.media[0].url;
+    if (photoUrl) {
+      const img = document.createElement('img');
+      img.src = photoUrl;
+      img.alt = product.title;
+      img.style.cssText = 'width:100%;height:160px;object-fit:cover;border-radius:9px;margin-bottom:10px';
+      card.append(img);
+    }
+
     const body = document.createElement('div');
     const title = document.createElement('h2');
     const link = document.createElement('a');
