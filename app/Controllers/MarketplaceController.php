@@ -44,6 +44,27 @@ final class MarketplaceController
         return JsonEnvelope::success($this->marketplace->getProduct($params['productId']));
     }
 
+    /**
+     * GET /api/v1/profiles/{handle}/products
+     *
+     * Public storefront listing: only ACTIVE+PUBLIC products, regardless of
+     * what the caller asks for — `mine` is stripped so this can never be
+     * used to enumerate a node's private/draft products without auth (that
+     * branch of MarketplaceService::listProducts() is for the owner-authed
+     * /api/v1/products route only).
+     *
+     * @param array<string, string> $params
+     */
+    public function listPublicProducts(Request $request, array $params): Response
+    {
+        $profile = $this->requireProfiles()->getPublicProfile($params['handle']);
+        $query = $request->query;
+        unset($query['mine']);
+
+        $result = $this->marketplace->listProducts((int) $profile['node_id'], $query);
+        return JsonEnvelope::collection($result['items'], $result['next_cursor'], $result['has_more']);
+    }
+
     public function updateProduct(Request $request, array $params): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());

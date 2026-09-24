@@ -1,0 +1,127 @@
+(() => {
+  const tokenKey = 'fpdp_visitor_token';
+  const handle = document.body.dataset.profileHandle;
+  const productId = document.body.dataset.productId;
+  const details = document.querySelector('#product-details');
+  const actions = document.querySelector('#product-actions');
+  const status = document.querySelector('#product-status');
+  const googleLogin = document.querySelector('#google-login');
+  const quantityField = document.querySelector('#quantity-field');
+  const quantityInput = document.querySelector('#quantity-input');
+  const buyButton = document.querySelector('#buy-button');
+  const downloadButton = document.querySelector('#download-button');
+  let product = null;
+
+  const api = async (path, options = {}) => {
+    const headers = { ...(options.headers || {}) };
+    const token = sessionStorage.getItem(tokenKey);
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (options.body) headers['Content-Type'] = 'application/json';
+    const response = await fetch(path, { ...options, headers });
+    const payload = response.status === 204 ? null : await response.json();
+    if (!response.ok) throw new Error(payload?.error?.message || `Request failed (${response.status})`);
+    return payload;
+  };
+
+  const message = (text, error = false) => {
+    status.textContent = text;
+    status.className = `status ${error ? 'error' : 'success'}`;
+  };
+
+  const formatPrice = (price, currency) => {
+    const amount = Number(price);
+    if (!amount) return 'Gratis';
+    return `${currency} ${amount.toLocaleString('id-ID')}`;
+  };
+
+  const typeLabel = { PHYSICAL: 'Barang fisik', DIGITAL: 'Barang digital', SERVICE: 'Jasa' };
+
+  const renderDetails = () => {
+    details.innerHTML = '';
+    const title = document.createElement('h1');
+    title.textContent = product.title;
+    const price = document.createElement('p');
+    price.innerHTML = `<strong>${formatPrice(product.price, product.currency)}</strong> · ${typeLabel[product.product_type] || product.product_type}`;
+    details.append(title, price);
+    if (product.description) {
+      const desc = document.createElement('p');
+      desc.textContent = product.description;
+      details.append(desc);
+    }
+  };
+
+  const updateAuthUi = async () => {
+    const signedIn = Boolean(sessionStorage.getItem(tokenKey));
+    googleLogin.classList.toggle('hidden', signedIn);
+    actions.classList.remove('hidden');
+
+    if (!signedIn) {
+      quantityField.classList.add('hidden');
+      buyButton.classList.add('hidden');
+      downloadButton.classList.add('hidden');
+      return;
+    }
+
+    if (product.product_type === 'DIGITAL') {
+      try {
+        const download = await api(`/api/v1/products/${encodeURIComponent(productId)}/download`);
+        downloadButton.href = download.data.digital_asset_url;
+        downloadButton.classList.remove('hidden');
+        quantityField.classList.add('hidden');
+        buyButton.classList.add('hidden');
+        return;
+      } catch (_) {
+        // not purchased yet — fall through to showing the buy button
+      }
+    }
+
+    downloadButton.classList.add('hidden');
+    quantityField.classList.remove('hidden');
+    buyButton.classList.remove('hidden');
+  };
+
+  const load = async () => {
+    try {
+      product = (await api(`/api/v1/products/${encodeURIComponent(productId)}`)).data;
+      renderDetails();
+      await updateAuthUi();
+    } catch (error) {
+      details.innerHTML = '<p class="muted">Produk tidak ditemukan.</p>';
+      message(error.message, true);
+    }
+  };
+
+  buyButton.addEventListener('click', async () => {
+    const quantity = Math.max(1, parseInt(quantityInput.value, 10) || 1);
+    buyButton.disabled = true;
+    message('Memproses pembelian…');
+    try {
+      const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/orders`, {
+        method: 'POST',
+        body: JSON.stringify({ items: [{ product_id: productId, quantity }] }),
+      });
+      const { order, payment } = result.data;
+      if (order.status === 'COMPLETED') {
+        message('Pembayaran berhasil. Terima kasih!');
+        await updateAuthUi();
+        return;
+      }
+      if (payment?.payment_url) {
+        message('Mengalihkan ke halaman pembayaran…');
+        location.href = payment.payment_url;
+        return;
+      }
+      if (payment?.instructions) {
+        message(payment.instructions);
+        return;
+      }
+      message('Pesanan dibuat, menunggu konfirmasi pembayaran.');
+    } catch (error) {
+      message(error.message, true);
+    } finally {
+      buyButton.disabled = false;
+    }
+  });
+
+  load();
+})();

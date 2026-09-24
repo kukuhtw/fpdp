@@ -49,6 +49,22 @@ final class HomeController
         return $this->ownerPage('publicCv');
     }
 
+    public function shop(): string
+    {
+        return $this->ownerPage('shop');
+    }
+
+    public function product(string $productId): string
+    {
+        $node = $this->nodes->findFirst();
+        $profile = $node !== null ? $this->profiles->findByNodeId((int) $node['id']) : null;
+        if ($profile === null || $profile['visibility'] !== 'PUBLIC') {
+            return $this->placeholder();
+        }
+
+        return $this->contentPages->product((string) $profile['handle'], $productId);
+    }
+
     private function ownerPage(string $page): string
     {
         $node = $this->nodes->findFirst();

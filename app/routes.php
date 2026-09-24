@@ -335,6 +335,16 @@ $router->get('/cv', function (Request $request, array $params) use ($buildConten
     $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
     return Response::html($home->cv());
 });
+$router->get('/shop', function (Request $request, array $params) use ($buildContentPageController): Response {
+    $connection = Database::connection();
+    $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
+    return Response::html($home->shop());
+});
+$router->get('/shop/{productId}', function (Request $request, array $params) use ($buildContentPageController): Response {
+    $connection = Database::connection();
+    $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
+    return Response::html($home->product($params['productId']));
+});
 $router->get('/dashboard/posts', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->editor());
 });
@@ -363,6 +373,14 @@ $router->get('/dashboard/cv', function (Request $request, array $params) use ($b
 
 $router->get('/dashboard/federation', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->federationManager());
+});
+
+$router->get('/dashboard/products', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->productsManager());
+});
+
+$router->get('/dashboard/orders', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->ordersManager());
 });
 
 $router->get('/dashboard/themes', function (Request $request, array $params) use ($buildContentPageController): Response {
@@ -621,6 +639,10 @@ $router->patch('/api/v1/orders/{orderId}/status', function (Request $request, ar
 
 $router->post('/api/v1/profiles/{handle}/orders', function (Request $request, array $params) use ($buildMarketplaceController): Response {
     return $buildMarketplaceController()->checkout($request, $params);
+});
+
+$router->get('/api/v1/profiles/{handle}/products', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->listPublicProducts($request, $params);
 });
 
 $router->get('/api/v1/products/{productId}/download', function (Request $request, array $params) use ($buildMarketplaceController): Response {

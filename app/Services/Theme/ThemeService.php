@@ -18,7 +18,7 @@ use App\Repositories\NodeRepository;
 final class ThemeService
 {
     /** View names a theme is allowed to override. Anything else in views/ is ignored. */
-    public const THEMEABLE_VIEWS = ['profile', 'about-me', 'youtube', 'wall-coretan', 'post', 'public-cv', 'about', 'timeline'];
+    public const THEMEABLE_VIEWS = ['profile', 'about-me', 'youtube', 'wall-coretan', 'post', 'public-cv', 'about', 'timeline', 'shop', 'product'];
 
     private const SLUG_PATTERN = '/^[a-z0-9][a-z0-9_-]{0,63}$/';
 

@@ -183,4 +183,35 @@ final class ContentPageController
     {
         return View::render('dashboard-themes', ['title' => 'Template · Dashboard · FPDP']);
     }
+
+    public function shop(string $handle): string
+    {
+        $profile = $this->profiles->getPublicProfile($handle);
+
+        return View::renderThemed('shop', [
+            'title' => 'Shop · ' . $profile['display_name'],
+            'profile' => $profile,
+        ], $this->activeThemeForNode((int) $profile['node_id']));
+    }
+
+    public function product(string $handle, string $productId): string
+    {
+        $profile = $this->profiles->getPublicProfile($handle);
+
+        return View::renderThemed('product', [
+            'title' => 'Product · ' . $profile['display_name'],
+            'profile' => $profile,
+            'productId' => $productId,
+        ], $this->activeThemeForNode((int) $profile['node_id']));
+    }
+
+    public function productsManager(): string
+    {
+        return View::render('dashboard-products', ['title' => 'Products · Dashboard · FPDP']);
+    }
+
+    public function ordersManager(): string
+    {
+        return View::render('dashboard-orders', ['title' => 'Orders · Dashboard · FPDP']);
+    }
 }

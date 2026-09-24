@@ -65,5 +65,14 @@ page_assert($editor->status === 200 && str_contains($editor->body, 'Post editor'
 $aboutMeEditor = $router->dispatch(new Request('GET', '/dashboard/about-me'));
 page_assert($aboutMeEditor->status === 200 && str_contains($aboutMeEditor->body, 'Update About Me'), 'About Me dashboard page failed');
 
+$shop = $router->dispatch(new Request('GET', '/shop'));
+page_assert($shop->status === 200 && str_contains($shop->body, 'Writer &lt;script&gt;'), 'Shop page failed or did not escape display name');
+$product = $router->dispatch(new Request('GET', '/shop/some-product-id'));
+page_assert($product->status === 200 && str_contains($product->body, 'data-product-id="some-product-id"'), 'Product page failed or did not carry the product id');
+$productsManager = $router->dispatch(new Request('GET', '/dashboard/products'));
+page_assert($productsManager->status === 200 && str_contains($productsManager->body, 'Products'), 'Products dashboard page failed');
+$ordersManager = $router->dispatch(new Request('GET', '/dashboard/orders'));
+page_assert($ordersManager->status === 200 && str_contains($ordersManager->body, 'Orders'), 'Orders dashboard page failed');
+
 Database::reset(); unset($db); unlink($envPath); unlink($dbPath);
 fwrite(STDOUT, "Content pages test passed\n");
