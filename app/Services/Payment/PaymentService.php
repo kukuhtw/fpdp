@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Payment;
 
 use App\Contracts\PaymentGatewayInterface;
-use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\UnauthorizedException;
+use App\Core\Exceptions\UnsupportedProviderException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
 use App\Repositories\NodeRepository;
@@ -36,6 +36,7 @@ final class PaymentService
         private ?PaymentGatewayConfigRepository $gatewayConfigs = null,
         private ?NodeRepository $nodes = null,
         private ?PaymentCredentialVerifier $credentialVerifier = null,
+        private ?PaymentGatewayPluginService $pluginService = null,
     ) {
     }
 
@@ -53,7 +54,7 @@ final class PaymentService
             $this->getGatewayConfigRepository()->resolveConfiguration($gatewayCode),
             $paymentData['configuration'] ?? [],
         );
-        $gateway = $this->factory::create($gatewayCode, $configuration);
+        $gateway = $this->resolveGateway($gatewayCode, $configuration);
         $result = $gateway->createPayment($paymentData);
 
         $metadata = isset($paymentData['metadata']) && is_array($paymentData['metadata'])
@@ -81,7 +82,7 @@ final class PaymentService
     {
         $resolved = array_merge($this->getGatewayConfigRepository()->resolveConfiguration($gatewayCode), $configuration);
 
-        return PaymentGatewayFactory::create($gatewayCode, $resolved);
+        return $this->resolveGateway($gatewayCode, $resolved);
     }
 
     /**
@@ -95,7 +96,7 @@ final class PaymentService
     public function handleWebhook(string $gatewayCode, array $headers, string $rawBody): array
     {
         $configuration = $this->getGatewayConfigRepository()->resolveConfiguration($gatewayCode);
-        $gateway = PaymentGatewayFactory::create($gatewayCode, $configuration);
+        $gateway = $this->resolveGateway($gatewayCode, $configuration);
         if (!$gateway->verifyWebhook($headers, $rawBody)) {
             throw new UnauthorizedException('Invalid webhook signature.');
         }
@@ -158,6 +159,8 @@ final class PaymentService
      */
     public function listGatewaySettings(?int $nodeId = null): array
     {
+        $this->getPluginService()->syncInstalled();
+
         $configs = $this->getGatewayConfigRepository();
         $gateways = [];
         $domain = null;
@@ -186,12 +189,14 @@ final class PaymentService
             if ($domain !== null) {
                 $webhookUrl = "https://{$domain}/api/v1/payments/webhook/{$code}";
             }
+            $allowedKeys = $this->allowedConfigKeys(strtoupper($code), $gateway) ?? [];
 
             $gateways[] = [
                 'code' => $code,
                 'name' => $gateway['name'],
-                'allowed_config_keys' => self::ALLOWED_CONFIG_KEYS[strtoupper($code)] ?? [],
-                'requires_configuration' => (self::ALLOWED_CONFIG_KEYS[strtoupper($code)] ?? []) !== [],
+                'is_plugin' => (bool) ($gateway['is_plugin'] ?? false),
+                'allowed_config_keys' => $allowedKeys,
+                'requires_configuration' => $allowedKeys !== [],
                 'webhook_url' => $webhookUrl,
                 'environments' => array_values($environments),
             ];
@@ -216,7 +221,7 @@ final class PaymentService
             if ($gateway === null) {
                 throw new ValidationException([['field' => 'gateway', 'reason' => 'unknown_gateway']]);
             }
-            $requiredKeys = self::ALLOWED_CONFIG_KEYS[$normalized] ?? [];
+            $requiredKeys = $this->allowedConfigKeys($normalized, $gateway) ?? [];
             if ($requiredKeys !== []) {
                 $configuredKeys = array_keys($this->getGatewayConfigRepository()->getActiveConfig((int) $gateway['id']));
                 $missingKeys = array_values(array_diff($requiredKeys, $configuredKeys));
@@ -233,6 +238,67 @@ final class PaymentService
         $this->getNodeRepo()->setActiveGateway($nodeId, $gatewayCode !== null ? strtoupper($gatewayCode) : null);
 
         return ['active_gateway' => $gatewayCode !== null ? strtoupper($gatewayCode) : null];
+    }
+
+    /**
+     * Resolves the gateway code to an adapter instance: the four built-in
+     * gateways go through PaymentGatewayFactory as before; any other code
+     * must belong to an installed gateway plugin (payment_gateways.is_plugin
+     * = 1), whose adapter class is loaded via PaymentGatewayPluginService.
+     *
+     * @param array<string, mixed> $configuration
+     */
+    private function resolveGateway(string $gatewayCode, array $configuration): PaymentGatewayInterface
+    {
+        $normalized = strtoupper(trim($gatewayCode));
+        if (in_array($normalized, PaymentGatewayFactory::SUPPORTED_CODES, true)) {
+            return PaymentGatewayFactory::create($normalized, $configuration);
+        }
+
+        $gateway = $this->getGatewayConfigRepository()->findGatewayByCode($normalized);
+        $adapterClass = (bool) ($gateway['is_plugin'] ?? false)
+            ? $this->getPluginService()->resolveAdapterClass($normalized)
+            : null;
+
+        if ($adapterClass === null) {
+            throw UnsupportedProviderException::forCode('payment gateway', $normalized, PaymentGatewayFactory::SUPPORTED_CODES);
+        }
+
+        return new $adapterClass($configuration);
+    }
+
+    /**
+     * The config keys a gateway's adapter reads: the hardcoded map for a
+     * built-in code, or the plugin's own declared config_keys for a
+     * plugin-discovered one. Null means the code is not recognized at all.
+     *
+     * @param array<string, mixed> $gateway
+     * @return array<int, string>|null
+     */
+    private function allowedConfigKeys(string $normalizedCode, array $gateway): ?array
+    {
+        if (array_key_exists($normalizedCode, self::ALLOWED_CONFIG_KEYS)) {
+            return self::ALLOWED_CONFIG_KEYS[$normalizedCode];
+        }
+        if ((bool) ($gateway['is_plugin'] ?? false)) {
+            $decoded = json_decode((string) ($gateway['config_keys_json'] ?? '[]'), true);
+
+            return is_array($decoded) ? array_values(array_filter($decoded, 'is_string')) : [];
+        }
+
+        return null;
+    }
+
+    private function getPluginService(): PaymentGatewayPluginService
+    {
+        if ($this->pluginService === null) {
+            $this->pluginService = new PaymentGatewayPluginService(
+                $this->getGatewayConfigRepository(),
+                dirname(__DIR__, 3) . '/gateways',
+            );
+        }
+
+        return $this->pluginService;
     }
 
     private function getNodeRepo(): NodeRepository
@@ -259,7 +325,12 @@ final class PaymentService
         }
 
         $normalizedCode = strtoupper($gatewayCode);
-        $allowedKeys = self::ALLOWED_CONFIG_KEYS[$normalizedCode] ?? null;
+        $configs = $this->getGatewayConfigRepository();
+        $gateway = $configs->findGatewayByCode($normalizedCode);
+        if ($gateway === null) {
+            throw new ValidationException([['field' => 'gateway', 'reason' => 'unknown_gateway']]);
+        }
+        $allowedKeys = $this->allowedConfigKeys($normalizedCode, $gateway);
         if ($allowedKeys === null) {
             throw new ValidationException([['field' => 'gateway', 'reason' => 'unknown_gateway']]);
         }
@@ -286,14 +357,10 @@ final class PaymentService
             throw new ValidationException([['field' => 'config', 'reason' => 'configuration_not_required']]);
         }
 
-        $configs = $this->getGatewayConfigRepository();
-        $gateway = $configs->findGatewayByCode($normalizedCode);
-        if ($gateway === null) {
-            throw new NotFoundException('Gateway not found.');
-        }
-
         try {
-            $providerCheck = ($this->credentialVerifier ??= new PaymentCredentialVerifier())->verify($normalizedCode, $environment, $values);
+            $providerCheck = (bool) ($gateway['is_plugin'] ?? false)
+                ? 'NOT_VERIFIED_PLUGIN_GATEWAY'
+                : ($this->credentialVerifier ??= new PaymentCredentialVerifier())->verify($normalizedCode, $environment, $values);
         } catch (\RuntimeException $exception) {
             throw new ValidationException([[
                 'field' => 'config',

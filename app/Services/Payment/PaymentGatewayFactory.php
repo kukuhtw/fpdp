@@ -9,7 +9,8 @@ use App\Core\Exceptions\UnsupportedProviderException;
 
 final class PaymentGatewayFactory
 {
-    private const SUPPORTED_CODES = ['DUMMY', 'PAYWUZ', 'MIDTRANS', 'PAYPAL'];
+    /** Codes this factory instantiates directly. Anything else is resolved via a discovered plugin — see PaymentService::resolveGateway(). */
+    public const SUPPORTED_CODES = ['DUMMY', 'PAYWUZ', 'MIDTRANS', 'PAYPAL'];
 
     /**
      * @param array<string, mixed> $configuration

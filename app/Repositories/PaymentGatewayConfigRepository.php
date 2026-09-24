@@ -169,6 +169,61 @@ final class PaymentGatewayConfigRepository
     }
 
     /**
+     * Upserts a plugin-discovered gateway's metadata (see
+     * PaymentGatewayPluginService::syncInstalled()), marking it is_plugin=1
+     * so PaymentService can tell it apart from a built-in gateway.
+     *
+     * @param array<int, string> $configKeys
+     * @param array<string, bool> $capabilities
+     */
+    public function upsertPluginGateway(
+        string $code,
+        string $name,
+        ?string $description,
+        string $adapterClass,
+        array $configKeys,
+        array $capabilities,
+    ): void {
+        $normalizedCode = strtoupper($code);
+        $params = [
+            'code' => $normalizedCode,
+            'name' => $name,
+            'adapter_class' => $adapterClass,
+            'description' => $description,
+            'config_keys_json' => json_encode(array_values($configKeys)),
+            'supports_refund' => (int) ($capabilities['supports_refund'] ?? false),
+            'supports_recurring' => (int) ($capabilities['supports_recurring'] ?? false),
+            'supports_qris' => (int) ($capabilities['supports_qris'] ?? false),
+            'supports_va' => (int) ($capabilities['supports_va'] ?? false),
+            'supports_credit_card' => (int) ($capabilities['supports_credit_card'] ?? false),
+            'supports_ewallet' => (int) ($capabilities['supports_ewallet'] ?? false),
+        ];
+
+        if ($this->findGatewayByCode($normalizedCode) !== null) {
+            $statement = $this->connection->prepare(
+                'UPDATE payment_gateways
+                 SET name = :name, adapter_class = :adapter_class, description = :description, is_plugin = 1,
+                     config_keys_json = :config_keys_json, supports_refund = :supports_refund,
+                     supports_recurring = :supports_recurring, supports_qris = :supports_qris,
+                     supports_va = :supports_va, supports_credit_card = :supports_credit_card,
+                     supports_ewallet = :supports_ewallet
+                 WHERE code = :code',
+            );
+        } else {
+            $statement = $this->connection->prepare(
+                'INSERT INTO payment_gateways
+                     (code, name, adapter_class, description, is_plugin, config_keys_json,
+                      supports_refund, supports_recurring, supports_qris, supports_va, supports_credit_card, supports_ewallet)
+                 VALUES
+                     (:code, :name, :adapter_class, :description, 1, :config_keys_json,
+                      :supports_refund, :supports_recurring, :supports_qris, :supports_va, :supports_credit_card, :supports_ewallet)',
+            );
+        }
+
+        $statement->execute($params);
+    }
+
+    /**
      * Resolves the array a PaymentGatewayInterface adapter's constructor
      * expects, from whatever environment is currently active in the DB.
      * Returns [] when nothing is configured, so callers fall back to the

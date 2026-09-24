@@ -1,0 +1,17 @@
+{
+    "code": "MANUAL_TRANSFER",
+    "name": "Manual Bank Transfer",
+    "description": "Visitor transfers manually to your bank account; you confirm the payment yourself once it arrives.",
+    "author": "FPDP",
+    "version": "1.0.0",
+    "class": "FpdpGatewayPlugins\\ManualTransfer\\Gateway",
+    "config_keys": ["bank_name", "account_number", "account_holder", "webhook_secret"],
+    "capabilities": {
+        "supports_refund": false,
+        "supports_recurring": false,
+        "supports_qris": false,
+        "supports_va": false,
+        "supports_credit_card": false,
+        "supports_ewallet": false
+    }
+}

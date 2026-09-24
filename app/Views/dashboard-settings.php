@@ -45,6 +45,11 @@
                 <p id="settings-status" class="status" role="status" aria-live="polite"></p>
             </section>
         </div>
+
+        <section class="panel">
+            <h2>Install another gateway (plugin)</h2>
+            <p class="muted">Beyond the built-in gateways above, you can add your own by copying a folder to <code>/gateways/&lt;slug&gt;/</code> on the server — the same no-upload-from-browser model as Template. No restart needed; reload this page and it appears in the list above, ready to configure and activate. Full guide: <code>documentation/PAYMENT-GATEWAY-PLUGIN-GUIDE.id.md</code>. A working example ships at <code>gateways/manual-transfer/</code>.</p>
+        </section>
     </section>
 </main>
 <script src="/assets/dashboard-settings.js" defer></script>

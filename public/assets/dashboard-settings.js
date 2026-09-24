@@ -76,6 +76,7 @@
       card.innerHTML = `
         <div class="gateway-card-head">
           <strong>${gw.name}</strong> <span class="muted">(${gw.code})</span>
+          ${gw.is_plugin ? '<span class="status-tag" style="background:#eef2ff;color:#4338ca">PLUGIN</span>' : ''}
           ${isActive ? '<span class="status-tag" style="background:#e3efe9;color:#185f48">ACTIVE</span>' : ''}
         </div>
         <p class="muted">${envInfo}</p>
