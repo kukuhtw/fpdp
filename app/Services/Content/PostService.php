@@ -160,7 +160,7 @@ final class PostService
         return $this->posts->update((string) $post['public_id'], $fields);
     }
 
-    public function delete(array $context, string $publicId): void
+    public function delete(array $context, string $publicId): array
     {
         $post = $this->owned($context, $publicId);
         $this->posts->softDelete($publicId);
@@ -168,6 +168,8 @@ final class PostService
         $this->audit?->record($context, 'post.deleted', 'post', $publicId, [
             'previous_visibility' => $post['visibility'],
         ]);
+
+        return $post;
     }
 
     private function owned(array $context, string $publicId): array

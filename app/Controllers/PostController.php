@@ -11,6 +11,7 @@ use App\Core\Http\Response;
 use App\Services\Analytics\AnalyticsService;
 use App\Services\Auth\AuthService;
 use App\Services\Content\PostService;
+use App\Services\Federation\FederationService;
 
 final class PostController
 {
@@ -18,6 +19,7 @@ final class PostController
         private readonly AuthService $auth,
         private readonly PostService $posts,
         private readonly ?AnalyticsService $analytics = null,
+        private readonly ?FederationService $federation = null,
     ) {
     }
 
@@ -47,7 +49,9 @@ public function myPosts(Request $request): Response
     public function create(Request $request): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
-        return JsonEnvelope::success(ResourcePresenter::post($this->posts->create($context, $request->json() ?? [])), 201);
+        $post = $this->posts->create($context, $request->json() ?? []);
+        $this->federate($context, $post, 'Create');
+        return JsonEnvelope::success(ResourcePresenter::post($post), 201);
     }
 
     public function show(Request $request, array $params): Response
@@ -76,13 +80,36 @@ public function myPosts(Request $request): Response
     public function update(Request $request, array $params): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
-        return JsonEnvelope::success(ResourcePresenter::post($this->posts->update($context, $params['postId'], $request->json() ?? [])));
+        $post = $this->posts->update($context, $params['postId'], $request->json() ?? []);
+        $this->federate($context, $post, 'Update');
+        return JsonEnvelope::success(ResourcePresenter::post($post));
     }
 
     public function delete(Request $request, array $params): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
-        $this->posts->delete($context, $params['postId']);
+        $post = $this->posts->delete($context, $params['postId']);
+        $this->federate($context, $post, 'Delete');
         return Response::noContent();
+    }
+
+    /**
+     * Delivers the post to the owner's accepted followers as a signed AP
+     * activity. Federation is best-effort: a delivery-layer failure here
+     * must never block the post itself from saving successfully.
+     *
+     * @param array<string, mixed> $context
+     * @param array<string, mixed> $post
+     */
+    private function federate(array $context, array $post, string $activityType): void
+    {
+        if ($this->federation === null) {
+            return;
+        }
+        try {
+            $this->federation->publishLocalPost((int) $context['node']['id'], (int) $context['profile']['id'], $post, $activityType);
+        } catch (\Throwable) {
+            // Best-effort — the post itself already saved successfully.
+        }
     }
 }

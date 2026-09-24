@@ -116,14 +116,6 @@ $buildRateLimiter = static function (): RateLimiter {
     return new RateLimiter(new RateLimitRepository(Database::connection()));
 };
 
-$buildPostController = static function () use ($buildAuthService, $buildAnalyticsService): PostController {
-    return new PostController(
-        $buildAuthService(),
-        new PostService(new PostRepository(Database::connection())),
-        $buildAnalyticsService(),
-    );
-};
-
 $buildThemeService = static function (): ThemeService {
     return new ThemeService(new NodeRepository(Database::connection()), __DIR__ . '/../themes');
 };
@@ -316,6 +308,15 @@ $buildFederationService = static function (): FederationService {
 
 $buildFederationController = static function () use ($buildAuthService, $buildFederationService): FederationController {
     return new FederationController($buildAuthService(), $buildFederationService());
+};
+
+$buildPostController = static function () use ($buildAuthService, $buildAnalyticsService, $buildFederationService): PostController {
+    return new PostController(
+        $buildAuthService(),
+        new PostService(new PostRepository(Database::connection())),
+        $buildAnalyticsService(),
+        $buildFederationService(),
+    );
 };
 
 $buildActivityPubController = static function () use ($buildFederationService): ActivityPubController {

@@ -1003,6 +1003,115 @@ final class FederationService
         return array_map(static fn (array $row): string => (string) $row['target_actor_uri'], $this->getFollowRepo()->findFollowingByProfileId($profileId));
     }
 
+    /**
+     * Delivers a local post to every accepted follower as a signed
+     * Create/Update/Delete activity — the outbound counterpart to
+     * processCreate()/processUpdate()/processDelete() on the receiving
+     * side. PRIVATE posts are never federated. A post with no accepted
+     * followers is a silent no-op: nothing queued, nothing to fail.
+     *
+     * @param array<string, mixed> $post
+     */
+    public function publishLocalPost(int $nodeId, int $profileId, array $post, string $activityType = 'Create'): void
+    {
+        if ((string) ($post['visibility'] ?? 'PUBLIC') === 'PRIVATE') {
+            return;
+        }
+
+        $followers = $this->getFollowRepo()->findFollowersByProfileId($profileId);
+        if ($followers === []) {
+            return;
+        }
+
+        $localProfile = $this->profiles->findById($profileId);
+        if ($localProfile === null) {
+            return;
+        }
+
+        $domain = (string) $localProfile['node_domain'];
+        $actorUri = "https://{$domain}/@{$localProfile['handle']}";
+        $objectUri = "https://{$domain}/posts/{$post['public_id']}";
+        $object = $activityType === 'Delete' ? $objectUri : self::buildFederatedPostObject($actorUri, $objectUri, $post);
+
+        foreach ($followers as $follower) {
+            $targetActorUri = (string) ($follower['target_actor_uri'] ?? '');
+            if ($targetActorUri === '') {
+                continue;
+            }
+            $targetDomain = (string) ($follower['node_domain'] ?? parse_url($targetActorUri, PHP_URL_HOST) ?? '');
+            $this->queueOutgoingActivity($nodeId, $activityType, $actorUri, $targetDomain, $objectUri, [
+                'object' => $object,
+            ], $targetActorUri);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $post
+     * @return array<string, mixed>
+     */
+    private static function buildFederatedPostObject(string $actorUri, string $objectUri, array $post): array
+    {
+        $type = (string) ($post['post_type'] ?? 'NOTE') === 'ARTICLE' ? 'Article' : 'Note';
+        $addressing = (string) ($post['visibility'] ?? 'PUBLIC') === 'UNLISTED'
+            ? ['to' => ["{$actorUri}/followers"], 'cc' => []]
+            : ['to' => ['https://www.w3.org/ns/activitystreams#Public'], 'cc' => ["{$actorUri}/followers"]];
+
+        $object = array_merge([
+            'id' => $objectUri,
+            'type' => $type,
+            'attributedTo' => $actorUri,
+            'content' => (string) ($post['content'] ?? ''),
+            'url' => $objectUri,
+            'published' => self::toAs2Timestamp($post['published_at'] ?? $post['created_at'] ?? null),
+        ], $addressing);
+
+        if (is_string($post['title'] ?? null) && $post['title'] !== '') {
+            $object['name'] = $post['title'];
+        }
+
+        $media = $post['media'] ?? [];
+        if (is_array($media) && $media !== []) {
+            $attachments = array_values(array_filter(array_map(static function ($item): ?array {
+                if (!is_array($item) || !is_string($item['url'] ?? null) || $item['url'] === '') {
+                    return null;
+                }
+                return [
+                    'type' => 'Document',
+                    'mediaType' => self::guessAttachmentMediaType((string) ($item['type'] ?? '')),
+                    'url' => $item['url'],
+                    'name' => is_string($item['alt_text'] ?? null) ? $item['alt_text'] : null,
+                ];
+            }, $media)));
+            if ($attachments !== []) {
+                $object['attachment'] = $attachments;
+            }
+        }
+
+        return $object;
+    }
+
+    private static function toAs2Timestamp(mixed $value): string
+    {
+        if (is_string($value) && $value !== '') {
+            try {
+                return (new \DateTimeImmutable($value, new \DateTimeZone('UTC')))->format('c');
+            } catch (\Exception) {
+                // fall through to now
+            }
+        }
+        return gmdate('c');
+    }
+
+    private static function guessAttachmentMediaType(string $type): string
+    {
+        return match (strtoupper($type)) {
+            'IMAGE' => 'image/*',
+            'VIDEO' => 'video/*',
+            'AUDIO' => 'audio/*',
+            default => 'application/octet-stream',
+        };
+    }
+
     private function getFollowRepo(): FollowRepository
     {
         if ($this->follows === null) {
