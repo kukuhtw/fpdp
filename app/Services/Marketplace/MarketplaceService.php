@@ -17,7 +17,7 @@ use App\Services\Payment\PaymentService;
 
 final class MarketplaceService
 {
-    private const PRODUCT_FIELDS = ['title', 'description', 'price', 'currency', 'product_type', 'digital_asset_url', 'digital_asset_metadata', 'status', 'visibility', 'media'];
+    private const PRODUCT_FIELDS = ['title', 'description', 'price', 'currency', 'product_type', 'digital_asset_url', 'digital_asset_metadata', 'status', 'visibility', 'media', 'is_promoted'];
     private const VISIBILITIES = ['PUBLIC', 'UNLISTED', 'PRIVATE'];
     private const PRODUCT_TYPES = ['PHYSICAL', 'DIGITAL', 'SERVICE'];
     private const ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
@@ -49,6 +49,7 @@ final class MarketplaceService
             $input['product_type'] ?? 'PHYSICAL',
             $input['digital_asset_url'] ?? null,
             $input['digital_asset_metadata'] ?? null,
+            (bool) ($input['is_promoted'] ?? false),
         );
     }
 
@@ -312,6 +313,7 @@ public function listProducts(int $nodeId, array $query = []): array
             }
         }
         if (array_key_exists('visibility', $input) && !in_array($input['visibility'], self::VISIBILITIES, true)) $errors[] = ['field' => 'visibility', 'reason' => 'invalid_value'];
+        if (array_key_exists('is_promoted', $input) && !is_bool($input['is_promoted'])) $errors[] = ['field' => 'is_promoted', 'reason' => 'invalid_value'];
         if ($input === [] && !$partial) $errors[] = ['field' => '_', 'reason' => 'empty_update'];
         return $errors;
     }
