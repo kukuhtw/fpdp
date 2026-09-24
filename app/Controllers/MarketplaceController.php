@@ -157,7 +157,7 @@ final class MarketplaceController
             'title' => $product['title'],
             'digital_asset_url' => $product['digital_asset_url'],
             'digital_asset_metadata' => $product['digital_asset_metadata'],
-            'digital_assets' => $this->requireProductAssets()->listForProduct((int) $product['id']),
+            'digital_assets' => $this->productAssets?->listForProduct((int) $product['id']) ?? [],
         ]);
     }
 

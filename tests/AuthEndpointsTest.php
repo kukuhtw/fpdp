@@ -115,7 +115,7 @@ $register = dispatch($router, 'POST', '/api/v1/auth/register', [
 ]);
 assert_that($register['status'] === 201, 'Register did not return 201: ' . json_encode($register));
 assert_that($register['body']['data']['user']['role'] === 'OWNER', 'Registered user is not OWNER');
-assert_that($register['body']['data']['node']['domain'] === 'alice.test.local', 'Node domain not derived from handle');
+assert_that($register['body']['data']['node']['domain'] === 'test.local', 'Node domain should be NODE_DOMAIN as-is — one FPDP install is one node on one domain, not a handle.NODE_DOMAIN subdomain (that only makes sense for a multi-tenant host, which this app is not: every read path uses NodeRepository::findFirst())');
 assert_that($register['body']['data']['token']['token_type'] === 'Bearer', 'Token type is not Bearer');
 $registerToken = $register['body']['data']['token']['access_token'];
 assert_that(is_string($registerToken) && $registerToken !== '', 'Register did not return an access token');
@@ -167,7 +167,7 @@ assert_that($me['body']['data']['profile']['handle'] === 'alice', '/me returned 
 // 7. Public profile read works without authentication.
 $publicProfile = dispatch($router, 'GET', '/api/v1/profiles/alice');
 assert_that($publicProfile['status'] === 200, 'Public profile read failed');
-assert_that($publicProfile['body']['data']['canonical_url'] === 'https://alice.test.local/@alice', 'Canonical URL was not built correctly');
+assert_that($publicProfile['body']['data']['canonical_url'] === 'https://test.local/@alice', 'Canonical URL was not built correctly');
 
 $missingProfile = dispatch($router, 'GET', '/api/v1/profiles/does-not-exist');
 assert_that($missingProfile['status'] === 404, 'Unknown handle did not return 404');

@@ -101,7 +101,7 @@ media_assert($upload['status'] === 201, 'Valid PNG upload should succeed: ' . js
 media_assert($upload['body']['data']['content_type'] === 'image/png', 'Response should report the server-detected content type, not a client claim');
 media_assert($upload['body']['data']['media_type'] === 'IMAGE', 'Response should echo the media type');
 $url = $upload['body']['data']['url'];
-media_assert(str_starts_with($url, 'https://owner.test.local/api/v1/media/'), "Upload should return an absolute https URL on the owner's node domain: {$url}");
+media_assert(str_starts_with($url, 'https://test.local/api/v1/media/'), "Upload should return an absolute https URL on the owner's node domain: {$url}");
 media_assert((bool) preg_match('#/api/v1/media/([^/]+\.png)$#', $url, $urlMatch), 'Upload should assign a .png extension for an image/png file');
 $storageKey = $urlMatch[1];
 

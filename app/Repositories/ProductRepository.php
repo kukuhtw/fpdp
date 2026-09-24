@@ -52,7 +52,29 @@ final class ProductRepository
 
         $row = $statement->fetch();
 
-        return $row === false ? null : $row;
+        return $row === false ? null : self::decodeJsonColumns($row);
+    }
+
+    /**
+     * `media`/`digital_asset_metadata` are stored as JSON text columns; PDO
+     * returns them as raw strings, but every API response and view that
+     * reads a product (shop listing, product detail, the owner's product
+     * list) expects an actual array — decode them once here rather than at
+     * every call site.
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function decodeJsonColumns(array $row): array
+    {
+        foreach (['media', 'digital_asset_metadata'] as $column) {
+            if (isset($row[$column]) && is_string($row[$column])) {
+                $decoded = json_decode($row[$column], true);
+                $row[$column] = is_array($decoded) ? $decoded : null;
+            }
+        }
+
+        return $row;
     }
 
     /**
@@ -74,7 +96,7 @@ final class ProductRepository
         );
         $statement->execute($parameters);
 
-        return $statement->fetchAll();
+        return array_map([self::class, 'decodeJsonColumns'], $statement->fetchAll());
     }
 
     /**
@@ -87,7 +109,7 @@ final class ProductRepository
         );
         $statement->execute(['node_id' => $nodeId]);
 
-        return $statement->fetchAll();
+        return array_map([self::class, 'decodeJsonColumns'], $statement->fetchAll());
     }
 
     public function update(string $publicId, array $fields): array

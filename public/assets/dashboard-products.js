@@ -253,6 +253,14 @@
   const productCard = (product) => {
     const card = document.createElement('article');
     card.className = 'gateway-card';
+    const photoUrl = product.media && product.media[0] && product.media[0].url;
+    if (photoUrl) {
+      const img = document.createElement('img');
+      img.src = photoUrl;
+      img.alt = product.title;
+      img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:9px;border:1px solid var(--line);float:left;margin-right:12px';
+      card.append(img);
+    }
     const head = document.createElement('div');
     head.className = 'gateway-card-head';
     head.innerHTML = `<strong>${escapeHtml(product.title)}</strong> <span class="muted">${formatPrice(product.price, product.currency)} · ${escapeHtml(product.product_type)} · ${escapeHtml(product.status)}</span>`;
