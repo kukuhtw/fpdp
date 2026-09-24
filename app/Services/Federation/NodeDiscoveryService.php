@@ -322,8 +322,19 @@ final class NodeDiscoveryService
             return true;
         }
 
-        $timestamp = strtotime($fetchedAt);
+        // fetched_at is stored as a naive "Y-m-d H:i:s" UTC value (MySQL/
+        // SQLite CURRENT_TIMESTAMP). strtotime() on a naive string uses
+        // PHP's ambient default timezone (NODE_TIMEZONE, e.g. Asia/Jakarta,
+        // UTC+7) instead of UTC, which would make every cache entry look
+        // hours older than it really is — enough to always exceed
+        // CACHE_TTL_SECONDS and defeat the cache entirely. Parse it
+        // explicitly as UTC to match how it was written.
+        try {
+            $timestamp = (new \DateTimeImmutable($fetchedAt, new \DateTimeZone('UTC')))->getTimestamp();
+        } catch (\Exception) {
+            return true;
+        }
 
-        return $timestamp === false || (time() - $timestamp) > self::CACHE_TTL_SECONDS;
+        return (time() - $timestamp) > self::CACHE_TTL_SECONDS;
     }
 }
