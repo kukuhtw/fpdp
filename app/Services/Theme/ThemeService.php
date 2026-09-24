@@ -18,7 +18,7 @@ use App\Repositories\NodeRepository;
 final class ThemeService
 {
     /** View names a theme is allowed to override. Anything else in views/ is ignored. */
-    public const THEMEABLE_VIEWS = ['profile', 'about-me', 'youtube', 'wall-coretan', 'post', 'public-cv'];
+    public const THEMEABLE_VIEWS = ['profile', 'about-me', 'youtube', 'wall-coretan', 'post', 'public-cv', 'about', 'timeline'];
 
     private const SLUG_PATTERN = '/^[a-z0-9][a-z0-9_-]{0,63}$/';
 
@@ -98,6 +98,18 @@ final class ThemeService
         }
 
         return 'default';
+    }
+
+    /**
+     * The active theme for pages with no handle/profile in context (About
+     * FPDP, Timeline) — resolved for "the" node the same single-tenant way
+     * HomeController does for its handle-less public routes.
+     */
+    public function getActiveSlugForFirstNode(): ?string
+    {
+        $node = $this->nodes->findFirst();
+
+        return $node === null ? null : $this->getActiveSlug((int) $node['id']);
     }
 
     /**

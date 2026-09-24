@@ -19,6 +19,8 @@ themes/
       wall-coretan.php
       post.php
       public-cv.php
+      about.php
+      timeline.php
     assets/              (opsional)
       theme.css
       (font, gambar, dll — semuanya file statis)
@@ -52,6 +54,8 @@ Hanya nama file berikut yang dikenali sebagai override halaman publik. File lain
 | `wall-coretan.php` | Halaman coretan/wall publik |
 | `post.php` | Halaman satu post |
 | `public-cv.php` | Halaman CV publik |
+| `about.php` | Halaman About FPDP (`/about`) |
+| `timeline.php` | Timeline lokal (`/timeline`) |
 
 **Anda tidak wajib menyediakan semuanya.** Halaman yang tidak ada file override-nya otomatis memakai template inti (`app/Views/{nama}.php`, theme bawaan "Default"). Ini artinya theme bisa dimulai kecil — misalnya cuma meng-override `profile.php` dulu — lalu ditambah bertahap.
 
@@ -74,6 +78,14 @@ Hubungkan CSS Anda dari dalam view dengan tag biasa:
 ```html
 <link rel="stylesheet" href="/themes/nama-theme-anda/assets/theme.css">
 ```
+
+### 2.4 Gaya diterapkan di seluruh situs, termasuk dashboard
+
+Setiap halaman FPDP — publik maupun dashboard (Post editor, My posts, Settings, Federasi, Template sendiri, dst.) — memuat `<?= \App\Core\View::themeStylesheetTag() ?>` di `<head>`-nya. Tag ini selalu memuat `public/assets/app.css` (inti) lebih dulu, lalu **menambahkan** `themes/<slug>/assets/theme.css` milik theme aktif setelahnya, jika theme itu bukan `default` dan memang menyediakan file itu.
+
+Karena `theme.css` Anda menulis aturan langsung ke class semantik yang sama yang dipakai di seluruh situs (`.panel`, `.button`, `.stack`, `.status`, `.avatar`, nav, dst. — lihat `themes/editorial/assets/theme.css` dan `themes/minimal/assets/theme.css` untuk contoh), gaya itu otomatis "menang" di cascade CSS pada **setiap** halaman yang memakai class tersebut — termasuk 8 halaman publik di atas, **maupun halaman dashboard** yang HTML-nya tidak pernah bisa Anda override (lihat bagian 7). Widget spesifik dashboard yang tidak Anda sentuh sama sekali di `theme.css` (mis. `.editor-toolbar`, `.kpi-row`, `.gateway-card`) tetap memakai gaya inti dari `app.css` — ini karena `app.css` selalu ikut dimuat sebagai fallback, tidak pernah digantikan sepenuhnya.
+
+Singkatnya: **mengganti template lewat Dashboard → Template langsung memengaruhi tampilan seluruh situs**, bukan cuma 8 halaman yang boleh Anda ganti HTML-nya — tanpa theme pernah mendapat akses untuk mengubah markup/logic halaman dashboard itu sendiri.
 
 ## 3. Dua cara membuat theme
 
@@ -120,6 +132,6 @@ PATCH /api/v1/me/theme            → body: {"slug": "editorial"}
 
 ## 7. Keamanan & batasan
 
-- Slug theme dan nama file view/asset divalidasi dengan whitelist ketat (path traversal, ekstensi tidak dikenal, dan nama file view di luar 6 nama yang diizinkan ditolak).
-- Theme tidak bisa mengubah endpoint API, autentikasi, atau halaman dashboard — hanya 6 halaman publik yang terdaftar di atas.
-- Karena view theme adalah file PHP biasa yang di-`require`, theme punya akses penuh sama seperti kode inti FPDP (variabel yang dioper, fungsi global PHP, dll). **Hanya pasang theme dari sumber yang Anda percaya**, sama seperti menginstal plugin/kode pihak ketiga apa pun di server Anda sendiri.
+- Slug theme dan nama file view/asset divalidasi dengan whitelist ketat (path traversal, ekstensi tidak dikenal, dan nama file view di luar 8 nama yang diizinkan ditolak).
+- Theme **tidak bisa** mengubah endpoint API, autentikasi, atau markup/logic halaman dashboard — override HTML hanya berlaku untuk 8 halaman publik yang terdaftar di atas. Yang bisa memengaruhi dashboard hanyalah `theme.css` (lihat bagian 2.4) — CSS murni, tidak bisa mengeksekusi kode atau membaca data.
+- Karena view theme adalah file PHP biasa yang di-`require`, theme punya akses penuh sama seperti kode inti FPDP (variabel yang dioper, fungsi global PHP, dll) — tapi ini hanya berlaku untuk 8 view yang boleh di-override, tidak pernah untuk halaman dashboard/auth. **Hanya pasang theme dari sumber yang Anda percaya**, sama seperti menginstal plugin/kode pihak ketiga apa pun di server Anda sendiri.

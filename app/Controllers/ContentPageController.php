@@ -28,18 +28,22 @@ final class ContentPageController
 
     public function about(): string
     {
-        return View::render('about', ['title' => 'About FPDP · Federated Personal Digital Platform']);
+        return View::renderThemed(
+            'about',
+            ['title' => 'About FPDP · Federated Personal Digital Platform'],
+            $this->themes?->getActiveSlugForFirstNode(),
+        );
     }
 
     public function timeline(array $query = []): string
     {
         $result = $this->posts->list($query);
 
-        return View::render('timeline', [
+        return View::renderThemed('timeline', [
             'title' => 'Local Timeline · FPDP',
             'posts' => $result['items'],
             'nextCursor' => $result['next_cursor'],
-        ]);
+        ], $this->themes?->getActiveSlugForFirstNode());
     }
 
     public function profile(string $handle, array $query = []): string

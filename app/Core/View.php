@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Repositories\NodeRepository;
+use App\Services\Theme\ThemeService;
+
 final class View
 {
     /**
@@ -72,6 +75,47 @@ final class View
         }
 
         return $corePath;
+    }
+
+    /**
+     * The <link> tag(s) every page — public or dashboard — puts in <head>
+     * for its stylesheet. Always includes core app.css (the baseline every
+     * class, including ones a theme never mentions, is styled against),
+     * plus the active theme's own theme.css layered on top when one is
+     * active and ships that file — themes restyle shared chrome (nav,
+     * panels, buttons, status colors) by writing rules against those same
+     * class names, which then win the cascade on every page that uses
+     * them, not only the small set of pages a theme fully overrides the
+     * HTML of (see ThemeService::THEMEABLE_VIEWS). This is what makes
+     * switching the active template visibly affect the whole site,
+     * dashboard included, without ever handing dashboard/auth pages'
+     * markup to theme code.
+     */
+    public static function themeStylesheetTag(): string
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $tag = '<link rel="stylesheet" href="/assets/app.css">';
+
+        try {
+            $connection = Database::connection();
+            $node = (new NodeRepository($connection))->findFirst();
+            if ($node !== null) {
+                $themes = new ThemeService(new NodeRepository($connection), dirname(__DIR__, 2) . '/themes');
+                $slug = $themes->getActiveSlug((int) $node['id']);
+                if ($slug !== 'default' && $themes->assetPath($slug, 'theme.css') !== null) {
+                    $tag .= '<link rel="stylesheet" href="/themes/' . rawurlencode($slug) . '/assets/theme.css">';
+                }
+            }
+        } catch (\Throwable) {
+            // No DB yet (e.g. pre-install), or a transient failure — fall
+            // back to the core stylesheet alone rather than breaking the page.
+        }
+
+        return $cached = $tag;
     }
 
     /**

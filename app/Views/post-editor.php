@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
-    <link rel="stylesheet" href="/assets/app.css">
+    <?= \App\Core\View::themeStylesheetTag() ?>
     <style>
       .editor-toolbar{display:flex;gap:2px;padding:4px 6px;background:var(--card);border:1px solid var(--line);border-bottom:0;border-radius:9px 9px 0 0;flex-wrap:wrap;}
       .editor-toolbar button{flex:0 0 auto;border:0;background:transparent;color:var(--ink);padding:4px 9px;border-radius:6px;font-size:.9rem;font-weight:700;cursor:pointer;}

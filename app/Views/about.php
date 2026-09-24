@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
-    <link rel="stylesheet" href="/assets/app.css">
+    <?= \App\Core\View::themeStylesheetTag() ?>
     <style>
       .about-hero{text-align:center;padding:48px 28px;background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:20px;}
       .about-hero h1{font:700 clamp(2.2rem,6vw,3.8rem)/1.05 Georgia,serif;margin:.2em 0;}
