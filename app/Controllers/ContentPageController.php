@@ -119,7 +119,10 @@ final class ContentPageController
 
     public function editor(): string
     {
-        return View::render('post-editor', ['title' => 'Post Editor · FPDP']);
+        return View::render('post-editor', [
+            'title' => 'Post Editor · FPDP',
+            'mediaMaxFileSizeBytes' => (int) \App\Core\Config::get('MEDIA_MAX_FILE_SIZE_BYTES', '10485760'),
+        ]);
     }
 
     public function dashboardOverview(): string

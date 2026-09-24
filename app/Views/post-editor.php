@@ -87,9 +87,10 @@
                 </template>
                 <button id="add-media-row" class="secondary" type="button">+ Add another media</button>
                 <div class="field-row upload-row">
-                    <label class="upload-picker">Or upload a file<input id="media-file-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,audio/mpeg,audio/ogg,audio/wav,application/pdf"></label>
+                    <label class="upload-picker">Or upload a file<input id="media-file-input" type="file" data-max-bytes="<?= (int) ($mediaMaxFileSizeBytes ?? 10485760) ?>" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,audio/mpeg,audio/ogg,audio/wav,application/pdf"></label>
                     <button id="media-upload-button" class="secondary" type="button" disabled>Upload</button>
                 </div>
+                <p class="muted" style="margin:.35em 0 0;font-size:.85rem;">Max <?= number_format((int) (($mediaMaxFileSizeBytes ?? 10485760) / 1048576), 0) ?> MB per file.</p>
                 <progress id="media-upload-progress" class="hidden" value="0" max="100"></progress>
                 <p id="media-upload-status" class="status" role="status" aria-live="polite"></p>
             </fieldset>

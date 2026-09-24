@@ -270,7 +270,15 @@
     reader.readAsDataURL(file);
   });
 
+  const mediaMaxBytes = Number(mediaFileInput.dataset.maxBytes) || 10485760;
+
   mediaFileInput.addEventListener('change', () => {
+    const file = mediaFileInput.files[0];
+    if (file && file.size > mediaMaxBytes) {
+      mediaUploadButton.disabled = true;
+      showMediaStatus(`File is too large (${(file.size / 1048576).toFixed(1)} MB). Max ${(mediaMaxBytes / 1048576).toFixed(0)} MB.`, true);
+      return;
+    }
     mediaUploadButton.disabled = mediaFileInput.files.length === 0;
     showMediaStatus('');
   });
@@ -281,6 +289,9 @@
     if (!token()) return showMediaStatus('Sign in before uploading media.', true);
     const file = mediaFileInput.files[0];
     if (!file) return;
+    if (file.size > mediaMaxBytes) {
+      return showMediaStatus(`File is too large (${(file.size / 1048576).toFixed(1)} MB). Max ${(mediaMaxBytes / 1048576).toFixed(0)} MB.`, true);
+    }
 
     const guessedType = mediaCategoryFor(file.type);
     const mediaType = guessedType || 'IMAGE';

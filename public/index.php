@@ -9,6 +9,22 @@ use App\Core\Router;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// This is a JSON API: a PHP warning/notice's inline HTML output (from
+// display_errors, whatever the host's php.ini default is) must never leak
+// into a response body — it corrupts the JSON and every client-side
+// JSON.parse() breaks on it ("Unexpected token '<'"). Promoting every
+// warning/notice to an exception routes it through the try/catch below
+// instead, so the client always gets a clean JSON error; the original
+// message is still available via error_log(), never echoed to the client
+// unless APP_DEBUG is on.
+ini_set('display_errors', '0');
+set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
+    if (!(error_reporting() & $severity)) {
+        return false;
+    }
+    throw new \ErrorException($message, 0, $severity, $file, $line);
+});
+
 $debug = false;
 
 try {
