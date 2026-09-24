@@ -204,6 +204,11 @@ final class MarketplaceController
             $request->json() ?? [],
         );
 
+        // A newly attached/replaced file changes what the product offers,
+        // so a promoted product re-announces to followers the same way an
+        // edit to its title/price/description would.
+        $this->federateProduct((int) $context['node']['id'], $this->marketplace->getProduct($params['productId']), 'Update');
+
         return JsonEnvelope::success($result, 201);
     }
 

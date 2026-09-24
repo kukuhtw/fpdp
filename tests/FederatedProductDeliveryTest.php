@@ -83,7 +83,7 @@ $plain = $dispatch('POST', '/api/v1/products', json_encode([
     'product_type' => 'PHYSICAL', 'status' => 'ACTIVE', 'visibility' => 'PUBLIC',
 ]), $authHeader);
 fprod_assert($plain['status'] === 201, 'Plain product creation should succeed: ' . json_encode($plain));
-$countAfterPlain = (int) $db->query('SELECT COUNT(*) FROM federation_activities').fetchColumn();
+$countAfterPlain = (int) $db->query('SELECT COUNT(*) FROM federation_activities')->fetchColumn();
 fprod_assert($countAfterPlain === 0, 'A non-promoted product must never be federated');
 
 // ---- Test 2: a promoted PUBLIC ACTIVE product queues a signed Create with title+price+description+link, and a photo attachment ----
