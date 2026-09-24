@@ -119,12 +119,15 @@
     } else if (cmd === 'insertVideo') {
       const url = prompt('Paste a YouTube, TikTok, or Instagram post/reel URL:', 'https://');
       if (!url) return;
+      ensureEditorSelection();
       document.execCommand('insertHTML', false, buildVideoEmbed(url));
       syncContent();
     } else if (cmd === 'h1' || cmd === 'h2' || cmd === 'h3') {
+      ensureEditorSelection();
       document.execCommand('formatBlock', false, cmd.replace('h', 'H'));
       syncContent();
     } else if (cmd === 'pre') {
+      ensureEditorSelection();
       document.execCommand('formatBlock', false, 'PRE');
       syncContent();
     } else {
