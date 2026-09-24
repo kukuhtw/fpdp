@@ -401,6 +401,9 @@ final class FederationService
             'Block' => $this->processBlockReceived($activity, $localProfile),
             'Accept' => $this->processAccept($activity),
             'Reject' => $this->processReject($activity),
+            'Create' => $this->processCreate($activity),
+            'Update' => $this->processUpdate($activity),
+            'Delete' => $this->processDelete($activity),
             default => ['status' => 'received', 'message' => "{$type} received, no handler"],
         };
 
@@ -816,6 +819,172 @@ final class FederationService
     }
 
     /**
+     * Handles an inbound Create activity: a followed actor published a new
+     * post. Stores it in federated_posts so it shows up as that actor's
+     * latest post in the owner's connections list. Only Note/Article
+     * objects are stored — anything else (e.g. an actor Update wrapped as
+     * a Create in some implementations) is acknowledged but not persisted.
+     *
+     * @param array<string, mixed> $activity
+     */
+    public function processCreate(array $activity): array
+    {
+        $object = $activity['object'] ?? null;
+        if (!is_array($object)) {
+            return ['status' => 'error', 'message' => 'Invalid Create payload'];
+        }
+
+        $objectType = (string) ($object['type'] ?? '');
+        if (!in_array($objectType, ['Note', 'Article'], true)) {
+            return ['status' => 'received', 'message' => "Create({$objectType}) received, unsupported object type"];
+        }
+
+        $objectUri = (string) ($object['id'] ?? '');
+        if ($objectUri === '') {
+            return ['status' => 'error', 'message' => 'Missing object id'];
+        }
+
+        if ($this->posts->findByObjectUri($objectUri) !== null) {
+            return ['status' => 'duplicate', 'message' => 'Post already stored'];
+        }
+
+        $actorUri = (string) ($activity['actor'] ?? '');
+        $remoteActor = $this->getDiscoveryService()->ensureRemoteActor($actorUri);
+        if ($remoteActor === null) {
+            return ['status' => 'error', 'message' => 'Could not resolve the sending actor'];
+        }
+
+        $this->posts->create(
+            Uuid::v4(),
+            (int) $remoteActor['id'],
+            $objectUri,
+            self::extractObjectUrl($object['url'] ?? null) ?? $objectUri,
+            self::extractObjectText($object['name'] ?? $object['summary'] ?? null),
+            self::extractObjectText($object['content'] ?? null),
+            self::normalizeActivityTimestamp($object['published'] ?? null),
+            self::extractObjectVisibility($object),
+        );
+
+        return ['status' => 'created', 'message' => 'Federated post stored'];
+    }
+
+    /**
+     * Handles an inbound Update activity for a previously seen post. If we
+     * never stored the original (e.g. the Create predates our follow being
+     * accepted), this is treated as a late Create instead of being dropped.
+     *
+     * @param array<string, mixed> $activity
+     */
+    public function processUpdate(array $activity): array
+    {
+        $object = $activity['object'] ?? null;
+        if (!is_array($object)) {
+            return ['status' => 'error', 'message' => 'Invalid Update payload'];
+        }
+
+        $objectUri = (string) ($object['id'] ?? '');
+        if ($objectUri === '') {
+            return ['status' => 'error', 'message' => 'Missing object id'];
+        }
+
+        $existing = $this->posts->findByObjectUri($objectUri);
+        if ($existing === null) {
+            return $this->processCreate($activity);
+        }
+
+        $this->posts->updateByObjectUri(
+            $objectUri,
+            self::extractObjectText($object['name'] ?? $object['summary'] ?? null) ?? $existing['title'],
+            self::extractObjectText($object['content'] ?? null) ?? $existing['content'],
+            self::extractObjectUrl($object['url'] ?? null) ?? $existing['canonical_url'],
+            self::extractObjectVisibility($object),
+        );
+
+        return ['status' => 'updated', 'message' => 'Federated post updated'];
+    }
+
+    /**
+     * Handles an inbound Delete activity: soft-deletes the post so it stops
+     * appearing as that actor's latest post. Mastodon commonly sends the
+     * object as a bare tombstone id string rather than an embedded object.
+     *
+     * @param array<string, mixed> $activity
+     */
+    public function processDelete(array $activity): array
+    {
+        $object = $activity['object'] ?? null;
+        $objectUri = is_string($object) ? $object : (is_array($object) ? (string) ($object['id'] ?? '') : '');
+        if ($objectUri === '') {
+            return ['status' => 'error', 'message' => 'Missing object id'];
+        }
+
+        $this->posts->softDeleteByObjectUri($objectUri);
+
+        return ['status' => 'deleted', 'message' => 'Federated post removed'];
+    }
+
+    private static function normalizeActivityTimestamp(mixed $value): ?string
+    {
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+        $timestamp = strtotime($value);
+        return $timestamp === false ? null : gmdate('Y-m-d H:i:s', $timestamp);
+    }
+
+    /**
+     * AS2's `url` can be a bare string, a single Link object ({href}), or
+     * an array of either — real-world Mastodon posts use a Link object.
+     */
+    private static function extractObjectUrl(mixed $value): ?string
+    {
+        if (is_array($value) && array_is_list($value)) {
+            $value = $value[0] ?? null;
+        }
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+        if (is_array($value) && is_string($value['href'] ?? null) && $value['href'] !== '') {
+            return $value['href'];
+        }
+        return null;
+    }
+
+    private static function extractObjectText(mixed $value): ?string
+    {
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /**
+     * AS2 has no first-class "visibility" field — Mastodon-style servers
+     * signal it via addressing: the public collection IRI in `to`/`cc`
+     * means PUBLIC, anything else (typically just the actor's followers
+     * collection) means followers-only, stored here as UNLISTED.
+     *
+     * @param array<string, mixed> $object
+     */
+    private static function extractObjectVisibility(array $object): string
+    {
+        $addressees = array_merge(
+            self::asStringList($object['to'] ?? null),
+            self::asStringList($object['cc'] ?? null),
+        );
+        return in_array('https://www.w3.org/ns/activitystreams#Public', $addressees, true) ? 'PUBLIC' : 'UNLISTED';
+    }
+
+    /** @return array<int, string> */
+    private static function asStringList(mixed $value): array
+    {
+        if (is_string($value)) {
+            return [$value];
+        }
+        if (is_array($value)) {
+            return array_values(array_filter($value, 'is_string'));
+        }
+        return [];
+    }
+
+    /**
      * Actor URIs for a profile's accepted followers/following, for the
      * ActivityPub followers/following OrderedCollection endpoints.
      *
@@ -906,6 +1075,7 @@ final class FederationService
             'Follow', 'Block' => $this->resolveLocalProfileFromActorUri((string) ($activity['object'] ?? '')),
             'Undo' => $this->resolveLocalProfileFromActorUri($this->extractUndoTargetUri($activity)),
             'Accept', 'Reject' => $this->resolveLocalProfileFromFollowObject(self::extractActivityObjectId($activity['object'] ?? null) ?? ''),
+            'Create', 'Update', 'Delete' => $this->resolveLocalProfileFromRemoteActorUri((string) ($activity['actor'] ?? '')),
             default => null,
         };
     }
@@ -982,5 +1152,30 @@ final class FederationService
             return null;
         }
         return $this->profiles->findById((int) $follow['profile_id']);
+    }
+
+    /**
+     * For Create/Update/Delete: there's no explicit target in the activity
+     * itself (delivery to our inbox implies we're a follower), so the
+     * local profile is whichever one of ours actually has an accepted
+     * connection to the sending actor.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolveLocalProfileFromRemoteActorUri(string $actorUri): ?array
+    {
+        if ($actorUri === '') {
+            return null;
+        }
+        $remoteActor = $this->actors->findByActorUri($actorUri);
+        if ($remoteActor === null) {
+            return null;
+        }
+        foreach ($this->connections->findConnectionsByActorId((int) $remoteActor['id']) as $connection) {
+            if (in_array($connection['relationship_status'], ['FOLLOWING', 'CONNECTED'], true)) {
+                return $this->profiles->findById((int) $connection['profile_id']);
+            }
+        }
+        return null;
     }
 }

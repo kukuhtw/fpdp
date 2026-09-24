@@ -132,6 +132,44 @@
 
   const statusBadgeClass = (status) => (status === 'CONNECTED' || status === 'FOLLOWING' ? 'badge-green' : status === 'PENDING' ? 'badge-yellow' : 'error-badge');
 
+  // Remote post content is untrusted HTML from another server — never
+  // innerHTML it directly. DOMParser parses it inertly (no image loads,
+  // no script execution) so textContent extraction here is safe.
+  const stripHtml = (html) => {
+    try {
+      return new DOMParser().parseFromString(html || '', 'text/html').body.textContent || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const latestPostBlock = (post) => {
+    if (!post) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'latest-post';
+
+    const label = document.createElement('p');
+    label.className = 'muted';
+    label.textContent = `Postingan terbaru · ${relativeTime(post.published_at)}`;
+
+    const excerptText = stripHtml(post.title || post.content || '');
+    const excerpt = document.createElement('p');
+    excerpt.textContent = excerptText.length > 220 ? excerptText.slice(0, 220) + '…' : excerptText;
+
+    wrap.append(label, excerpt);
+
+    if (post.canonical_url) {
+      const link = document.createElement('a');
+      link.href = post.canonical_url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'Buka postingan asli →';
+      wrap.append(link);
+    }
+
+    return wrap;
+  };
+
   const connectionRow = (conn) => {
     const row = document.createElement('article');
     row.className = 'panel comment-card';
@@ -198,6 +236,10 @@
 
     fieldRow.append(select, applyButton);
     row.append(meta, visibilityLabel, fieldRow);
+
+    const latestPost = latestPostBlock(conn.latest_post);
+    if (latestPost) row.append(latestPost);
+
     return row;
   };
 

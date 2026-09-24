@@ -147,4 +147,35 @@ final class FederatedPostRepository
         );
         $statement->execute(['actor_id' => $remoteActorId]);
     }
+
+    public function updateByObjectUri(
+        string $objectUri,
+        ?string $title,
+        ?string $content,
+        ?string $canonicalUrl,
+        string $visibility,
+    ): void {
+        $statement = $this->connection->prepare(
+            'UPDATE federated_posts
+             SET title = :title, content = :content, canonical_url = :canonical_url,
+                 visibility = :visibility, fetched_at = CURRENT_TIMESTAMP
+             WHERE object_uri = :object_uri',
+        );
+        $statement->execute([
+            'object_uri' => $objectUri,
+            'title' => $title,
+            'content' => $content,
+            'canonical_url' => $canonicalUrl,
+            'visibility' => $visibility,
+        ]);
+    }
+
+    public function softDeleteByObjectUri(string $objectUri): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE federated_posts SET deleted_at = CURRENT_TIMESTAMP
+             WHERE object_uri = :object_uri AND deleted_at IS NULL',
+        );
+        $statement->execute(['object_uri' => $objectUri]);
+    }
 }
