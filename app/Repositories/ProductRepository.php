@@ -18,11 +18,11 @@ final class ProductRepository
     {
     }
 
-    public function create(string $publicId, int $nodeId, string $title, ?string $description, string $price, string $currency = 'IDR', ?array $media = null, string $productType = 'PHYSICAL', ?string $digitalAssetUrl = null, ?array $digitalAssetMetadata = null, bool $isPromoted = false): array
+    public function create(string $publicId, int $nodeId, string $title, ?string $description, string $price, string $currency = 'IDR', ?array $media = null, string $productType = 'PHYSICAL', ?string $digitalAssetUrl = null, ?array $digitalAssetMetadata = null, bool $isPromoted = false, string $status = 'ACTIVE', string $visibility = 'PUBLIC'): array
     {
         $statement = $this->connection->prepare(
-            'INSERT INTO products (public_id, node_id, title, description, price, currency, product_type, digital_asset_url, digital_asset_metadata, media, is_promoted)
-             VALUES (:public_id, :node_id, :title, :description, :price, :currency, :product_type, :digital_asset_url, :digital_asset_metadata, :media, :is_promoted)',
+            'INSERT INTO products (public_id, node_id, title, description, price, currency, product_type, digital_asset_url, digital_asset_metadata, media, is_promoted, status, visibility)
+             VALUES (:public_id, :node_id, :title, :description, :price, :currency, :product_type, :digital_asset_url, :digital_asset_metadata, :media, :is_promoted, :status, :visibility)',
         );
         $statement->execute([
             'public_id' => $publicId,
@@ -36,6 +36,8 @@ final class ProductRepository
             'digital_asset_metadata' => $digitalAssetMetadata !== null ? json_encode($digitalAssetMetadata) : null,
             'media' => $media !== null ? json_encode($media) : null,
             'is_promoted' => $isPromoted ? 1 : 0,
+            'status' => $status,
+            'visibility' => $visibility,
         ]);
 
         return $this->findByPublicId($publicId);
