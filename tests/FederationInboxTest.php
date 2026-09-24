@@ -8,6 +8,8 @@ use App\Core\Config;
 use App\Core\Database;
 use App\Core\Http\Request;
 use App\Core\Router;
+use App\Core\Uuid;
+use App\Services\Federation\HttpSignature;
 
 function finbox_assert(bool $condition, string $message): void
 {
@@ -31,13 +33,12 @@ foreach ([
     'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, token_hash TEXT UNIQUE, token_type TEXT DEFAULT "ACCESS", scopes TEXT, expires_at TIMESTAMP, revoked_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE rate_limits (id INTEGER PRIMARY KEY AUTOINCREMENT, rate_key TEXT UNIQUE, attempts INTEGER DEFAULT 1, window_started_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE remote_nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, domain TEXT UNIQUE, name TEXT, status TEXT DEFAULT "ACTIVE", trust_state TEXT DEFAULT "UNKNOWN", last_seen_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-    'CREATE TABLE remote_node_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, remote_node_id INTEGER UNIQUE, key_type TEXT DEFAULT "ed25519", public_key TEXT, fingerprint TEXT UNIQUE, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-    'CREATE TABLE remote_actors (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_node_id INTEGER, actor_uri TEXT, federated_address TEXT UNIQUE, display_name TEXT, avatar_url TEXT, canonical_url TEXT, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE remote_actors (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_node_id INTEGER, actor_uri TEXT, federated_address TEXT UNIQUE, display_name TEXT, avatar_url TEXT, canonical_url TEXT, inbox_url TEXT, shared_inbox_url TEXT, public_key_id TEXT, public_key_pem TEXT, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE federated_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, relationship_status TEXT DEFAULT "PENDING", show_on_profile INTEGER DEFAULT 1, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (profile_id, remote_actor_id))',
     'CREATE TABLE federated_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_actor_id INTEGER, object_uri TEXT, canonical_url TEXT, title TEXT, content TEXT, visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP)',
-    'CREATE TABLE node_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER, key_type TEXT DEFAULT "ed25519", public_key TEXT, private_key TEXT, fingerprint TEXT UNIQUE, is_current INTEGER DEFAULT 1, rotated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE node_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER, key_type TEXT DEFAULT "rsa", public_key TEXT, private_key TEXT, fingerprint TEXT UNIQUE, is_current INTEGER DEFAULT 1, rotated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE follows (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, target_actor_uri TEXT, target_federated_address TEXT, status TEXT DEFAULT "PENDING", direction TEXT DEFAULT "OUTGOING", activity_public_id TEXT, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-    'CREATE TABLE federation_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, direction TEXT, activity_type TEXT, actor_uri TEXT, object_uri TEXT, target_node_domain TEXT, payload TEXT, signature TEXT, status TEXT DEFAULT "PENDING", retry_count INTEGER DEFAULT 0, last_error TEXT, next_attempt_at TIMESTAMP, delivered_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE federation_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, direction TEXT, activity_type TEXT, actor_uri TEXT, object_uri TEXT, target_node_domain TEXT, target_actor_uri TEXT, payload TEXT, signature TEXT, status TEXT DEFAULT "PENDING", retry_count INTEGER DEFAULT 0, last_error TEXT, next_attempt_at TIMESTAMP, delivered_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
 ] as $sql) {
     $db->exec($sql);
 }
@@ -45,263 +46,179 @@ foreach ([
 /** @var Router $router */
 $router = require __DIR__ . '/../app/routes.php';
 
-$dispatch = static function (string $method, string $path, ?array $body = null, ?string $token = null) use ($router): array {
-    $headers = $token === null ? [] : ['authorization' => 'Bearer ' . $token];
-    $response = $router->dispatch(new Request($method, $path, [], $body === null ? null : json_encode($body), $headers));
-    return ['status' => $response->status, 'body' => $response->body === '' ? null : json_decode($response->body, true)];
+/**
+ * @param array<string, string> $headers
+ * @return array{status: int, body: mixed, contentType: ?string}
+ */
+$dispatch = static function (string $method, string $path, ?string $rawBody = null, array $headers = []) use ($router): array {
+    $response = $router->dispatch(new Request($method, $path, [], $rawBody, $headers));
+
+    return [
+        'status' => $response->status,
+        'body' => $response->body === '' ? null : json_decode($response->body, true),
+        'contentType' => $response->headers['Content-Type'] ?? null,
+    ];
 };
 
-function finbox_seed_remote_node(PDO $db, string $domain, string $trustState, ?string $publicKey): int
+/**
+ * Simulates a remote Fediverse server's actor: a real RSA keypair (as
+ * Mastodon would have) cached directly into remote_actors — bypassing the
+ * actual WebFinger/actor-fetch HTTP calls, which is the part real network
+ * access would be needed for, not the part this test is verifying.
+ *
+ * @return array{privateKey: string, publicKeyPem: string, actorUri: string, keyId: string, inboxUrl: string}
+ */
+function finbox_seed_remote_actor(PDO $db, string $handle, string $domain, string $trustState = 'UNKNOWN'): array
 {
-    $publicId = 'rn-' . bin2hex(random_bytes(4));
-    $stmt = $db->prepare('INSERT INTO remote_nodes (public_id, domain, name, status, trust_state) VALUES (:pid, :domain, :name, "ACTIVE", :trust)');
-    $stmt->execute(['pid' => $publicId, 'domain' => $domain, 'name' => $domain, 'trust' => $trustState]);
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    $publicKeyPem = openssl_pkey_get_details($keyPair)['key'];
+
+    $actorUri = "https://{$domain}/users/{$handle}";
+    $keyId = $actorUri . '#main-key';
+    $inboxUrl = $actorUri . '/inbox';
+
+    $nodeStmt = $db->prepare('INSERT INTO remote_nodes (public_id, domain, trust_state) VALUES (:pid, :domain, :trust)');
+    $nodeStmt->execute(['pid' => Uuid::v4(), 'domain' => $domain, 'trust' => $trustState]);
     $nodeId = (int) $db->lastInsertId();
 
-    if ($publicKey !== null) {
-        $stmt = $db->prepare('INSERT INTO remote_node_keys (remote_node_id, key_type, public_key, fingerprint, fetched_at) VALUES (:id, "ed25519", :pk, :fp, CURRENT_TIMESTAMP)');
-        $stmt->execute(['id' => $nodeId, 'pk' => $publicKey, 'fp' => hash('sha256', $publicKey . $nodeId)]);
-    }
+    $actorStmt = $db->prepare(
+        'INSERT INTO remote_actors (public_id, remote_node_id, actor_uri, federated_address, display_name, inbox_url, public_key_id, public_key_pem, fetched_at)
+         VALUES (:pid, :node_id, :actor_uri, :fed_addr, :name, :inbox, :key_id, :pem, CURRENT_TIMESTAMP)',
+    );
+    $actorStmt->execute([
+        'pid' => Uuid::v4(),
+        'node_id' => $nodeId,
+        'actor_uri' => $actorUri,
+        'fed_addr' => "@{$handle}@{$domain}",
+        'name' => ucfirst($handle),
+        'inbox' => $inboxUrl,
+        'key_id' => $keyId,
+        'pem' => $publicKeyPem,
+    ]);
 
-    return $nodeId;
+    return ['privateKey' => $privateKey, 'publicKeyPem' => $publicKeyPem, 'actorUri' => $actorUri, 'keyId' => $keyId, 'inboxUrl' => $inboxUrl];
 }
 
-// Register the local owner ("us"): profile handle "owner" at domain test.local
-$register = $dispatch('POST', '/api/v1/auth/register', [
-    'email' => 'owner@test.local',
-    'password' => 'correct horse battery',
-    'handle' => 'owner',
-    'display_name' => 'Owner',
-]);
+/**
+ * Builds a real, correctly HTTP-Signature-signed inbound request — exactly
+ * the shape Mastodon actually sends — for the given body to the given path.
+ *
+ * @return array{headers: array<string, string>, body: string}
+ */
+function finbox_sign_request(string $privateKeyPem, string $keyId, string $method, string $path, string $host, array $payload): array
+{
+    $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $headers = [
+        'host' => $host,
+        'date' => HttpSignature::httpDate(),
+        'digest' => HttpSignature::digestHeader($body),
+    ];
+    $signingString = HttpSignature::buildSigningString($method, $path, $headers, HttpSignature::DEFAULT_SIGNED_HEADERS);
+
+    $signature = '';
+    openssl_sign($signingString, $signature, $privateKeyPem, OPENSSL_ALGO_SHA256);
+    $headers['signature'] = HttpSignature::buildSignatureHeader($keyId, HttpSignature::DEFAULT_SIGNED_HEADERS, base64_encode($signature));
+
+    return ['headers' => $headers, 'body' => $body];
+}
+
+// ---- Register the local owner: profile handle "owner" at domain test.local ----
+$register = $dispatch('POST', '/api/v1/auth/register', json_encode([
+    'email' => 'owner@test.local', 'password' => 'correct horse battery', 'handle' => 'owner', 'display_name' => 'Owner',
+]));
 finbox_assert($register['status'] === 201, 'Owner registration failed: ' . json_encode($register));
 $ownerToken = $register['body']['data']['token']['access_token'];
-$ownerProfileId = (int) $db->query("SELECT id FROM profiles WHERE handle = 'owner'")->fetch()['id'];
+$inboxPath = '/@owner/inbox';
 
-// ---- Test 1: valid signed Follow is verified and left PENDING for manual approval ----
-$kp = sodium_crypto_sign_keypair();
-$secretKey = sodium_crypto_sign_secretkey($kp);
-$publicKeyB64 = base64_encode(sodium_crypto_sign_publickey($kp));
-finbox_seed_remote_node($db, 'sender.example', 'UNKNOWN', $publicKeyB64);
+// ---- Test 1: Actor document is real ActivityPub JSON-LD with an RSA publicKeyPem ----
+$actorDoc = $dispatch('GET', '/@owner', null, ['accept' => 'application/activity+json']);
+finbox_assert($actorDoc['status'] === 200, 'Actor document request failed: ' . json_encode($actorDoc));
+finbox_assert($actorDoc['contentType'] === 'application/activity+json', 'Actor document should be served as application/activity+json');
+finbox_assert($actorDoc['body']['type'] === 'Person', 'Actor document type should be Person');
+finbox_assert($actorDoc['body']['id'] === 'https://test.local/@owner', 'Actor id should be the profile URL');
+finbox_assert($actorDoc['body']['inbox'] === 'https://test.local/@owner/inbox', 'Actor inbox should be the per-actor inbox URL');
+finbox_assert(str_starts_with((string) $actorDoc['body']['publicKey']['publicKeyPem'], '-----BEGIN PUBLIC KEY-----'), 'Actor publicKeyPem should be a real PEM key');
+finbox_assert($actorDoc['body']['publicKey']['id'] === 'https://test.local/@owner#main-key', 'publicKey id should match the keyId used for signing');
 
+// ---- Test 2: WebFinger resolves acct:owner@test.local to the actor URI ----
+$webfinger = $dispatch('GET', '/.well-known/webfinger?resource=' . rawurlencode('acct:owner@test.local'));
+finbox_assert($webfinger['status'] === 200, 'WebFinger lookup failed: ' . json_encode($webfinger));
+finbox_assert($webfinger['contentType'] === 'application/jrd+json', 'WebFinger response should be application/jrd+json');
+$selfLink = current(array_filter($webfinger['body']['links'], fn ($l) => $l['rel'] === 'self'));
+finbox_assert($selfLink !== false && $selfLink['href'] === 'https://test.local/@owner', 'WebFinger self link should point at the actor URI');
+
+// ---- Test 3: a validly HTTP-Signature-signed Follow is accepted and verified ----
+$remote = finbox_seed_remote_actor($db, 'alice', 'sender.example');
+$followActivityId = 'https://sender.example/activities/' . Uuid::v4();
 $followPayload = [
-    '@context' => 'https://fpdp.dev/ns/federation/v1',
-    'id' => 'act-follow-1',
+    '@context' => 'https://www.w3.org/ns/activitystreams',
+    'id' => $followActivityId,
     'type' => 'Follow',
-    'actor' => 'https://sender.example/@alice',
+    'actor' => $remote['actorUri'],
     'object' => 'https://test.local/@owner',
     'published' => gmdate('c'),
 ];
-$signature = base64_encode(sodium_crypto_sign_detached(json_encode($followPayload), $secretKey));
-$followPayload['signature'] = $signature;
+$signed = finbox_sign_request($remote['privateKey'], $remote['keyId'], 'POST', $inboxPath, 'test.local', $followPayload);
+$follow1 = $dispatch('POST', $inboxPath, $signed['body'], $signed['headers']);
+finbox_assert($follow1['status'] === 202, 'Signed Follow should be accepted: ' . json_encode($follow1));
+finbox_assert($follow1['body']['data']['verified'] === true, 'Correctly signed Follow should verify: ' . json_encode($follow1));
+finbox_assert($follow1['body']['data']['status'] === 'pending', 'A new inbound Follow should be left PENDING for manual approval, not auto-accepted');
 
-$result1 = $dispatch('POST', '/api/v1/federation/inbox', $followPayload);
-finbox_assert($result1['status'] === 202, 'Signed Follow should be accepted: ' . json_encode($result1));
-finbox_assert($result1['body']['data']['verified'] === true, 'Signed Follow should be marked verified');
-finbox_assert($result1['body']['data']['status'] === 'pending', 'Signed Follow should be left PENDING for manual approval');
+$storedActivity = $db->query("SELECT status FROM federation_activities WHERE public_id = " . $db->quote($followActivityId))->fetch();
+finbox_assert($storedActivity['status'] === 'VERIFIED', 'A verified Follow should be persisted with status VERIFIED');
 
-$followRow = $db->query("SELECT * FROM follows WHERE target_actor_uri = 'https://sender.example/@alice'")->fetch();
-finbox_assert($followRow !== false && $followRow['status'] === 'PENDING', 'Follow row should be PENDING until the owner approves it');
+// ---- Test 4: the same signature replayed against a different (tampered) body is rejected — digest mismatch ----
+$tamperedBody = str_replace('Follow', 'FollowXX', $signed['body']);
+$tampered = $dispatch('POST', $inboxPath, $tamperedBody, $signed['headers']);
+finbox_assert($tampered['status'] === 403, 'A body that no longer matches the signed Digest header should be rejected: ' . json_encode($tampered));
 
-$connRowBeforeApproval = $db->query("SELECT fc.* FROM federated_connections fc INNER JOIN remote_actors ra ON ra.id = fc.remote_actor_id WHERE ra.actor_uri = 'https://sender.example/@alice'")->fetch();
-finbox_assert($connRowBeforeApproval === false, 'No connection should exist before the owner approves the follow request');
+// ---- Test 5: a signature made with the WRONG private key is rejected ----
+$otherRemote = finbox_seed_remote_actor($db, 'mallory', 'attacker.example');
+$forgedActivityId = 'https://sender.example/activities/' . Uuid::v4();
+$forgedPayload = ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => $forgedActivityId, 'type' => 'Follow', 'actor' => $remote['actorUri'], 'object' => 'https://test.local/@owner', 'published' => gmdate('c')];
+// Signed with mallory's key but claiming to be alice's keyId — signature won't verify against alice's real public key.
+$forged = finbox_sign_request($otherRemote['privateKey'], $remote['keyId'], 'POST', $inboxPath, 'test.local', $forgedPayload);
+$forgedResult = $dispatch('POST', $inboxPath, $forged['body'], $forged['headers']);
+finbox_assert($forgedResult['status'] === 403, 'A signature made with the wrong private key should be rejected: ' . json_encode($forgedResult));
 
-$activityRow = $db->query("SELECT * FROM federation_activities WHERE public_id = 'act-follow-1'")->fetch();
-finbox_assert($activityRow !== false && $activityRow['status'] === 'VERIFIED', 'Activity should be stored as VERIFIED');
+// ---- Test 6: an unsigned Follow from a known, non-blocked domain is still accepted, but unverified ----
+$unsignedId = 'https://sender.example/activities/' . Uuid::v4();
+$unsignedPayload = ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => $unsignedId, 'type' => 'Follow', 'actor' => $remote['actorUri'], 'object' => 'https://test.local/@owner', 'published' => gmdate('c')];
+$unsigned = $dispatch('POST', $inboxPath, json_encode($unsignedPayload), ['host' => 'test.local']);
+finbox_assert($unsigned['status'] === 202, 'Unsigned Follow should still be accepted: ' . json_encode($unsigned));
+finbox_assert($unsigned['body']['data']['verified'] === false, 'Unsigned Follow should be marked unverified');
 
-// ---- Test 1b: the owner can list, then approve, the pending follow request ----
-$unauthRequests = $dispatch('GET', '/api/v1/me/federation/follow-requests');
-finbox_assert($unauthRequests['status'] === 401, 'Follow-requests list should require auth');
+// ---- Test 7: a Follow from a BLOCKED domain is rejected before signature verification ----
+finbox_seed_remote_actor($db, 'evil', 'blocked.example', 'BLOCKED');
+$blockedPayload = ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => 'https://blocked.example/activities/' . Uuid::v4(), 'type' => 'Follow', 'actor' => 'https://blocked.example/users/evil', 'object' => 'https://test.local/@owner', 'published' => gmdate('c')];
+$blocked = $dispatch('POST', $inboxPath, json_encode($blockedPayload), ['host' => 'test.local']);
+finbox_assert($blocked['status'] === 403, 'A Follow from a blocked domain should be rejected: ' . json_encode($blocked));
 
-$requestsList = $dispatch('GET', '/api/v1/me/federation/follow-requests', null, $ownerToken);
-finbox_assert($requestsList['status'] === 200, 'Follow-requests list should succeed for the owner: ' . json_encode($requestsList));
-$aliceRequest = current(array_filter($requestsList['body']['data']['follow_requests'], fn ($r) => $r['actor']['actor_uri'] === 'https://sender.example/@alice'));
-finbox_assert($aliceRequest !== false, 'Pending list should include alice\'s follow request');
+// ---- Test 8: duplicate activity id is a no-op ----
+$duplicate = $dispatch('POST', $inboxPath, $signed['body'], $signed['headers']);
+finbox_assert($duplicate['body']['data']['status'] === 'duplicate', 'Replaying the same activity id should be idempotent: ' . json_encode($duplicate));
 
-$approve = $dispatch('POST', "/api/v1/me/federation/follow-requests/{$aliceRequest['id']}/approve", null, $ownerToken);
-finbox_assert($approve['status'] === 200, 'Approving a follow request should succeed: ' . json_encode($approve));
-finbox_assert($approve['body']['data']['status'] === 'accepted', 'Approve should report accepted');
+// ---- Test 9: owner can list and approve the pending follow request, sending a spec-shaped Accept ----
+$pendingList = $dispatch('GET', '/api/v1/me/federation/follow-requests', null, ['authorization' => 'Bearer ' . $ownerToken]);
+finbox_assert($pendingList['status'] === 200 && count($pendingList['body']['data']['follow_requests']) === 1, 'Owner should see exactly one pending follow request: ' . json_encode($pendingList));
+$followRequestId = $pendingList['body']['data']['follow_requests'][0]['id'];
 
-$followRowAfterApproval = $db->query("SELECT * FROM follows WHERE target_actor_uri = 'https://sender.example/@alice'")->fetch();
-finbox_assert($followRowAfterApproval !== false && $followRowAfterApproval['status'] === 'ACCEPTED', 'Follow row should be ACCEPTED after approval');
+$approve = $dispatch('POST', "/api/v1/me/federation/follow-requests/{$followRequestId}/approve", null, ['authorization' => 'Bearer ' . $ownerToken]);
+finbox_assert($approve['status'] === 200 && $approve['body']['data']['status'] === 'accepted', 'Approving the follow request should succeed: ' . json_encode($approve));
 
-$connRow = $db->query("SELECT fc.* FROM federated_connections fc INNER JOIN remote_actors ra ON ra.id = fc.remote_actor_id WHERE ra.actor_uri = 'https://sender.example/@alice'")->fetch();
-finbox_assert($connRow !== false && $connRow['relationship_status'] === 'CONNECTED', 'Connection should be CONNECTED after the owner approves');
+$outgoingAccept = $db->query("SELECT payload, target_actor_uri FROM federation_activities WHERE direction = 'OUTGOING' AND activity_type = 'Accept' ORDER BY id DESC LIMIT 1")->fetch();
+finbox_assert($outgoingAccept !== false, 'Approving should queue an outgoing Accept activity');
+$acceptPayload = json_decode($outgoingAccept['payload'], true);
+finbox_assert($acceptPayload['@context'] === 'https://www.w3.org/ns/activitystreams', 'Outgoing Accept should use the real ActivityStreams context, not the old FPDP-proprietary one');
+finbox_assert(is_array($acceptPayload['object']) && $acceptPayload['object']['type'] === 'Follow' && $acceptPayload['object']['id'] === $followActivityId, 'Accept.object must embed the original Follow activity per spec, not a bare id: ' . json_encode($acceptPayload));
+finbox_assert($outgoingAccept['target_actor_uri'] === $remote['actorUri'], 'The queued Accept should target the follower\'s actor URI for delivery');
 
-$acceptActivity = $db->query("SELECT * FROM federation_activities WHERE activity_type = 'Accept' AND direction = 'OUTGOING' ORDER BY id DESC LIMIT 1")->fetch();
-finbox_assert($acceptActivity !== false, 'Approving should queue an outgoing Accept activity');
+$connectionRow = $db->query('SELECT relationship_status FROM federated_connections')->fetch();
+finbox_assert($connectionRow !== false && $connectionRow['relationship_status'] === 'CONNECTED', 'Approving should create a CONNECTED federated_connections row');
 
-$reapprove = $dispatch('POST', "/api/v1/me/federation/follow-requests/{$aliceRequest['id']}/approve", null, $ownerToken);
-finbox_assert($reapprove['status'] === 422, 'Approving an already-ACCEPTED follow request should 422: ' . json_encode($reapprove));
-
-// ---- Test 2: tampered signature is rejected, no state changes ----
-$tamperedPayload = $followPayload;
-$tamperedPayload['id'] = 'act-follow-2';
-$tamperedPayload['signature'] = substr($signature, 0, -4) . 'XXXX';
-
-$result2 = $dispatch('POST', '/api/v1/federation/inbox', $tamperedPayload);
-finbox_assert($result2['status'] === 403, 'Tampered signature should be rejected with 403: ' . json_encode($result2));
-
-$noActivity = $db->query("SELECT * FROM federation_activities WHERE public_id = 'act-follow-2'")->fetch();
-finbox_assert($noActivity === false, 'Rejected activity should not be persisted');
-
-// ---- Test 3: blocked sender domain is rejected before any discovery/verification ----
-finbox_seed_remote_node($db, 'blocked-sender.example', 'BLOCKED', null);
-$blockedPayload = [
-    'id' => 'act-follow-3',
-    'type' => 'Follow',
-    'actor' => 'https://blocked-sender.example/@mallory',
-    'object' => 'https://test.local/@owner',
-];
-$result3 = $dispatch('POST', '/api/v1/federation/inbox', $blockedPayload);
-finbox_assert($result3['status'] === 403, 'Blocked domain should be rejected with 403: ' . json_encode($result3));
-
-// ---- Test 4: unsigned Follow from a known, non-blocked domain is still processed (marked UNSIGNED) ----
-finbox_seed_remote_node($db, 'open-sender.example', 'UNKNOWN', null);
-$unsignedPayload = [
-    'id' => 'act-follow-4',
-    'type' => 'Follow',
-    'actor' => 'https://open-sender.example/@dave',
-    'object' => 'https://test.local/@owner',
-];
-$result4 = $dispatch('POST', '/api/v1/federation/inbox', $unsignedPayload);
-finbox_assert($result4['status'] === 202, 'Unsigned Follow from known domain should still be processed: ' . json_encode($result4));
-finbox_assert($result4['body']['data']['verified'] === false, 'Unsigned Follow should be marked unverified');
-finbox_assert($result4['body']['data']['status'] === 'pending', 'Unsigned Follow should also be left PENDING for manual approval');
-
-$unsignedActivity = $db->query("SELECT * FROM federation_activities WHERE public_id = 'act-follow-4'")->fetch();
-finbox_assert($unsignedActivity !== false && $unsignedActivity['status'] === 'UNSIGNED', 'Unsigned activity should be stored with status UNSIGNED');
-
-// ---- Test 4b: the owner can reject a pending follow request instead of approving it ----
-$daveRequestsList = $dispatch('GET', '/api/v1/me/federation/follow-requests', null, $ownerToken);
-$daveRequest = current(array_filter($daveRequestsList['body']['data']['follow_requests'], fn ($r) => $r['actor']['actor_uri'] === 'https://open-sender.example/@dave'));
-finbox_assert($daveRequest !== false, 'Pending list should include dave\'s follow request');
-
-$reject = $dispatch('POST', "/api/v1/me/federation/follow-requests/{$daveRequest['id']}/reject", null, $ownerToken);
-finbox_assert($reject['status'] === 200, 'Rejecting a follow request should succeed: ' . json_encode($reject));
-finbox_assert($reject['body']['data']['status'] === 'rejected', 'Reject should report rejected');
-
-$daveFollowRow = $db->query("SELECT * FROM follows WHERE target_actor_uri = 'https://open-sender.example/@dave'")->fetch();
-finbox_assert($daveFollowRow !== false && $daveFollowRow['status'] === 'REJECTED', 'Follow row should be REJECTED');
-
-$daveConnRow = $db->query("SELECT fc.* FROM federated_connections fc INNER JOIN remote_actors ra ON ra.id = fc.remote_actor_id WHERE ra.actor_uri = 'https://open-sender.example/@dave'")->fetch();
-finbox_assert($daveConnRow === false, 'No connection should be created for a rejected follow request');
-
-$rejectActivity = $db->query("SELECT * FROM federation_activities WHERE activity_type = 'Reject' AND direction = 'OUTGOING' ORDER BY id DESC LIMIT 1")->fetch();
-finbox_assert($rejectActivity !== false, 'Rejecting should queue an outgoing Reject activity');
-
-$foreignReject = $dispatch('POST', "/api/v1/me/federation/follow-requests/nonexistent-id/reject", null, $ownerToken);
-finbox_assert($foreignReject['status'] === 404, 'Rejecting an unknown follow request id should 404: ' . json_encode($foreignReject));
-
-// ---- Test 5: full send-follow -> inbound Accept round trip ----
-finbox_seed_remote_node($db, 'remote-target.example', 'UNKNOWN', null);
-$targetNodeId = (int) $db->query("SELECT id FROM remote_nodes WHERE domain = 'remote-target.example'")->fetch()['id'];
-$db->exec("INSERT INTO remote_actors (public_id, remote_node_id, actor_uri, federated_address, display_name)
-           VALUES ('ra-bob', {$targetNodeId}, 'https://remote-target.example/@bob', '@bob@remote-target.example', 'Bob')");
-$bobActorId = (int) $db->lastInsertId();
-
-$sendFollow = $dispatch('POST', '/api/v1/federation/send-follow', [
-    'target_actor_uri' => 'https://remote-target.example/@bob',
-    'target_domain' => 'remote-target.example',
-    'target_federated_address' => '@bob@remote-target.example',
-], $ownerToken);
-finbox_assert($sendFollow['status'] === 201, 'send-follow should succeed: ' . json_encode($sendFollow));
-$sentActivityId = $sendFollow['body']['data']['activity_id'];
-
-$acceptPayload = [
-    'id' => 'act-accept-1',
-    'type' => 'Accept',
-    'actor' => 'https://remote-target.example/@bob',
-    'object' => $sentActivityId,
-];
-$resultAccept = $dispatch('POST', '/api/v1/federation/inbox', $acceptPayload);
-finbox_assert($resultAccept['status'] === 202, 'Inbound Accept should be processed: ' . json_encode($resultAccept));
-finbox_assert($resultAccept['body']['data']['status'] === 'accepted', 'Accept should report accepted');
-
-$followAfterAccept = $db->query("SELECT * FROM follows WHERE activity_public_id = '{$sentActivityId}'")->fetch();
-finbox_assert($followAfterAccept !== false && $followAfterAccept['status'] === 'ACCEPTED', 'Follow should be ACCEPTED after remote Accept');
-
-$connAfterAccept = $db->query("SELECT * FROM federated_connections WHERE profile_id = {$ownerProfileId} AND remote_actor_id = {$bobActorId}")->fetch();
-finbox_assert($connAfterAccept !== false && $connAfterAccept['relationship_status'] === 'CONNECTED', 'Connection to Bob should be CONNECTED after Accept');
-
-// ---- Test 6: duplicate activity id is a no-op ----
-$dup = $dispatch('POST', '/api/v1/federation/inbox', $followPayload);
-finbox_assert($dup['status'] === 200 || $dup['status'] === 202, 'Duplicate activity should not error: ' . json_encode($dup));
-finbox_assert($dup['body']['data']['status'] === 'duplicate', 'Replayed activity id should be reported as duplicate');
-
-// ---- Test 7: activity with a stale/out-of-window timestamp is rejected ----
-finbox_seed_remote_node($db, 'stale-sender.example', 'UNKNOWN', null);
-$stalePayload = [
-    'id' => 'act-follow-stale',
-    'type' => 'Follow',
-    'actor' => 'https://stale-sender.example/@eve',
-    'object' => 'https://test.local/@owner',
-    'published' => gmdate('c', time() - 3600),
-];
-$staleResult = $dispatch('POST', '/api/v1/federation/inbox', $stalePayload);
-finbox_assert($staleResult['status'] === 403, 'Stale-timestamp activity should be rejected with 403: ' . json_encode($staleResult));
-
-// ---- Test 8: remote-node moderation list requires auth and reflects seeded nodes ----
-$unauthList = $dispatch('GET', '/api/v1/me/federation/remote-nodes');
-finbox_assert($unauthList['status'] === 401, 'Remote-node list should require auth');
-
-$modList = $dispatch('GET', '/api/v1/me/federation/remote-nodes', null, $ownerToken);
-finbox_assert($modList['status'] === 200, 'Remote-node list should succeed for an authenticated owner: ' . json_encode($modList));
-$senderNode = current(array_filter($modList['body']['data']['remote_nodes'], fn ($n) => $n['domain'] === 'sender.example'));
-finbox_assert($senderNode !== false, 'Moderation list should include previously-discovered sender.example');
-
-// ---- Test 9: owner can block a remote node's domain, which then takes effect on the inbox ----
-$blockResult = $dispatch('PATCH', '/api/v1/me/federation/remote-nodes/open-sender.example/trust', ['trust_state' => 'BLOCKED'], $ownerToken);
-finbox_assert($blockResult['status'] === 200, 'Blocking a remote node should succeed: ' . json_encode($blockResult));
-finbox_assert($blockResult['body']['data']['trust_state'] === 'BLOCKED', 'Remote node should now be BLOCKED');
-
-$afterBlock = $dispatch('POST', '/api/v1/federation/inbox', [
-    'id' => 'act-follow-after-block',
-    'type' => 'Follow',
-    'actor' => 'https://open-sender.example/@dave',
-    'object' => 'https://test.local/@owner',
-]);
-finbox_assert($afterBlock['status'] === 403, 'Activity from a newly-blocked domain should be rejected: ' . json_encode($afterBlock));
-
-$invalidTrust = $dispatch('PATCH', '/api/v1/me/federation/remote-nodes/open-sender.example/trust', ['trust_state' => 'NOPE'], $ownerToken);
-finbox_assert($invalidTrust['status'] === 422, 'Invalid trust_state should 422');
-
-$unknownDomainTrust = $dispatch('PATCH', '/api/v1/me/federation/remote-nodes/never-seen.example/trust', ['trust_state' => 'TRUSTED'], $ownerToken);
-finbox_assert($unknownDomainTrust['status'] === 404, 'Unknown remote-node domain should 404');
-
-// ---- Test 10: federation summary reports accepted followers/following separately ----
-// By this point: alice (test 1b) was approved as an INCOMING follow
-// (follower), dave (test 4b) was rejected so does not count, and bob
-// (test 5) is an accepted OUTGOING follow (following) — this is exactly
-// the case findFollowersByProfileId/findFollowingByProfileId used to be
-// unable to tell apart (identical queries prior to the `direction`
-// column), so a wrong count here would mean that regressed.
-$unauthSummary = $dispatch('GET', '/api/v1/me/federation/summary');
-finbox_assert($unauthSummary['status'] === 401, 'Federation summary should require auth');
-
-$summary = $dispatch('GET', '/api/v1/me/federation/summary', null, $ownerToken);
-finbox_assert($summary['status'] === 200, 'Federation summary should succeed for an authenticated owner: ' . json_encode($summary));
-finbox_assert($summary['body']['data']['follower_count'] === 1, 'Expected 1 follower (alice; dave was rejected), got ' . json_encode($summary['body']['data']));
-finbox_assert($summary['body']['data']['following_count'] === 1, 'Expected 1 following (bob), got ' . json_encode($summary['body']['data']));
-finbox_assert($summary['body']['data']['pending_follow_requests'] === 0, 'Expected 0 pending requests (alice approved, dave rejected), got ' . json_encode($summary['body']['data']));
-finbox_assert($summary['body']['data']['capabilities'] === ['PROFILE', 'CONTENT'], 'A node with no capabilities set yet should default to [PROFILE, CONTENT]');
-
-// ---- Test 11: owner can update node capabilities; invalid values are rejected ----
-$updateCaps = $dispatch('PATCH', '/api/v1/me/federation/capabilities', ['capabilities' => ['profile', 'products']], $ownerToken);
-finbox_assert($updateCaps['status'] === 200, 'Updating capabilities should succeed: ' . json_encode($updateCaps));
-finbox_assert($updateCaps['body']['data']['capabilities'] === ['PROFILE', 'PRODUCTS'], 'Capabilities should be stored normalized to uppercase');
-
-$summaryAfterUpdate = $dispatch('GET', '/api/v1/me/federation/summary', null, $ownerToken);
-finbox_assert($summaryAfterUpdate['body']['data']['capabilities'] === ['PROFILE', 'PRODUCTS'], 'Summary should reflect the updated capabilities');
-
-$invalidCaps = $dispatch('PATCH', '/api/v1/me/federation/capabilities', ['capabilities' => ['PROFILE', 'NOT_A_REAL_CAPABILITY']], $ownerToken);
-finbox_assert($invalidCaps['status'] === 422, 'An unknown capability should 422: ' . json_encode($invalidCaps));
-
-$unauthCaps = $dispatch('PATCH', '/api/v1/me/federation/capabilities', ['capabilities' => ['PROFILE']]);
-finbox_assert($unauthCaps['status'] === 401, 'Updating capabilities should require auth');
-
-// Cleanup
 Database::reset();
-unset($db);
-unlink($envPath);
-unlink($dbPath);
+unset($db, $router, $dispatch);
+@unlink($envPath);
+@unlink($dbPath);
 fwrite(STDOUT, "Federation inbox test passed\n");
