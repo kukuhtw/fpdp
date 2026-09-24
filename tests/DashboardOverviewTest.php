@@ -71,7 +71,7 @@ $ownerToken = $register['body']['data']['token']['access_token'];
 // register()'s JSON response exposes public UUIDs, not internal ids, so the
 // internal integer ids used to seed raw rows below are read back from the DB.
 $ownerUserId = (int) $db->query("SELECT id FROM users WHERE email = 'owner@test.local'")->fetch()['id'];
-$ownerNodeId = (int) $db->query("SELECT id FROM nodes WHERE domain = 'owner.test.local'")->fetch()['id'];
+$ownerNodeId = (int) $db->query("SELECT id FROM nodes WHERE domain = 'test.local'")->fetch()['id'];
 $ownerProfileId = (int) $db->query("SELECT id FROM profiles WHERE handle = 'owner'")->fetch()['id'];
 
 // Seed one published + one draft local post.
@@ -114,7 +114,7 @@ $overview = $dispatch('GET', '/api/v1/me/dashboard/overview', null, $ownerToken)
 dash_assert($overview['status'] === 200, 'Overview should succeed for an authenticated owner: ' . json_encode($overview));
 $data = $overview['body']['data'];
 
-dash_assert($data['node']['domain'] === 'owner.test.local', 'Overview should report the node domain');
+dash_assert($data['node']['domain'] === 'test.local', 'Overview should report the node domain');
 dash_assert($data['content'] === ['total' => 2, 'published' => 1, 'draft' => 1], 'Content counts wrong: ' . json_encode($data['content']));
 dash_assert($data['timeline_mix'] === ['local' => 1, 'external' => 1, 'federated' => 1], 'Timeline mix wrong: ' . json_encode($data['timeline_mix']));
 dash_assert($data['commerce']['product_count'] === 1, 'product_count wrong');

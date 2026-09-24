@@ -40,7 +40,7 @@ $profile = $db->query("SELECT handle, display_name FROM profiles WHERE handle = 
 $node = $db->query("SELECT domain FROM nodes")->fetch();
 if ($user === false || $user['role'] !== 'OWNER'
     || $profile === false || $profile['display_name'] !== 'Profile Owner'
-    || $node === false || $node['domain'] !== 'profile.example.test') {
+    || $node === false || $node['domain'] !== 'example.test') {
     fwrite(STDERR, "Owner bootstrap did not create the expected node context\n");
     exit(1);
 }

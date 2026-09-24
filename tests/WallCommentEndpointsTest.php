@@ -183,13 +183,21 @@ $ownerToken = $registered['token']['access_token'];
 $nodeId = (int) $registered['node']['id'];
 
 // A second, unrelated owner+node — used to prove wall comments are node-scoped.
-$registeredOther = $authService->register([
-    'email' => 'bob@example.com',
-    'password' => 'correct horse battery too',
-    'handle' => 'bob',
-    'display_name' => 'Bob Owner',
-]);
-$otherOwnerToken = $registeredOther['token']['access_token'];
+// AuthService::register() sets a node's domain to NODE_DOMAIN as-is (one
+// FPDP install is one node on one domain), so a second call against the
+// same loaded NODE_DOMAIN would collide on the nodes.domain UNIQUE
+// constraint. Build the second node directly at the repository layer
+// instead, exactly like register() does internally, just with its own domain.
+$otherNodeRepo = new NodeRepository($connection);
+$otherUserRepo = new UserRepository($connection);
+$otherProfileRepo = new ProfileRepository($connection);
+$otherTokenRepo = new AuthTokenRepository($connection);
+$otherNodeId = $otherNodeRepo->create('node-bob', 'bob.test.local', 'Bob Node', 'en', 'UTC');
+$otherUserId = $otherUserRepo->create('user-bob', $otherNodeId, 'bob@example.com', password_hash('correct horse battery too', PASSWORD_DEFAULT), 'OWNER');
+$otherProfileRepo->create('profile-bob', $otherUserId, 'bob', 'Bob Owner');
+$otherRawToken = bin2hex(random_bytes(32));
+$otherTokenRepo->create($otherUserId, hash('sha256', $otherRawToken), (new DateTimeImmutable())->modify('+3600 seconds')->format('Y-m-d H:i:s'));
+$otherOwnerToken = $otherRawToken;
 
 // Resolve a visitor via the real VisitorAuthService with a fake Google client.
 $visitorAuthService = new VisitorAuthService(
