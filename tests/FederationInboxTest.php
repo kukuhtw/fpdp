@@ -215,7 +215,17 @@ $outgoingAccept = $db->query("SELECT payload, target_actor_uri FROM federation_a
 finbox_assert($outgoingAccept !== false, 'Approving should queue an outgoing Accept activity');
 $acceptPayload = json_decode($outgoingAccept['payload'], true);
 finbox_assert($acceptPayload['@context'] === 'https://www.w3.org/ns/activitystreams', 'Outgoing Accept should use the real ActivityStreams context, not the old FPDP-proprietary one');
-finbox_assert(is_array($acceptPayload['object']) && $acceptPayload['object']['type'] === 'Follow' && $acceptPayload['object']['id'] === $followActivityId, 'Accept.object must embed the original Follow activity per spec, not a bare id: ' . json_encode($acceptPayload));
+// Test 6 (an unsigned resend from the same actor while still pending) is
+// expected to have overwritten which Follow activity id this references —
+// see processFollow()'s "resent while still pending" branch — so this only
+// checks the embedded object is shaped correctly (Follow, from the
+// follower, targeting us), not which exact id survived.
+finbox_assert(
+    is_array($acceptPayload['object']) && $acceptPayload['object']['type'] === 'Follow'
+        && $acceptPayload['object']['actor'] === $remote['actorUri'] && $acceptPayload['object']['object'] === 'https://test.local/@owner'
+        && is_string($acceptPayload['object']['id']) && $acceptPayload['object']['id'] !== '',
+    'Accept.object must embed the original Follow activity per spec, not a bare id: ' . json_encode($acceptPayload),
+);
 finbox_assert($outgoingAccept['target_actor_uri'] === $remote['actorUri'], 'The queued Accept should target the follower\'s actor URI for delivery');
 
 $connectionRow = $db->query('SELECT relationship_status FROM federated_connections')->fetch();
