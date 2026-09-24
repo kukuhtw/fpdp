@@ -125,14 +125,14 @@ final class NodeDiscoveryService
      *
      * @return array<string, mixed>|null
      */
-    public function resolveActorByUri(string $actorUri, bool $forceRefresh = false): ?array
+    public function resolveActorByUri(string $requestedUri, bool $forceRefresh = false): ?array
     {
-        $existing = $this->actors->findByActorUri($actorUri);
+        $existing = $this->actors->findByActorUri($requestedUri);
         if ($existing !== null && !$forceRefresh && !$this->isStale($existing['fetched_at'] ?? null)) {
             return $existing;
         }
 
-        $document = $this->fetchActorDocument($actorUri);
+        $document = $this->fetchActorDocument($requestedUri);
         if ($document === null) {
             // A stale-but-previously-known actor is still usable (e.g. the
             // remote server is briefly unreachable) — only a genuinely
@@ -140,7 +140,18 @@ final class NodeDiscoveryService
             return $existing;
         }
 
-        $domain = (string) parse_url($actorUri, PHP_URL_HOST);
+        // The document's own `id` is the actor's real, canonical URI, which
+        // is very often NOT the URL used to reach it — Mastodon's /@handle
+        // vanity URLs canonicalize to /users/handle, for example. Use the
+        // canonical id as the stored identity from here on, since that's
+        // what the actor itself will use in the `actor` field of any
+        // activity it later sends us.
+        $canonicalUri = is_string($document['id'] ?? null) && $document['id'] !== '' ? $document['id'] : $requestedUri;
+        if ($existing === null && $canonicalUri !== $requestedUri) {
+            $existing = $this->actors->findByActorUri($canonicalUri);
+        }
+
+        $domain = (string) parse_url($canonicalUri, PHP_URL_HOST);
         $node = $this->ensureRemoteNode($domain);
         if ($node === null) {
             return $existing;
