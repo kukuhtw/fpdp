@@ -65,6 +65,25 @@ final class RagFaqRepository
     }
 
     /**
+     * Every embedded FAQ across all of a node's documents — the candidate
+     * pool for the chatbot's retrieval step (ChatbotService does the actual
+     * similarity ranking; this just scopes the brute-force scan to one node).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listEmbeddedByNodeId(int $nodeId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT rag_faqs.* FROM rag_faqs
+             INNER JOIN rag_documents ON rag_documents.id = rag_faqs.document_id
+             WHERE rag_documents.node_id = :node_id AND rag_faqs.embedding IS NOT NULL',
+        );
+        $statement->execute(['node_id' => $nodeId]);
+
+        return $statement->fetchAll();
+    }
+
+    /**
      * Updates the question/answer text and clears any embedding — the old
      * vector no longer matches the new text, so it must be regenerated
      * before this FAQ is usable for retrieval again.
