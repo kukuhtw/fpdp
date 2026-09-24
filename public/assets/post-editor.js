@@ -57,10 +57,34 @@
     }
   };
   const syncContent = () => { postContentInput.value = editorContent.innerHTML; };
+  /**
+   * execCommand() needs an active selection/cursor inside editorContent to
+   * know where to act. That's usually already true when the user just
+   * clicked/typed in the editor, but loadPost() replaces editorContent's
+   * whole innerHTML when opening an existing post for editing, which clears
+   * any selection — so a toolbar button clicked before the user has clicked
+   * into the text has nowhere to insert into and silently does nothing.
+   * Only fall back to placing the cursor at the end when there's truly no
+   * selection inside the editor yet, so an existing text selection (e.g.
+   * highlighting a word before clicking Bold) is left untouched.
+   */
+  const ensureEditorSelection = () => {
+    const selection = window.getSelection();
+    const hasSelectionInEditor = selection !== null && selection.rangeCount > 0
+      && editorContent.contains(selection.getRangeAt(0).commonAncestorContainer);
+    editorContent.focus();
+    if (!hasSelectionInEditor && selection !== null) {
+      const range = document.createRange();
+      range.selectNodeContents(editorContent);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  };
   const execFormat = (cmd, value) => {
+    ensureEditorSelection();
     document.execCommand(cmd, false, value || null);
     syncContent();
-    editorContent.focus();
   };
 
   /** Turn a YouTube / TikTok / Instagram URL into a safe embeddable iframe. */

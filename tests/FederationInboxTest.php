@@ -88,7 +88,7 @@ $followPayload = [
     'id' => 'act-follow-1',
     'type' => 'Follow',
     'actor' => 'https://sender.example/@alice',
-    'object' => 'https://owner.test.local/@owner',
+    'object' => 'https://test.local/@owner',
     'published' => gmdate('c'),
 ];
 $signature = base64_encode(sodium_crypto_sign_detached(json_encode($followPayload), $secretKey));
@@ -150,7 +150,7 @@ $blockedPayload = [
     'id' => 'act-follow-3',
     'type' => 'Follow',
     'actor' => 'https://blocked-sender.example/@mallory',
-    'object' => 'https://owner.test.local/@owner',
+    'object' => 'https://test.local/@owner',
 ];
 $result3 = $dispatch('POST', '/api/v1/federation/inbox', $blockedPayload);
 finbox_assert($result3['status'] === 403, 'Blocked domain should be rejected with 403: ' . json_encode($result3));
@@ -161,7 +161,7 @@ $unsignedPayload = [
     'id' => 'act-follow-4',
     'type' => 'Follow',
     'actor' => 'https://open-sender.example/@dave',
-    'object' => 'https://owner.test.local/@owner',
+    'object' => 'https://test.local/@owner',
 ];
 $result4 = $dispatch('POST', '/api/v1/federation/inbox', $unsignedPayload);
 finbox_assert($result4['status'] === 202, 'Unsigned Follow from known domain should still be processed: ' . json_encode($result4));
@@ -234,7 +234,7 @@ $stalePayload = [
     'id' => 'act-follow-stale',
     'type' => 'Follow',
     'actor' => 'https://stale-sender.example/@eve',
-    'object' => 'https://owner.test.local/@owner',
+    'object' => 'https://test.local/@owner',
     'published' => gmdate('c', time() - 3600),
 ];
 $staleResult = $dispatch('POST', '/api/v1/federation/inbox', $stalePayload);
@@ -258,7 +258,7 @@ $afterBlock = $dispatch('POST', '/api/v1/federation/inbox', [
     'id' => 'act-follow-after-block',
     'type' => 'Follow',
     'actor' => 'https://open-sender.example/@dave',
-    'object' => 'https://owner.test.local/@owner',
+    'object' => 'https://test.local/@owner',
 ]);
 finbox_assert($afterBlock['status'] === 403, 'Activity from a newly-blocked domain should be rejected: ' . json_encode($afterBlock));
 
