@@ -10,6 +10,7 @@ Repository menyediakan deployment Dokploy berbasis Docker Compose dengan:
 - bootstrap owner pertama yang opsional dan idempotent;
 - persistent volume untuk MySQL dan `storage/`;
 - health check aplikasi dan database;
+- worker `federation-worker` yang berjalan terus-menerus untuk mengirim activity ActivityPub yang tertunda (follow, accept, post, dsb.) ke inbox remote — tanpa ini, permintaan follow akan tersimpan sebagai PENDING tapi tidak pernah benar-benar terkirim;
 - tanpa host-port binding, `container_name`, atau label Traefik manual;
 - default production dengan web installer terkunci.
 

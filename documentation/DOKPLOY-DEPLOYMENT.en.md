@@ -10,6 +10,7 @@ The repository includes a production-oriented Dokploy Compose deployment:
 - optional idempotent first-owner bootstrap;
 - persistent volumes for MySQL and `storage/` (including CV documents and the install lock);
 - app and database health checks;
+- a `federation-worker` service that continuously delivers pending ActivityPub activities (follow, accept, post, etc.) to remote inboxes — without it, follow requests stay queued as PENDING and are never actually sent;
 - no host port binding, `container_name`, or hand-written Traefik labels;
 - production defaults with the web installer locked.
 

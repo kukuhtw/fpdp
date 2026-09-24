@@ -28,6 +28,28 @@ services:
       retries: 5
       start_period: 30s
 
+  federation-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      RUN_MIGRATIONS: "false"
+    volumes:
+      - fpdp_storage:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["fpdp-entrypoint"]
+    command: ["sh", "-c", "while true; do php deliver-federation.php --max=20; sleep 60; done"]
+
   db:
     image: mysql:8.4
     restart: unless-stopped
