@@ -10,7 +10,10 @@ use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
 use App\Core\Database;
 use App\Repositories\ExternalPostRepository;
+use App\Repositories\FederatedPostRepository;
+use App\Repositories\NodeRepository;
 use App\Repositories\PostRepository;
+use App\Repositories\ProfileRepository;
 use App\Services\Security\AuditService;
 use DateTimeImmutable;
 
@@ -19,12 +22,16 @@ final class PostService
     private const FIELDS = ['title', 'content', 'post_type', 'visibility', 'published_at', 'media'];
     private const TYPES = ['NOTE', 'ARTICLE', 'MEDIA'];
     private const VISIBILITIES = ['PUBLIC', 'UNLISTED', 'PRIVATE'];
+    private const SOURCE_TYPES = ['LOCAL', 'EXTERNAL', 'FEDERATED', 'ALL'];
     private const ALLOWED_HTML_TAGS = '<b><i><u><strong><em><a><ul><ol><li><br><p><h1><h2><h3><h4><pre><blockquote><figure><figcaption><img><div><span><sub><sup><code><hr><table><thead><tbody><tr><th><td><caption><iframe>';
 
     public function __construct(
         private readonly PostRepository $posts,
         private readonly ?ExternalPostRepository $external = null,
         private readonly ?AuditService $audit = null,
+        private readonly ?FederatedPostRepository $federatedPosts = null,
+        private readonly ?NodeRepository $nodes = null,
+        private readonly ?ProfileRepository $profiles = null,
     ) {
     }
 
