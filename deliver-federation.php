@@ -26,6 +26,7 @@ use App\Core\Database;
 use App\Core\Http\HttpClient;
 use App\Repositories\FederationActivityRepository;
 use App\Repositories\NodeKeyRepository;
+use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\RemoteActorRepository;
 use App\Repositories\RemoteNodeRepository;
@@ -43,7 +44,7 @@ $keyService = new NodeKeyService(new NodeKeyRepository($connection));
 $profiles = new ProfileRepository($connection);
 $actors = new RemoteActorRepository($connection);
 $http = new HttpClient();
-$discovery = new NodeDiscoveryService(new RemoteNodeRepository($connection), $actors, $http);
+$discovery = new NodeDiscoveryService(new RemoteNodeRepository($connection), $actors, $http, $keyService, new NodeRepository($connection), $profiles);
 
 $pending = $activityRepo->findPendingOutgoing($maxActivities);
 $timestamp = date('Y-m-d H:i:s');

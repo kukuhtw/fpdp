@@ -882,6 +882,9 @@ final class FederationService
                 $this->nodes,
                 $this->actors,
                 new \App\Core\Http\HttpClient(),
+                $this->getKeyService(),
+                $this->getLocalNodeRepo(),
+                $this->profiles,
             );
         }
         return $this->discovery;
