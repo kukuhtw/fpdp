@@ -178,6 +178,7 @@ $connection->exec('
         total_amount TEXT NOT NULL DEFAULT "0",
         currency TEXT NOT NULL DEFAULT "IDR",
         notes TEXT,
+        shipping_address TEXT,
         payment_reference TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
