@@ -17,4 +17,15 @@ interface LLMProviderInterface
      * @return array{content: string, tokens_used: int}
      */
     public function complete(array $messages, array $options = []): array;
+
+    /**
+     * Used for RAG (embedding a document's generated FAQs for later
+     * similarity search). Not every provider has a native embeddings API —
+     * a provider that doesn't must throw RuntimeException rather than
+     * silently proxy through a chat completion, the same convention
+     * PaywuzGateway uses for operations it doesn't support.
+     *
+     * @return array{vector: array<int, float>, tokens_used: int}
+     */
+    public function embed(string $text): array;
 }

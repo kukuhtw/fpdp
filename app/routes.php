@@ -10,6 +10,7 @@ use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\LlmController;
 use App\Controllers\MediaController;
+use App\Controllers\RagController;
 use App\Controllers\ProfileController;
 use App\Controllers\FederationController;
 use App\Controllers\ThemeController;
@@ -48,6 +49,8 @@ use App\Repositories\PaymentGatewayConfigRepository;
 use App\Repositories\PaymentRepository;
 use App\Repositories\ProductDigitalAssetRepository;
 use App\Repositories\ProductRepository;
+use App\Repositories\RagDocumentRepository;
+use App\Repositories\RagFaqRepository;
 use App\Repositories\RateLimitRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
@@ -70,6 +73,7 @@ use App\Services\External\SyncWorker;
 use App\Services\External\LinkedInIntegrationService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Marketplace\ProductDigitalAssetService;
+use App\Services\Rag\RagService;
 use App\Services\Security\RateLimiter;
 use App\Services\Visitor\GoogleOAuthClient;
 use App\Services\Visitor\OAuthStateSigner;
@@ -179,6 +183,20 @@ $buildLlmController = static function () use ($buildAuthService, $mediaStorageDi
         new LLMConfigService(
             new LlmConfigRepository($connection),
             new MediaUploadService($mediaStorageDirectory),
+            $buildRateLimiter(),
+        ),
+    );
+};
+
+$buildRagController = static function () use ($buildAuthService, $buildRateLimiter): RagController {
+    $connection = Database::connection();
+
+    return new RagController(
+        $buildAuthService(),
+        new RagService(
+            new RagDocumentRepository($connection),
+            new RagFaqRepository($connection),
+            new LlmConfigRepository($connection),
             $buildRateLimiter(),
         ),
     );
@@ -395,6 +413,10 @@ $router->get('/dashboard/cv', function (Request $request, array $params) use ($b
     return Response::html($buildContentPageController()->cvManager());
 });
 
+$router->get('/dashboard/rag', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->ragManager());
+});
+
 $router->get('/dashboard/federation', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->federationManager());
 });
@@ -557,6 +579,34 @@ $router->patch('/api/v1/me/llm-config', function (Request $request, array $param
 
 $router->post('/api/v1/me/llm-config/describe-image', function (Request $request, array $params) use ($buildLlmController): Response {
     return $buildLlmController()->describeImage($request);
+});
+
+$router->post('/api/v1/me/rag/documents', function (Request $request, array $params) use ($buildRagController): Response {
+    return $buildRagController()->uploadDocument($request);
+});
+
+$router->get('/api/v1/me/rag/documents', function (Request $request, array $params) use ($buildRagController): Response {
+    return $buildRagController()->listDocuments($request);
+});
+
+$router->delete('/api/v1/me/rag/documents/{documentId}', function (Request $request, array $params) use ($buildRagController): Response {
+    return $buildRagController()->deleteDocument($request, $params);
+});
+
+$router->get('/api/v1/me/rag/documents/{documentId}/faqs', function (Request $request, array $params) use ($buildRagController): Response {
+    return $buildRagController()->listFaqs($request, $params);
+});
+
+$router->post('/api/v1/me/rag/documents/{documentId}/faqs/generate', function (Request $request, array $params) use ($buildRagController): Response {
+    return $buildRagController()->generateFaqs($request, $params);
+});
+
+$router->patch('/api/v1/me/rag/faqs/{faqId}', function (Request $request, array $params) use ($buildRagController): Response {
+    return $buildRagController()->updateFaq($request, $params);
+});
+
+$router->delete('/api/v1/me/rag/faqs/{faqId}', function (Request $request, array $params) use ($buildRagController): Response {
+    return $buildRagController()->deleteFaq($request, $params);
 });
 
 $router->get('/api/v1/me/dashboard/analytics', function (Request $request, array $params) use ($buildAnalyticsController): Response {

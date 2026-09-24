@@ -15,6 +15,7 @@
     <a href="/dashboard/posts" class="owner-nav hidden">Post editor</a>
     <a href="/dashboard/posts/list" class="owner-nav hidden">My posts</a>
     <a href="/dashboard/cv" class="owner-nav hidden">CV &amp; Resume</a>
+    <a href="/dashboard/rag" class="owner-nav hidden">RAG Documents</a>
     <a href="/dashboard/products" class="owner-nav hidden">Products</a>
     <a href="/dashboard/orders" class="owner-nav hidden">Orders</a>
     <a href="/dashboard/integrations" class="owner-nav hidden">Integrations</a>

@@ -158,6 +158,11 @@ final class ContentPageController
         return View::render('dashboard-cv', ['title' => 'CV & Resume · FPDP']);
     }
 
+    public function ragManager(): string
+    {
+        return View::render('dashboard-rag', ['title' => 'RAG Documents · Dashboard · FPDP']);
+    }
+
     public function publicCv(string $handle): string
     {
         $profile = $this->profiles->getPublicProfile($handle);

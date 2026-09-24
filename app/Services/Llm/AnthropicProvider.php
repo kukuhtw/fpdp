@@ -40,6 +40,17 @@ final class AnthropicProvider implements LLMProviderInterface
         return 'Anthropic';
     }
 
+    /**
+     * Anthropic has no native embeddings API (they point integrators at
+     * Voyage AI instead) — fail closed rather than silently proxy through
+     * something unexpected, same convention as PaywuzGateway's unsupported
+     * operations.
+     */
+    public function embed(string $text): array
+    {
+        throw new RuntimeException('Anthropic has no native embeddings API. Configure OpenAI or OpenRouter as the LLM provider to use RAG features.');
+    }
+
     public function complete(array $messages, array $options = []): array
     {
         $payload = [

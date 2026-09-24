@@ -17,6 +17,7 @@ use RuntimeException;
 class OpenAiProvider implements LLMProviderInterface
 {
     private const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+    private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
     private readonly Closure $httpRequester;
 
@@ -69,6 +70,36 @@ class OpenAiProvider implements LLMProviderInterface
         $tokensUsed = (int) ($decoded['usage']['total_tokens'] ?? 0);
 
         return ['content' => $content, 'tokens_used' => $tokensUsed];
+    }
+
+    public function embed(string $text): array
+    {
+        $payload = ['model' => $this->embeddingModel(), 'input' => $text];
+
+        $response = ($this->httpRequester)('POST', $this->baseUrl() . '/embeddings', [
+            'Authorization' => 'Bearer ' . $this->apiKey(),
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ], json_encode($payload));
+
+        $status = (int) ($response['status'] ?? 0);
+        $decoded = json_decode((string) ($response['body'] ?? ''), true);
+        if ($status < 200 || $status >= 300 || !is_array($decoded)) {
+            $message = is_array($decoded) ? ($decoded['error']['message'] ?? null) : null;
+            throw new RuntimeException($this->getName() . ' embedding failed: ' . ($message ?? "HTTP {$status}"));
+        }
+
+        $vector = $decoded['data'][0]['embedding'] ?? null;
+        if (!is_array($vector)) {
+            throw new RuntimeException($this->getName() . ' embedding response did not include a vector.');
+        }
+
+        return ['vector' => array_map('floatval', $vector), 'tokens_used' => (int) ($decoded['usage']['total_tokens'] ?? 0)];
+    }
+
+    protected function embeddingModel(): string
+    {
+        return (string) ($this->configuration['embedding_model'] ?? self::DEFAULT_EMBEDDING_MODEL);
     }
 
     /**
