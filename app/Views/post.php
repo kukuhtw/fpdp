@@ -12,5 +12,6 @@
     <?php \App\Core\View::partial('post-card', ['post' => $post]); ?>
 </main>
 <script src="/assets/topnav-auth.js" defer></script>
+<script src="/assets/lightbox.js" defer></script>
 </body>
 </html>

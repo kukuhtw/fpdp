@@ -17,5 +17,6 @@
     <?php if ($nextCursor !== null): ?><a class="button secondary" href="/timeline?cursor=<?= rawurlencode($nextCursor) ?>">Older posts</a><?php endif; ?>
 </main>
 <script src="/assets/topnav-auth.js" defer></script>
+<script src="/assets/lightbox.js" defer></script>
 </body>
 </html>
