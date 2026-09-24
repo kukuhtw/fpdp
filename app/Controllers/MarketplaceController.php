@@ -40,7 +40,9 @@ final class MarketplaceController
     public function createProduct(Request $request): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
-        return JsonEnvelope::success($this->marketplace->createProduct((int) $context['node']['id'], $request->json() ?? []), 201);
+        $product = $this->marketplace->createProduct((int) $context['node']['id'], $request->json() ?? []);
+        $this->federateProduct((int) $context['node']['id'], $product, 'Create');
+        return JsonEnvelope::success($product, 201);
     }
 
     public function showProduct(Request $request, array $params): Response
@@ -72,7 +74,27 @@ final class MarketplaceController
     public function updateProduct(Request $request, array $params): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
-        return JsonEnvelope::success($this->marketplace->updateProduct((int) $context['node']['id'], $params['productId'], $request->json() ?? []));
+        $product = $this->marketplace->updateProduct((int) $context['node']['id'], $params['productId'], $request->json() ?? []);
+        $this->federateProduct((int) $context['node']['id'], $product, 'Update');
+        return JsonEnvelope::success($product);
+    }
+
+    /**
+     * Federation is best-effort: a delivery-layer failure here must never
+     * block the product itself from saving successfully.
+     *
+     * @param array<string, mixed> $product
+     */
+    private function federateProduct(int $nodeId, array $product, string $activityType): void
+    {
+        if ($this->federation === null) {
+            return;
+        }
+        try {
+            $this->federation->publishLocalProduct($nodeId, $product, $activityType);
+        } catch (\Throwable) {
+            // Best-effort — the product itself already saved successfully.
+        }
     }
 
     // ---- Orders ----

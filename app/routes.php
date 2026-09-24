@@ -356,7 +356,7 @@ $buildDashboardController = static function () use ($buildAuthService, $buildFed
 $buildAnalyticsController = static function () use ($buildAuthService, $buildProfileService, $buildAnalyticsService): AnalyticsController {
     return new AnalyticsController($buildAuthService(), $buildProfileService(), $buildAnalyticsService());
 };
-$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService, $buildMarketplaceService, $buildVisitorAuthService, $productAssetStorageDirectory): MarketplaceController {
+$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService, $buildMarketplaceService, $buildVisitorAuthService, $productAssetStorageDirectory, $buildFederationService): MarketplaceController {
     $connection = Database::connection();
     return new MarketplaceController(
         $buildAuthService(),
@@ -369,6 +369,7 @@ $buildMarketplaceController = static function () use ($buildAuthService, $buildA
             new ProductDigitalAssetRepository($connection),
             $productAssetStorageDirectory,
         ),
+        $buildFederationService(),
     );
 };
 $buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {

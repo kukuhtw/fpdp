@@ -238,6 +238,7 @@
     form.elements.digital_asset_url.value = product.digital_asset_url || '';
     form.elements.status.value = product.status;
     form.elements.visibility.value = product.visibility;
+    form.elements.is_promoted.checked = !!product.is_promoted;
     const mediaUrl = (product.media && product.media[0] && product.media[0].url) || '';
     form.elements.media_url.value = mediaUrl;
     setPhotoPreview(mediaUrl || null);

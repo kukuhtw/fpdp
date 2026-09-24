@@ -60,6 +60,7 @@
           <label>Status<select name="status"><option value="ACTIVE">Aktif (bisa dibeli)</option><option value="INACTIVE">Nonaktif</option><option value="ARCHIVED">Diarsipkan</option></select></label>
           <label>Visibilitas<select name="visibility"><option value="PUBLIC">Publik</option><option value="UNLISTED">Unlisted</option><option value="PRIVATE">Privat</option></select></label>
         </div>
+        <label class="check"><input name="is_promoted" type="checkbox"> Promosikan ke Fediverse (kirim sebagai post ke follower Mastodon/ActivityPub saat disimpan)</label>
         <div class="actions"><button type="submit">Simpan produk</button><button id="cancel-edit" class="secondary hidden" type="button">Batal edit</button></div>
       </form>
       <p id="product-status" class="status" role="status" aria-live="polite"></p>
