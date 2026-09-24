@@ -56,15 +56,25 @@ $register = $dispatch('POST', '/api/v1/auth/register', [
 fed_assert($register['status'] === 201, 'Owner registration failed');
 $token = $register['body']['data']['token']['access_token'];
 
-// Register a second user
-$register2 = $dispatch('POST', '/api/v1/auth/register', [
-    'email' => 'other@test.local',
-    'password' => 'correct horse battery',
-    'handle' => 'other',
-    'display_name' => 'Other',
-]);
-fed_assert($register2['status'] === 201, 'Second user registration failed');
-$token2 = $register2['body']['data']['token']['access_token'];
+// Register a second, independent owner. AuthService::register() sets a
+// node's domain to NODE_DOMAIN as-is (one FPDP install is one node on one
+// domain), so a second call through the real endpoint against the same
+// loaded NODE_DOMAIN would collide on the nodes.domain UNIQUE constraint —
+// correct for the real single-tenant app, but this test wants two distinct
+// locally-registered owners (as if they were two separate deployments), so
+// build the second one directly at the repository layer instead, exactly
+// like AuthService::register() does, just with its own domain.
+$otherRawToken = bin2hex(random_bytes(32));
+$db->exec("INSERT INTO nodes (public_id, domain, name, default_locale, timezone) VALUES ('node-other', 'other.test.local', 'Other Node', 'en', 'UTC')");
+$otherNodeId = (int) $db->lastInsertId();
+$db->exec("INSERT INTO users (public_id, node_id, email, password_hash, role) VALUES ('user-other', {$otherNodeId}, 'other@test.local', 'hash', 'OWNER')");
+$otherUserId = (int) $db->lastInsertId();
+$db->exec("INSERT INTO profiles (public_id, user_id, handle, display_name) VALUES ('profile-other', {$otherUserId}, 'other', 'Other')");
+$otherTokenHash = hash('sha256', $otherRawToken);
+$otherExpiresAt = (new DateTimeImmutable())->modify('+3600 seconds')->format('Y-m-d H:i:s');
+$stmt = $db->prepare('INSERT INTO auth_tokens (user_id, token_hash, expires_at) VALUES (:user_id, :token_hash, :expires_at)');
+$stmt->execute(['user_id' => $otherUserId, 'token_hash' => $otherTokenHash, 'expires_at' => $otherExpiresAt]);
+$token2 = $otherRawToken;
 // Seed remote_nodes and remote_actors
 $db->exec("INSERT INTO remote_nodes (public_id, domain, name, status, trust_state) VALUES ('rn-1', 'remote1.example', 'Remote One', 'ACTIVE', 'TRUSTED')");
 $db->exec("INSERT INTO remote_nodes (public_id, domain, name, status, trust_state) VALUES ('rn-2', 'remote2.example', 'Remote Two', 'ACTIVE', 'UNKNOWN')");

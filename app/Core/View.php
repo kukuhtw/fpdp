@@ -150,7 +150,14 @@ final class View
      */
     public static function excerpt(string $html, int $maxWords = 50): string
     {
-        $text = trim(preg_replace('/\s+/', ' ', strip_tags($html)) ?? '');
+        // Post content is stored already HTML-escaped (post-card.php's
+        // non-excerpt path echoes it raw) — strip_tags() only removes real
+        // markup tags, leaving entities like `&lt;` as literal text, so
+        // decode those back to plain characters here. The caller is
+        // responsible for htmlspecialchars()-ing this result exactly once
+        // before output, the same as any other plain-text value.
+        $decoded = html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8');
+        $text = trim(preg_replace('/\s+/', ' ', $decoded) ?? '');
         if ($text === '') {
             return '';
         }
