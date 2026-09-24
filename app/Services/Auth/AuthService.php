@@ -69,7 +69,14 @@ final class AuthService
             throw new ConflictException('Handle is already taken.');
         }
 
-        $domain = $handle . '.' . Config::get('NODE_DOMAIN', 'localhost');
+        // One FPDP install is one node for one owner (every read path uses
+        // NodeRepository::findFirst(), never a handle-keyed lookup), so the
+        // node's domain is simply the domain this install is deployed on —
+        // not a handle.NODE_DOMAIN subdomain, which would only make sense
+        // for a multi-tenant host and contradicts "your domain is your
+        // digital home" (see README/BRD): the node's domain is the owner's
+        // own domain, e.g. kukuhtw.com, not kukuh.kukuhtw.com.
+        $domain = (string) Config::get('NODE_DOMAIN', 'localhost');
 
         try {
             $nodeId = $this->nodes->create(
