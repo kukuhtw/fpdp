@@ -21,4 +21,5 @@
   </section>
 </main>
 <script src="/assets/wall-coretan.js" defer></script>
+<script src="/assets/topnav-auth.js" defer></script>
 </body></html>

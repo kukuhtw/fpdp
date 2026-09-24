@@ -132,5 +132,6 @@
     </ul>
   </article>
 </main>
+<script src="/assets/topnav-auth.js" defer></script>
 </body>
 </html>

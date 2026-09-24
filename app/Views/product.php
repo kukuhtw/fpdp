@@ -14,4 +14,5 @@
   </section>
 </main>
 <script src="/assets/product.js" defer></script>
+<script src="/assets/topnav-auth.js" defer></script>
 </body></html>

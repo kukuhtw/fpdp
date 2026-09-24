@@ -78,6 +78,7 @@ button:disabled,.button:disabled{opacity:.5;cursor:not-allowed}
 
 .profile-hero{display:flex;gap:22px;align-items:flex-start}
 .avatar{flex:0 0 64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--ed-accent);color:#fff;font:700 1.8rem Georgia,serif}
+.avatar-photo{flex:0 0 64px;width:64px;height:64px;border-radius:50%;object-fit:cover;display:block}
 .cv-price{font-weight:700;color:var(--ed-accent);font-family:system-ui,sans-serif;margin:.3em 0}
 
 .ed-panel{padding:26px 30px;background:var(--ed-card);border:1px solid var(--ed-line);border-radius:4px}

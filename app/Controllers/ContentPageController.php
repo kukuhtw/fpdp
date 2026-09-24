@@ -147,7 +147,10 @@ final class ContentPageController
 
     public function aboutMeManager(): string
     {
-        return View::render('dashboard-about-me', ['title' => 'About Me · Dashboard · FPDP']);
+        return View::render('dashboard-about-me', [
+            'title' => 'About Me · Dashboard · FPDP',
+            'mediaMaxFileSizeBytes' => (int) \App\Core\Config::get('MEDIA_MAX_FILE_SIZE_BYTES', '10485760'),
+        ]);
     }
 
     public function cvManager(): string

@@ -11,5 +11,6 @@
 <main class="shell narrow">
     <?php \App\Core\View::partial('post-card', ['post' => $post]); ?>
 </main>
+<script src="/assets/topnav-auth.js" defer></script>
 </body>
 </html>
