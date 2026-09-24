@@ -167,17 +167,17 @@ final class NodeDiscoveryService
         $publicKey = is_array($document['publicKey'] ?? null) ? $document['publicKey'] : [];
         $publicKeyId = is_string($publicKey['id'] ?? null) ? $publicKey['id'] : null;
         $publicKeyPem = is_string($publicKey['publicKeyPem'] ?? null) ? $publicKey['publicKeyPem'] : null;
-        $federatedAddress = $handle !== '' ? "@{$handle}@{$domain}" : $actorUri;
+        $federatedAddress = $handle !== '' ? "@{$handle}@{$domain}" : $canonicalUri;
 
         if ($existing === null) {
             $actorId = $this->actors->create(
                 Uuid::v4(),
                 (int) $node['id'],
-                $actorUri,
+                $canonicalUri,
                 $federatedAddress,
                 $displayName,
                 $avatarUrl,
-                $actorUri,
+                $canonicalUri,
                 $inboxUrl,
                 $sharedInboxUrl,
                 $publicKeyId,
