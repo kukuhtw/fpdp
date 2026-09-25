@@ -1,7 +1,7 @@
 (() => {
   const style = document.createElement('style');
   style.textContent = `
-    .post-content img, .post-media img { cursor: zoom-in; }
+    .post-content img, .post-media img, #product-details img { cursor: zoom-in; }
     .lightbox-overlay {
       position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
       display: flex; align-items: center; justify-content: center;
@@ -59,7 +59,7 @@
   }
 
   document.addEventListener('click', (event) => {
-    const img = event.target.closest('.post-content img, .post-media img');
+    const img = event.target.closest('.post-content img, .post-media img, #product-details img');
     if (!img) return;
     event.preventDefault();
     openLightbox(img.currentSrc || img.src, img.alt);

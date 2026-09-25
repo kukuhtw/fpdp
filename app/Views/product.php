@@ -21,4 +21,5 @@
 </main>
 <script src="/assets/product.js" defer></script>
 <script src="/assets/topnav-auth.js" defer></script>
+<script src="/assets/lightbox.js" defer></script>
 </body></html>
