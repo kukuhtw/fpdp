@@ -382,6 +382,14 @@ final class FederationService
             // No local profile to attribute this to (unsupported type, or an
             // Accept/Reject with no matching outgoing Follow) — nothing to
             // persist against our nodes.id foreign key, so just acknowledge.
+            // This activity is otherwise lost with no trace, so for the
+            // types that SHOULD always resolve (Accept/Reject echo back an
+            // id we ourselves generated) log the raw payload — a mismatch
+            // here means the id we sent and the id Mastodon echoed back
+            // don't line up, which is otherwise invisible.
+            if (in_array($type, ['Accept', 'Reject'], true)) {
+                error_log("[FederationService] {$type} from {$actorUri} could not be matched to any outgoing Follow — raw activity: " . json_encode($activity));
+            }
             return ['status' => 'received', 'message' => "{$type} received, no handler", 'verified' => $verified];
         }
 
