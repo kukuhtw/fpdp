@@ -36,10 +36,11 @@
                 <p class="muted" id="config-subtitle">Select a gateway to configure.</p>
                 <form id="gateway-form" class="stack hidden">
                     <input name="code" type="hidden">
-                    <div id="gateway-fields"></div>
                     <div class="field-row">
                         <label>Environment<select name="environment"><option value="SANDBOX">Sandbox</option><option value="LIVE">Live</option></select></label>
                     </div>
+                    <p id="config-existing-note" class="muted"></p>
+                    <div id="gateway-fields"></div>
                     <button type="submit">Save Configuration</button>
                 </form>
                 <p id="settings-status" class="status" role="status" aria-live="polite"></p>

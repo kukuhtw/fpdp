@@ -10,6 +10,7 @@
   const gatewayForm = document.querySelector('#gateway-form');
   const gatewayFields = document.querySelector('#gateway-fields');
   const configSubtitle = document.querySelector('#config-subtitle');
+  const configExistingNote = document.querySelector('#config-existing-note');
   const llmForm = document.querySelector('#llm-form');
   const llmStatus = document.querySelector('#llm-status');
   const llmKeyHint = document.querySelector('#llm-key-hint');
@@ -75,6 +76,14 @@
 
       const isActive = activeGateway === gw.code;
       const activeEnv = (gw.environments.find((e) => e.is_active) || {}).environment || 'SANDBOX';
+      // Map of environment -> which of this gateway's config_keys already
+      // have a saved (encrypted) value, so "Configure" can show whether a
+      // credential set already exists before the owner re-enters anything —
+      // the form itself always starts blank (secrets are never sent back to
+      // the browser once saved), so this is the only in-form confirmation
+      // that a previous save actually reached the database.
+      const configuredByEnv = {};
+      gw.environments.forEach((e) => { configuredByEnv[e.environment] = e.configured_keys; });
 
       card.innerHTML = `
         <div class="gateway-card-head">
@@ -85,7 +94,7 @@
         <p class="muted">${envInfo}</p>
         ${gw.webhook_url ? `<p class="small"><strong>Webhook URL:</strong> <code style="font-size:.8rem;word-break:break-all">${gw.webhook_url}</code></p>` : ''}
         <div class="gateway-actions" style="display:flex;gap:.5rem;margin-top:.5rem">
-          <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${JSON.stringify(gw.allowed_config_keys)}' data-active-env="${activeEnv}">Configure</button>
+          <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${JSON.stringify(gw.allowed_config_keys)}' data-active-env="${activeEnv}" data-configured-by-env='${JSON.stringify(configuredByEnv)}'>Configure</button>
           ${!isActive ? `<button class="button small activate-btn" data-code="${gw.code}">Set Active</button>` : ''}
         </div>
       `;
@@ -124,6 +133,23 @@
     });
   };
 
+  const updateConfigExistingNote = () => {
+    const keys = JSON.parse(gatewayForm.dataset.keys || '[]');
+    const configuredByEnv = JSON.parse(gatewayForm.dataset.configuredByEnv || '{}');
+    const env = gatewayForm.elements.environment.value;
+    const configuredKeys = configuredByEnv[env] || [];
+    if (keys.length === 0) {
+      configExistingNote.textContent = '';
+    } else if (keys.every((key) => configuredKeys.includes(key))) {
+      configExistingNote.textContent = `✅ ${envLabels[env] || env} already has saved credentials. Fields below are left blank for security — fill in the full set again only if you want to change them.`;
+      configExistingNote.className = 'status success';
+    } else {
+      configExistingNote.textContent = `${envLabels[env] || env} is not fully configured yet.`;
+      configExistingNote.className = 'muted';
+    }
+  };
+  gatewayForm.elements.environment.addEventListener('change', updateConfigExistingNote);
+
   gatewayList.addEventListener('click', async (e) => {
     const btn = e.target.closest('.configure-btn');
     if (btn) {
@@ -132,8 +158,11 @@
       const activeEnv = btn.dataset.activeEnv || 'SANDBOX';
       gatewayForm.elements.code.value = code;
       gatewayForm.elements.environment.value = activeEnv;
+      gatewayForm.dataset.keys = btn.dataset.keys || '[]';
+      gatewayForm.dataset.configuredByEnv = btn.dataset.configuredByEnv || '{}';
       configSubtitle.textContent = `Configuring: ${code} (${envLabels[activeEnv] || activeEnv})`;
       buildFormFields(keys);
+      updateConfigExistingNote();
       gatewayForm.classList.remove('hidden');
       showStatus('');
       return;
