@@ -43,14 +43,15 @@ final class VisitorWalletService
         if ($amount < self::MIN_TOPUP_AMOUNT) {
             throw new ValidationException([['field' => 'amount', 'reason' => 'below_minimum']]);
         }
-        if ($buyerName === null || trim($buyerName) === '' || $buyerPhone === null || trim($buyerPhone) === '') {
-            throw new ValidationException([['field' => 'name', 'reason' => 'required'], ['field' => 'phone', 'reason' => 'required']]);
-        }
 
         $visitorId = (int) $visitor['id'];
         $wallet = $this->wallets->getOrCreate($visitorId, $currency);
 
         $gatewayCode = $this->resolveGatewayCode($nodeId);
+
+        if ($buyerName === null || trim($buyerName) === '' || $buyerPhone === null || trim($buyerPhone) === '') {
+            throw new ValidationException([['field' => 'name', 'reason' => 'required'], ['field' => 'phone', 'reason' => 'required']]);
+        }
         $returnUrl = $returnUrlBase !== null ? $returnUrlBase . '&before=' . urlencode((string) $wallet['balance_amount']) : null;
         $payment = $this->payments->createPayment($gatewayCode, [
             'order_id' => sprintf('WALLET-%d-%d-%d', $wallet['id'], $visitorId, time()),

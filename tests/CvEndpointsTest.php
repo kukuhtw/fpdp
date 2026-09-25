@@ -350,7 +350,7 @@ assert_that($noGatewayAccess->status === 409, "Priced CV access with no active g
 (new NodeRepository($connection))->setActiveGateway((int) $registered['node']['id'], 'DUMMY');
 
 // 10. Visitor pays (dummy gateway) and is granted access, then can download.
-$paidAccess = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], null, bearer($visitorToken)));
+$paidAccess = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], json_encode(['name' => 'Visitor One', 'phone' => '081234567890']), bearer($visitorToken)));
 $paidAccessData = json_decode($paidAccess->body, true)['data'];
 assert_that($paidAccess->status === 200 && $paidAccessData['granted'] === true && $paidAccessData['payment'] !== null, 'Paid CV access did not create a payment-backed grant');
 
