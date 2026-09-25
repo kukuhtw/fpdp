@@ -124,7 +124,14 @@ $buildContentPageController = static function () use ($buildThemeService): Conte
     $connection = Database::connection();
 
     return new ContentPageController(
-        new PostService(new PostRepository($connection)),
+        new PostService(
+            new PostRepository($connection),
+            null,
+            null,
+            new FederatedPostRepository($connection),
+            new NodeRepository($connection),
+            new ProfileRepository($connection),
+        ),
         new ProfileService(new ProfileRepository($connection)),
         new ExternalPostRepository($connection),
         $buildThemeService(),
