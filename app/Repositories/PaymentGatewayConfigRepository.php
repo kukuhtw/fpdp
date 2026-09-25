@@ -245,7 +245,7 @@ final class PaymentGatewayConfigRepository
         }
 
         $environment = $this->getActiveEnvironment($gatewayId);
-        if (in_array(strtoupper($gatewayCode), ['MIDTRANS', 'PAYPAL'], true) && $environment !== null) {
+        if (in_array(strtoupper($gatewayCode), ['MIDTRANS', 'PAYPAL', 'IPAYMU'], true) && $environment !== null) {
             $values['environment'] = $environment === 'LIVE' ? 'PRODUCTION' : 'SANDBOX';
         }
 

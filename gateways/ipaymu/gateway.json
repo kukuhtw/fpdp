@@ -5,7 +5,7 @@
     "author": "FPDP",
     "version": "1.0.0",
     "class": "FpdpGatewayPlugins\\Ipaymu\\Gateway",
-    "config_keys": ["va", "api_key", "environment"],
+    "config_keys": ["va", "api_key"],
     "capabilities": {
         "supports_refund": false,
         "supports_recurring": false,
