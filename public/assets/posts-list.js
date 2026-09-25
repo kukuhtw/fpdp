@@ -64,9 +64,30 @@ const renderPost = (post) => {
         <span title="${post.visibility}">${statusIcon(post.visibility)}</span>
         <span class="muted">${post.published_at ? new Date(post.published_at).toLocaleDateString() : 'Not published'}</span>
         <a class="button secondary small" href="/dashboard/posts?edit=${encodeURIComponent(post.id)}">Edit</a>
+        <button type="button" class="button danger small" data-delete-post="${htmlEsc(post.id)}">Delete</button>
       </div>
     `;
+    div.querySelector('[data-delete-post]').addEventListener('click', () => deletePost(post.id, div));
     return div;
+  };
+
+  const deletePost = async (postId, element) => {
+    if (!confirm('Delete this post? This cannot be undone.')) return;
+    try {
+      await api(`/api/v1/posts/${encodeURIComponent(postId)}`, { method: 'DELETE' });
+      allPosts = allPosts.filter((p) => p.id !== postId);
+      element.remove();
+      showStatus(`${allPosts.length} post${allPosts.length !== 1 ? 's' : ''} total.`);
+      if (allPosts.filter((p) => {
+        if (currentFilter === 'published') return p.published_at !== null;
+        if (currentFilter === 'draft') return p.published_at === null;
+        return true;
+      }).length === 0) {
+        renderFiltered();
+      }
+    } catch (error) {
+      showStatus(error.message, true);
+    }
   };
 
   const htmlEsc = (str) => {
