@@ -576,7 +576,18 @@ final class FederationService
         $objectUri = $activity['object'] ?? '';
         if ($actorUri === '' || $objectUri === '') return ['status' => 'error', 'message' => 'Invalid activity'];
         $remoteActor = $this->actors->findByActorUri($actorUri);
-        if ($remoteActor === null) return ['status' => 'error', 'message' => 'Unknown actor'];
+        if ($remoteActor === null) {
+            // receiveActivity() already tries to resolve/cache the actor
+            // before dispatching here, but that fetch can fail transiently
+            // (a slow or momentarily unreachable actor document) — retry
+            // once rather than silently dropping a Follow the client has
+            // already received a 202 for.
+            $remoteActor = $this->getDiscoveryService()->ensureRemoteActor($actorUri);
+        }
+        if ($remoteActor === null) {
+            error_log("[FederationService] processFollow: could not resolve actor {$actorUri} for inbound Follow, dropping — activity: " . json_encode($activity));
+            return ['status' => 'error', 'message' => 'Unknown actor'];
+        }
 
         $fr = $this->getFollowRepo();
         $existing = $fr->findByProfileAndTarget($localProfileId, $actorUri);
