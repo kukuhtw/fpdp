@@ -10,7 +10,7 @@ final class FederatedPostRepository
 {
     private const SELECT = '
         SELECT fp.id, fp.public_id, fp.remote_actor_id, fp.object_uri,
-               fp.canonical_url, fp.title, fp.content, fp.visibility,
+               fp.canonical_url, fp.title, fp.content, fp.attachments, fp.visibility,
                fp.published_at, fp.fetched_at, fp.created_at, fp.deleted_at
         FROM federated_posts fp
     ';
@@ -19,6 +19,9 @@ final class FederatedPostRepository
     {
     }
 
+    /**
+     * @param array<int, array<string, mixed>>|null $attachments
+     */
     public function create(
         string $publicId,
         int $remoteActorId,
@@ -28,12 +31,13 @@ final class FederatedPostRepository
         ?string $content = null,
         ?string $publishedAt = null,
         string $visibility = 'PUBLIC',
+        ?array $attachments = null,
     ): int {
         $statement = $this->connection->prepare(
             'INSERT INTO federated_posts (public_id, remote_actor_id, object_uri, canonical_url,
-                                          title, content, visibility, published_at)
+                                          title, content, attachments, visibility, published_at)
              VALUES (:public_id, :remote_actor_id, :object_uri, :canonical_url,
-                     :title, :content, :visibility, :published_at)',
+                     :title, :content, :attachments, :visibility, :published_at)',
         );
         $statement->execute([
             'public_id' => $publicId,
@@ -42,6 +46,7 @@ final class FederatedPostRepository
             'canonical_url' => $canonicalUrl,
             'title' => $title,
             'content' => $content,
+            'attachments' => $attachments !== null && $attachments !== [] ? json_encode($attachments) : null,
             'visibility' => $visibility,
             'published_at' => $publishedAt,
         ]);
@@ -148,17 +153,21 @@ final class FederatedPostRepository
         $statement->execute(['actor_id' => $remoteActorId]);
     }
 
+    /**
+     * @param array<int, array<string, mixed>>|null $attachments
+     */
     public function updateByObjectUri(
         string $objectUri,
         ?string $title,
         ?string $content,
         ?string $canonicalUrl,
         string $visibility,
+        ?array $attachments = null,
     ): void {
         $statement = $this->connection->prepare(
             'UPDATE federated_posts
              SET title = :title, content = :content, canonical_url = :canonical_url,
-                 visibility = :visibility, fetched_at = CURRENT_TIMESTAMP
+                 attachments = :attachments, visibility = :visibility, fetched_at = CURRENT_TIMESTAMP
              WHERE object_uri = :object_uri',
         );
         $statement->execute([
@@ -166,6 +175,7 @@ final class FederatedPostRepository
             'title' => $title,
             'content' => $content,
             'canonical_url' => $canonicalUrl,
+            'attachments' => $attachments !== null && $attachments !== [] ? json_encode($attachments) : null,
             'visibility' => $visibility,
         ]);
     }
@@ -202,7 +212,7 @@ final class FederatedPostRepository
         }
 
         $statement = $this->connection->prepare(
-            'SELECT fp.public_id, fp.title, fp.content, fp.canonical_url, fp.published_at,
+            'SELECT fp.public_id, fp.title, fp.content, fp.attachments, fp.canonical_url, fp.published_at,
                     ra.display_name AS actor_display_name, ra.federated_address, ra.avatar_url AS actor_avatar_url,
                     ra.canonical_url AS actor_canonical_url
              FROM federated_posts fp
@@ -213,6 +223,13 @@ final class FederatedPostRepository
         );
         $statement->execute($parameters);
 
-        return $statement->fetchAll();
+        $rows = $statement->fetchAll();
+        foreach ($rows as &$row) {
+            $decoded = is_string($row['attachments'] ?? null) ? json_decode($row['attachments'], true) : null;
+            $row['attachments'] = is_array($decoded) ? $decoded : [];
+        }
+        unset($row);
+
+        return $rows;
     }
 }

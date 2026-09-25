@@ -902,6 +902,7 @@ final class FederationService
             self::extractObjectText($object['content'] ?? null),
             self::normalizeActivityTimestamp($object['published'] ?? null),
             self::extractObjectVisibility($object),
+            self::extractIncomingAttachments($object),
         );
 
         return ['status' => 'created', 'message' => 'Federated post stored'];
@@ -937,6 +938,7 @@ final class FederationService
             self::extractObjectText($object['content'] ?? null) ?? $existing['content'],
             self::extractObjectUrl($object['url'] ?? null) ?? $existing['canonical_url'],
             self::extractObjectVisibility($object),
+            self::extractIncomingAttachments($object),
         );
 
         return ['status' => 'updated', 'message' => 'Federated post updated'];
@@ -1152,6 +1154,54 @@ final class FederationService
             'AUDIO' => 'audio/*',
             default => 'application/octet-stream',
         };
+    }
+
+    /**
+     * The inverse of guessAttachmentMediaType(): converts an inbound AS2
+     * attachment's real MIME type (e.g. Mastodon sends "image/jpeg") into
+     * our internal media_type enum, so incoming post images/video render
+     * through the same post-card.php path local post media already uses.
+     *
+     * @param array<string, mixed> $object
+     * @return array<int, array<string, mixed>>
+     */
+    private static function extractIncomingAttachments(array $object): array
+    {
+        $attachment = $object['attachment'] ?? null;
+        if (is_array($attachment) && !array_is_list($attachment)) {
+            // A single attachment can legally appear as a bare object rather than a one-item list.
+            $attachment = [$attachment];
+        }
+        if (!is_array($attachment)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($attachment as $item) {
+            if (!is_array($item) || !is_string($item['url'] ?? null) || $item['url'] === '') {
+                continue;
+            }
+            // Untrusted remote input rendered as a clickable link for
+            // non-image types — reject anything but a real http(s) URL
+            // (e.g. a javascript: URI) before it ever reaches a template.
+            $scheme = strtolower((string) parse_url($item['url'], PHP_URL_SCHEME));
+            if (!in_array($scheme, ['http', 'https'], true)) {
+                continue;
+            }
+            $mimeType = (string) ($item['mediaType'] ?? '');
+            $result[] = [
+                'media_type' => match (true) {
+                    str_starts_with($mimeType, 'image/') => 'IMAGE',
+                    str_starts_with($mimeType, 'video/') => 'VIDEO',
+                    str_starts_with($mimeType, 'audio/') => 'AUDIO',
+                    default => 'FILE',
+                },
+                'url' => $item['url'],
+                'alt_text' => is_string($item['name'] ?? null) ? $item['name'] : null,
+            ];
+        }
+
+        return $result;
     }
 
     /**

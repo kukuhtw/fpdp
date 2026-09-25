@@ -79,7 +79,14 @@ final class ResourcePresenter
                     'profile_url' => $post['profile_link'],
                     'avatar_url' => $post['avatar_url'] ?? null,
                 ],
-                'media' => [],
+                'media' => array_map(
+                    static fn (array $media): array => [
+                        'type' => $media['media_type'],
+                        'url' => $media['url'],
+                        'alt_text' => $media['alt_text'] ?? null,
+                    ],
+                    is_array($post['media'] ?? null) ? $post['media'] : [],
+                ),
                 'visibility' => 'PUBLIC',
                 'published_at' => $publishedAt,
                 'updated_at' => $publishedAt,
