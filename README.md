@@ -421,7 +421,8 @@ The intended product combines:
 | PHP structure | Lightweight PHP 8.2+ modular structure with PSR-4 autoloading |
 | Web UI | Home page (`/`, a live personal digital home for the node owner once one exists), local timeline, public profile (`/@{handle}`), public post page, post editor with direct media upload (`/dashboard/posts`), and an owner dashboard Overview (`/dashboard`) |
 | Payments | `PaymentGatewayInterface` with Dummy, Paywuz, Midtrans, and PayPal (Orders API v2) adapters; no gateway-selection UI yet — see the progress report |
-| Tests | 31 test scripts covering identity, content, payments (including all four gateways), media upload, federation, marketplace, analytics, deployment config, and the installer — see `tests/` |
+| Federation | Real, interoperable ActivityPub: WebFinger, RSA keys, HTTP Signatures (signed inbound verification and outbound delivery), content-negotiated Actor/outbox/followers/following documents, Follow/Accept/Reject/Undo/Block, and bidirectional post and promoted-product syndication merged into a unified local timeline — live-verified against real Mastodon instances (`mastodon.social`, `mastodon.world`) |
+| Tests | 43 test scripts covering identity, content, payments (including all four gateways), media upload, federation (ActivityPub discovery, signatures, inbox, outbox, mutual follows), marketplace, analytics, deployment config, and the installer — see `tests/` |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 For everything else — REST handler coverage, federation protocol depth, commerce/checkout completeness, dashboard panels beyond Overview, and known gaps — see the progress report linked above rather than this table.
@@ -655,7 +656,7 @@ The current dummy webhook verifier intentionally returns `true` and must never b
 1. **Personal node foundation:** users, authentication, node/profile setup, local posts, public profile.
 2. **External aggregation:** source testing, persistence, normalization, queue, retry, attribution, disconnect.
 3. **Commerce:** products, immutable order totals, one production payment adapter, verified idempotent webhooks.
-4. **Federation:** discovery, remote actors, activities, moderation, and failure recovery.
+4. **Federation:** ActivityPub-compatible discovery, remote actors, signed activity delivery, and bidirectional Follow/post/product syndication are implemented and interoperate with real Mastodon instances; block/mute/report moderation tooling and deeper failure-recovery hardening are still in progress.
 5. **Operations:** administration UI, health monitoring, auditing, deployment, and security hardening.
 
 The first practical end-to-end journey is:
@@ -1102,7 +1103,8 @@ Produk yang dituju menggabungkan:
 | Struktur PHP | Struktur modular ringan berbasis PHP 8.2+ dengan autoload PSR-4 |
 | Web UI | Halaman utama (`/`, personal digital home live untuk owner node begitu ada), timeline lokal, profil publik (`/@{handle}`), halaman post publik, editor post dengan upload media langsung (`/dashboard/posts`), dan dashboard Overview owner (`/dashboard`) |
 | Pembayaran | `PaymentGatewayInterface` dengan adapter Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2); belum ada UI pemilihan gateway — lihat laporan progres |
-| Pengujian | 31 test script mencakup identity, konten, payment (keempat gateway), upload media, federasi, marketplace, analytics, config deployment, dan installer — lihat `tests/` |
+| Federasi | ActivityPub sungguhan dan interoperable: WebFinger, RSA key, HTTP Signatures (verifikasi inbound dan pengiriman outbound bertanda tangan), dokumen Actor/outbox/followers/following dengan content negotiation, Follow/Accept/Reject/Undo/Block, serta sinkronisasi post dan produk yang dipromosikan dua arah, tergabung dalam satu timeline lokal — sudah diverifikasi langsung terhadap instance Mastodon sungguhan (`mastodon.social`, `mastodon.world`) |
+| Pengujian | 43 test script mencakup identity, konten, payment (keempat gateway), upload media, federasi (discovery ActivityPub, signature, inbox, outbox, mutual follow), marketplace, analytics, config deployment, dan installer — lihat `tests/` |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Untuk hal lainnya — cakupan REST handler, kedalaman protokol federasi, kelengkapan commerce/checkout, panel dashboard di luar Overview, dan gap yang diketahui — lihat laporan progres yang ditautkan di atas, bukan tabel ini.
@@ -1336,7 +1338,7 @@ Verifier webhook pada dummy gateway saat ini sengaja selalu menghasilkan `true` 
 1. **Fondasi personal node:** user, autentikasi, setup node/profil, post lokal, profil publik.
 2. **Agregasi eksternal:** pengujian sumber, persistence, normalisasi, queue, retry, atribusi, disconnect.
 3. **Commerce:** produk, total order immutable, satu adapter payment production, webhook terverifikasi dan idempotent.
-4. **Federasi:** discovery, remote actor, activity, moderasi, dan pemulihan kegagalan.
+4. **Federasi:** discovery, remote actor, dan pengiriman activity bertanda tangan yang kompatibel dengan ActivityPub, serta sinkronisasi Follow/post/produk dua arah sudah diimplementasikan dan terbukti interoperable dengan instance Mastodon sungguhan; tooling moderasi block/mute/report dan penguatan pemulihan kegagalan masih berjalan.
 5. **Operasional:** UI administrasi, health monitoring, audit, deployment, dan security hardening.
 
 Journey end-to-end pertama yang paling praktis:
