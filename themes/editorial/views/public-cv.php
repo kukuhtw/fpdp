@@ -13,7 +13,7 @@
   </header>
   <section class="panel">
     <div id="cv-details"><p class="muted">Memuat informasi CV…</p></div>
-    <div id="cv-actions" class="actions hidden">
+    <div id="cv-actions" class="stack hidden">
       <a id="google-login" class="button" href="/api/v1/profiles/<?= rawurlencode((string) $profile['handle']) ?>/visitor-auth/google/redirect">Masuk dengan Google</a>
       <button id="access-button" class="hidden">Beli akses</button>
       <button id="download-button" class="hidden">Download CV</button>
