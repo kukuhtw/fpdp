@@ -36,6 +36,19 @@ try {
 
     $response = $router->dispatch(Request::fromGlobals());
 } catch (\Throwable $e) {
+    // Whatever the client sees (generic in production, since APP_DEBUG
+    // hides internals from the response for good reason), the real
+    // exception must still be logged somewhere — otherwise a 500 is a
+    // complete black box with no trace of what broke.
+    error_log(sprintf(
+        '[UNCAUGHT] %s: %s in %s:%d%s%s',
+        get_class($e),
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine(),
+        "\n",
+        $e->getTraceAsString(),
+    ));
     $message = $debug ? $e->getMessage() : 'An unexpected error occurred.';
     $response = JsonEnvelope::error('INTERNAL_ERROR', $message, 500);
 }
