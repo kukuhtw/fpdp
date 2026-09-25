@@ -1,0 +1,17 @@
+{
+    "code": "IPAYMU",
+    "name": "iPaymu",
+    "description": "Redirect payment via iPaymu: QRIS, Virtual Account, e-wallet, dan kartu kredit lewat halaman checkout iPaymu.",
+    "author": "FPDP",
+    "version": "1.0.0",
+    "class": "FpdpGatewayPlugins\\Ipaymu\\Gateway",
+    "config_keys": ["va", "api_key", "environment"],
+    "capabilities": {
+        "supports_refund": false,
+        "supports_recurring": false,
+        "supports_qris": true,
+        "supports_va": true,
+        "supports_credit_card": true,
+        "supports_ewallet": true
+    }
+}
