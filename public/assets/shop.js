@@ -19,19 +19,18 @@
 
   const productCard = (product) => {
     const card = document.createElement('article');
-    card.className = 'provider-card available';
+    card.className = 'product-card';
     const typeLabel = { PHYSICAL: 'Barang fisik', DIGITAL: 'Barang digital', SERVICE: 'Jasa' }[product.product_type] || product.product_type;
 
     const photoUrl = product.media && product.media[0] && product.media[0].url;
     if (photoUrl) {
       const img = document.createElement('img');
+      img.className = 'product-photo';
       img.src = photoUrl;
       img.alt = product.title;
-      img.style.cssText = 'width:100%;height:160px;object-fit:cover;border-radius:9px;margin-bottom:10px';
       card.append(img);
     }
 
-    const body = document.createElement('div');
     const title = document.createElement('h2');
     const link = document.createElement('a');
     link.href = `/shop/${encodeURIComponent(product.public_id)}`;
@@ -39,13 +38,12 @@
     title.append(link);
     const desc = document.createElement('p');
     desc.textContent = product.description || typeLabel;
-    body.append(title, desc);
 
     const price = document.createElement('span');
     price.className = 'status-badge';
     price.textContent = formatPrice(product.price, product.currency);
 
-    card.append(body, price);
+    card.append(title, desc, price);
     return card;
   };
 

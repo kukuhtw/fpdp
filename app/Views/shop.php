@@ -9,7 +9,7 @@
     <p class="muted">Barang fisik atau digital — bayar lewat gateway pembayaran yang aktif di toko ini.</p>
   </section>
   <section class="panel">
-    <div id="product-grid" class="provider-grid"><p class="muted">Memuat produk…</p></div>
+    <div id="product-grid" class="product-grid"><p class="muted">Memuat produk…</p></div>
     <button id="load-more" class="secondary hidden" type="button">Muat lebih banyak</button>
   </section>
 </main>
