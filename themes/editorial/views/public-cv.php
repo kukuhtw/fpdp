@@ -18,7 +18,10 @@
   <section class="panel">
     <div id="cv-details"><p class="muted">Memuat informasi CV…</p></div>
     <div id="cv-actions" class="stack hidden">
+      <p id="cv-buyer-identity" class="muted hidden"></p>
       <a id="google-login" class="button" href="/api/v1/profiles/<?= rawurlencode((string) $profile['handle']) ?>/visitor-auth/google/redirect">Masuk dengan Google</a>
+      <label id="cv-name-field" class="hidden">Nama<input id="cv-name-input" type="text" maxlength="255" placeholder="Nama lengkap"></label>
+      <label id="cv-phone-field" class="hidden">Nomor telepon<input id="cv-phone-input" type="tel" maxlength="30" placeholder="08xxxxxxxxxx"></label>
       <button id="access-button" class="hidden">Beli akses</button>
       <button id="download-button" class="hidden">Download CV</button>
     </div>
