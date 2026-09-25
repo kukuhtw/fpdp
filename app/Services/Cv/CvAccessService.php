@@ -93,11 +93,12 @@ final class CvAccessService
             return ['granted' => true, 'payment' => null];
         }
 
+        $gatewayCode = $this->resolveGatewayCode($nodeId);
+
         if ($buyerName === null || trim($buyerName) === '' || $buyerPhone === null || trim($buyerPhone) === '') {
             throw new ValidationException([['field' => 'name', 'reason' => 'required'], ['field' => 'phone', 'reason' => 'required']]);
         }
 
-        $gatewayCode = $this->resolveGatewayCode($nodeId);
         $payment = $this->payments->createPayment($gatewayCode, [
             'order_id' => sprintf('CV-%d-%d-%d', $documentId, $visitorId, time()),
             'amount' => $priceAmount,
