@@ -366,7 +366,7 @@ assert_that($upload->status === 201, "Priced CV upload failed: {$upload->body}")
 // creates a PENDING payment carrying this plugin's own instructions —
 // this is "install and switch payment gateway provider, wired into View
 // CV/Resume" working end to end.
-$access = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], null, bearer($visitorToken)));
+$access = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], json_encode(['name' => 'Alice Buyer', 'phone' => '081234567890']), bearer($visitorToken)));
 assert_that($access->status === 200, "Requesting CV access failed: {$access->body}");
 $accessData = json_decode($access->body, true)['data'];
 assert_that($accessData['granted'] === false, 'A plugin (async) gateway must not grant access synchronously');
