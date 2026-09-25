@@ -729,6 +729,14 @@ $router->post('/api/v1/me/visitors/{visitorId}/wallet/grant', function (Request 
     return $buildChatbotController()->grantDeposit($request, $params);
 });
 
+$router->get('/api/v1/me/chatbot-sessions', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->listSessions($request);
+});
+
+$router->get('/api/v1/me/chatbot-sessions/{sessionId}/messages', function (Request $request, array $params) use ($buildChatbotController): Response {
+    return $buildChatbotController()->getSessionMessages($request, $params);
+});
+
 // ---- Chatbot: visitor-facing ----
 
 $router->get('/api/v1/profiles/{handle}/chatbot/settings', function (Request $request, array $params) use ($buildChatbotController): Response {

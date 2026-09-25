@@ -5,6 +5,7 @@
   const content = document.querySelector('#orders-content');
   const orderList = document.querySelector('#order-list');
   const loadMoreButton = document.querySelector('#load-more');
+  const statusFilter = document.querySelector('#status-filter');
   const STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
   let nextCursor = null;
 
@@ -86,8 +87,11 @@
 
   const loadOrders = async (append = false) => {
     try {
-      const cursorParam = append && nextCursor ? `?cursor=${encodeURIComponent(nextCursor)}` : '';
-      const result = await api(`/api/v1/orders${cursorParam}`);
+      const params = new URLSearchParams();
+      if (append && nextCursor) params.set('cursor', nextCursor);
+      if (statusFilter.value) params.set('status', statusFilter.value);
+      const query = params.toString();
+      const result = await api(`/api/v1/orders${query ? `?${query}` : ''}`);
       renderOrders(result.data, append);
       nextCursor = result.meta.next_cursor;
       loadMoreButton.classList.toggle('hidden', !result.meta.has_more);
@@ -96,6 +100,7 @@
     }
   };
   loadMoreButton.addEventListener('click', () => loadOrders(true));
+  statusFilter.addEventListener('change', () => { nextCursor = null; loadOrders(false); });
 
   const verify = async () => {
     if (!token()) {

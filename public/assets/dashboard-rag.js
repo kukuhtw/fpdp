@@ -21,8 +21,12 @@
   const chatbotPriceInput = document.querySelector('#chatbot-price-input');
   const chatbotCurrencyInput = document.querySelector('#chatbot-currency-input');
   const chatbotSettingsStatus = document.querySelector('#chatbot-settings-status');
+  const chatbotSessionsList = document.querySelector('#chatbot-sessions-list');
+  const chatbotSessionsLoadMore = document.querySelector('#chatbot-sessions-load-more');
+  const chatbotSessionTemplate = document.querySelector('#chatbot-session-template');
 
   let selectedDocument = null;
+  let chatbotSessionsCursor = null;
 
   const token = () => sessionStorage.getItem(tokenKey);
   const api = async (path, options = {}) => {
@@ -232,6 +236,63 @@
     }
   });
 
+  // ---- Chatbot conversation history ----
+  const roleLabels = { VISITOR: 'Pengunjung', ASSISTANT: 'AI (otomatis)' };
+
+  const chatbotSessionCard = (session) => {
+    const card = chatbotSessionTemplate.content.firstElementChild.cloneNode(true);
+    const name = session.visitor_display_name || session.visitor_email || 'Pengunjung';
+    card.querySelector('.gateway-card-head').innerHTML = `<strong>${escapeHtml(name)}</strong> <span class="muted">${escapeHtml(session.visitor_email || '')}</span>`;
+    const lastActivity = session.last_message_at ? new Date(session.last_message_at).toLocaleString('id-ID') : '—';
+    card.querySelector('.chatbot-session-meta').textContent = `${session.message_count} pesan · Terakhir: ${lastActivity}`;
+
+    const toggleButton = card.querySelector('.chatbot-session-toggle');
+    const messagesBox = card.querySelector('.chatbot-session-messages');
+    let loaded = false;
+    toggleButton.addEventListener('click', async () => {
+      const willShow = messagesBox.classList.contains('hidden');
+      if (willShow && !loaded) {
+        messagesBox.textContent = 'Memuat pesan…';
+        try {
+          const result = await api(`/api/v1/me/chatbot-sessions/${encodeURIComponent(session.id)}/messages`);
+          messagesBox.replaceChildren();
+          result.data.forEach((msg) => {
+            const p = document.createElement('p');
+            p.innerHTML = `<strong>${roleLabels[msg.role] || msg.role}:</strong> ${escapeHtml(msg.content)}`;
+            messagesBox.append(p);
+          });
+          loaded = true;
+        } catch (error) {
+          messagesBox.textContent = error.message;
+        }
+      }
+      messagesBox.classList.toggle('hidden', !willShow);
+      toggleButton.textContent = willShow ? 'Sembunyikan percakapan' : 'Lihat percakapan';
+    });
+
+    return card;
+  };
+
+  const loadChatbotSessions = async (append = false) => {
+    try {
+      const params = new URLSearchParams();
+      if (append && chatbotSessionsCursor) params.set('cursor', chatbotSessionsCursor);
+      const query = params.toString();
+      const result = await api(`/api/v1/me/chatbot-sessions${query ? `?${query}` : ''}`);
+      if (!append) chatbotSessionsList.replaceChildren();
+      if (result.data.length === 0 && !append) {
+        chatbotSessionsList.innerHTML = '<p class="muted">Belum ada percakapan.</p>';
+      } else {
+        result.data.forEach((session) => chatbotSessionsList.append(chatbotSessionCard(session)));
+      }
+      chatbotSessionsCursor = result.meta.next_cursor;
+      chatbotSessionsLoadMore.classList.toggle('hidden', !result.meta.has_more);
+    } catch (error) {
+      chatbotSessionsList.innerHTML = `<p class="muted">${error.message}</p>`;
+    }
+  };
+  chatbotSessionsLoadMore.addEventListener('click', () => loadChatbotSessions(true));
+
   // ---- Auth ----
   const verify = async () => {
     if (!token()) {
@@ -253,6 +314,8 @@
       document.querySelectorAll('.guest-nav').forEach((el) => el.classList.add('hidden'));
       await loadDocuments();
       await loadChatbotSettings();
+      chatbotSessionsCursor = null;
+      await loadChatbotSessions(false);
     } catch (_) {
       sessionStorage.removeItem(tokenKey);
       verify();

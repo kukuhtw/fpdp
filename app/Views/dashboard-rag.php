@@ -55,8 +55,21 @@
       </form>
       <p id="chatbot-settings-status" class="status" role="status" aria-live="polite"></p>
     </section>
+    <section class="panel">
+      <h2>Riwayat Percakapan Chatbot</h2>
+      <div id="chatbot-sessions-list" class="stack"><p class="muted">Memuat riwayat…</p></div>
+      <button id="chatbot-sessions-load-more" class="secondary hidden" type="button">Muat lebih banyak</button>
+    </section>
   </section>
 </main>
+<template id="chatbot-session-template">
+  <article class="gateway-card chatbot-session-card">
+    <div class="gateway-card-head"></div>
+    <p class="muted chatbot-session-meta"></p>
+    <button type="button" class="secondary chatbot-session-toggle">Lihat percakapan</button>
+    <div class="hidden chatbot-session-messages"></div>
+  </article>
+</template>
 <template id="faq-card-template">
   <article class="gateway-card faq-card">
     <label>Pertanyaan<textarea class="faq-question" rows="2"></textarea></label>

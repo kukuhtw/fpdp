@@ -66,7 +66,7 @@ final class OrderRepository
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function listByNodeId(int $nodeId, int $limit = 20, ?int $beforeId = null): array
+    public function listByNodeId(int $nodeId, int $limit = 20, ?int $beforeId = null, ?string $status = null): array
     {
         $where = ['o.node_id = :node_id'];
         $parameters = ['node_id' => $nodeId];
@@ -74,6 +74,10 @@ final class OrderRepository
         if ($beforeId !== null) {
             $where[] = 'o.id < :before_id';
             $parameters['before_id'] = $beforeId;
+        }
+        if ($status !== null) {
+            $where[] = 'o.status = :status';
+            $parameters['status'] = $status;
         }
 
         $statement = $this->connection->prepare(

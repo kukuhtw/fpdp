@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Chatbot;
 
 use App\Core\Exceptions\ConflictException;
+use App\Core\Exceptions\ForbiddenException;
+use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\PaymentRequiredException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
@@ -160,6 +162,72 @@ final class ChatbotService
         $wallet = $this->wallets->getOrCreate($visitorId, $currency);
 
         return ['balance_amount' => (string) $wallet['balance_amount'], 'currency' => (string) $wallet['currency']];
+    }
+
+    /**
+     * Owner-facing: every conversation thread on this node, newest first,
+     * cursor-paginated the same way PostService/MarketplaceService list
+     * endpoints already do (opaque base64 "before id" cursor).
+     *
+     * @return array{items: array<int, array<string, mixed>>, next_cursor: string|null, has_more: bool}
+     */
+    public function listSessionsForOwner(int $nodeId, int $limit = 30, ?string $cursor = null): array
+    {
+        $beforeId = null;
+        if ($cursor !== null && $cursor !== '') {
+            $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
+            if ($decoded !== false && ctype_digit($decoded)) {
+                $beforeId = (int) $decoded;
+            }
+        }
+
+        $rows = $this->sessions->listByNodeId($nodeId, $limit, $beforeId);
+        $hasMore = count($rows) > $limit;
+        if ($hasMore) {
+            array_pop($rows);
+        }
+
+        $items = array_map(static fn (array $row): array => [
+            'id' => $row['public_id'],
+            'visitor_email' => $row['visitor_email'],
+            'visitor_display_name' => $row['visitor_display_name'],
+            'message_count' => (int) $row['message_count'],
+            'status' => $row['status'],
+            'started_at' => $row['started_at'],
+            'last_message_at' => $row['last_message_at'],
+        ], $rows);
+
+        $last = $items === [] ? null : $rows[array_key_last($rows)];
+
+        return [
+            'items' => $items,
+            'next_cursor' => $hasMore && $last !== null ? rtrim(strtr(base64_encode((string) $last['id']), '+/', '-_'), '=') : null,
+            'has_more' => $hasMore,
+        ];
+    }
+
+    /**
+     * Owner-facing: the full message transcript of one of this node's
+     * sessions, oldest first.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getSessionMessagesForOwner(int $nodeId, string $sessionPublicId): array
+    {
+        $session = $this->sessions->findByPublicId($sessionPublicId);
+        if ($session === null) {
+            throw new NotFoundException('Chat session not found.');
+        }
+        if ((int) $session['node_id'] !== $nodeId) {
+            throw new ForbiddenException('This chat session does not belong to your node.');
+        }
+
+        return array_map(static fn (array $row): array => [
+            'role' => $row['role'],
+            'content' => $row['content'],
+            'cost_amount' => $row['cost_amount'],
+            'created_at' => $row['created_at'],
+        ], $this->messages->listBySession((int) $session['id']));
     }
 
     private function sessionPublicId(int $sessionId): string

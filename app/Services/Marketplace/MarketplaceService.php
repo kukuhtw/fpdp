@@ -242,7 +242,8 @@ public function listProducts(int $nodeId, array $query = []): array
             $decoded = base64_decode(strtr((string) $query['cursor'], '-_', '+/'), true);
             if ($decoded !== false && ctype_digit($decoded)) $beforeId = (int) $decoded;
         }
-        $rows = $this->orders->listByNodeId($nodeId, $limit, $beforeId);
+        $status = isset($query['status']) && in_array($query['status'], self::ORDER_STATUSES, true) ? (string) $query['status'] : null;
+        $rows = $this->orders->listByNodeId($nodeId, $limit, $beforeId, $status);
         $hasMore = count($rows) > $limit;
         if ($hasMore) array_pop($rows);
         foreach ($rows as &$row) { $row['items'] = $this->orderItems->findByOrderId((int) $row['id']); }

@@ -14,6 +14,15 @@
   </section>
 
   <section id="orders-content" class="hidden stack">
+    <label>Filter status<select id="status-filter">
+      <option value="">Semua pesanan</option>
+      <option value="PENDING">Pending (belum bayar — minat beli)</option>
+      <option value="CONFIRMED">Confirmed</option>
+      <option value="PROCESSING">Processing</option>
+      <option value="COMPLETED">Completed</option>
+      <option value="CANCELLED">Cancelled</option>
+      <option value="REFUNDED">Refunded</option>
+    </select></label>
     <div id="order-list" class="stack"><p class="muted">Memuat pesanan…</p></div>
     <button id="load-more" class="secondary hidden" type="button">Muat lebih banyak</button>
   </section>

@@ -70,6 +70,38 @@ final class ChatbotController
         return JsonEnvelope::success($wallet);
     }
 
+    /**
+     * GET /api/v1/me/chatbot-sessions — every visitor conversation thread,
+     * newest first.
+     */
+    public function listSessions(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $limit = filter_var($request->query['limit'] ?? 30, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 100]]);
+        $result = $this->chatbot->listSessionsForOwner(
+            (int) $context['node']['id'],
+            $limit === false ? 30 : $limit,
+            isset($request->query['cursor']) ? (string) $request->query['cursor'] : null,
+        );
+
+        return JsonEnvelope::collection($result['items'], $result['next_cursor'], $result['has_more']);
+    }
+
+    /**
+     * GET /api/v1/me/chatbot-sessions/{sessionId}/messages — full
+     * transcript of one conversation, oldest first.
+     *
+     * @param array<string, string> $params
+     */
+    public function getSessionMessages(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success(
+            $this->chatbot->getSessionMessagesForOwner((int) $context['node']['id'], $params['sessionId']),
+        );
+    }
+
     // ---- Visitor-facing ----
 
     /**
