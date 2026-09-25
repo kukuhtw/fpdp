@@ -7,6 +7,7 @@ namespace App\Services\Cv;
 use App\Core\Exceptions\ConflictException;
 use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\PaymentRequiredException;
+use App\Core\Exceptions\ValidationException;
 use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
 use App\Repositories\NodeRepository;
@@ -76,7 +77,7 @@ final class CvAccessService
      *
      * @return array{granted: bool, payment: array<string, mixed>|null}
      */
-    public function grantAccess(int $nodeId, int $visitorId, string $visitorEmail, ?string $returnUrl = null, ?string $cancelUrl = null): array
+    public function grantAccess(int $nodeId, int $visitorId, string $visitorEmail, ?string $returnUrl = null, ?string $cancelUrl = null, ?string $buyerName = null, ?string $buyerPhone = null): array
     {
         $document = $this->getDocumentForNode($nodeId);
         $documentId = (int) $document['id'];
@@ -92,6 +93,10 @@ final class CvAccessService
             return ['granted' => true, 'payment' => null];
         }
 
+        if ($buyerName === null || trim($buyerName) === '' || $buyerPhone === null || trim($buyerPhone) === '') {
+            throw new ValidationException([['field' => 'name', 'reason' => 'required'], ['field' => 'phone', 'reason' => 'required']]);
+        }
+
         $gatewayCode = $this->resolveGatewayCode($nodeId);
         $payment = $this->payments->createPayment($gatewayCode, [
             'order_id' => sprintf('CV-%d-%d-%d', $documentId, $visitorId, time()),
@@ -99,7 +104,14 @@ final class CvAccessService
             'currency' => $document['price_currency'],
             'description' => 'CV access: ' . $document['title'],
             'payer_email' => $visitorEmail,
-            'metadata' => ['purpose' => 'cv_access', 'document_id' => $documentId, 'visitor_id' => $visitorId],
+            'metadata' => [
+                'purpose' => 'cv_access',
+                'document_id' => $documentId,
+                'visitor_id' => $visitorId,
+                'buyer_name' => $buyerName,
+                'buyer_phone' => $buyerPhone,
+                'buyer_email' => $visitorEmail,
+            ],
             'return_url' => $returnUrl,
             'cancel_url' => $cancelUrl,
         ]);

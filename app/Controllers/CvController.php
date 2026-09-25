@@ -67,12 +67,15 @@ final class CvController
 
         $origin = $request->scheme() . '://' . $profile['node_domain'];
         $handle = rawurlencode((string) $params['handle']);
+        $input = $request->json() ?? [];
         $result = $this->access->grantAccess(
             (int) $profile['node_id'],
             (int) $visitor['id'],
             (string) $visitor['email'],
             "{$origin}/payment/thank-you?type=cv&handle={$handle}",
             "{$origin}/@{$handle}/cv",
+            isset($input['name']) ? (string) $input['name'] : null,
+            isset($input['phone']) ? (string) $input['phone'] : null,
         );
 
         return JsonEnvelope::success($result);
