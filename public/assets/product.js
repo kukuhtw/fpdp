@@ -6,10 +6,17 @@
   const actions = document.querySelector('#product-actions');
   const status = document.querySelector('#product-status');
   const googleLogin = document.querySelector('#google-login');
+  const buyerIdentity = document.querySelector('#buyer-identity');
   const quantityField = document.querySelector('#quantity-field');
   const quantityInput = document.querySelector('#quantity-input');
+  const recipientNameField = document.querySelector('#recipient-name-field');
+  const recipientNameInput = document.querySelector('#recipient-name-input');
+  const recipientPhoneField = document.querySelector('#recipient-phone-field');
+  const recipientPhoneInput = document.querySelector('#recipient-phone-input');
   const shippingAddressField = document.querySelector('#shipping-address-field');
   const shippingAddressInput = document.querySelector('#shipping-address-input');
+  const orderNotesField = document.querySelector('#order-notes-field');
+  const orderNotesInput = document.querySelector('#order-notes-input');
   const buyButton = document.querySelector('#buy-button');
   const downloadButton = document.querySelector('#download-button');
   const digitalAssetsButtons = document.querySelector('#digital-assets-buttons');
@@ -86,11 +93,22 @@
     actions.classList.remove('hidden');
 
     if (!signedIn) {
+      buyerIdentity.classList.add('hidden');
       quantityField.classList.add('hidden');
+      recipientNameField.classList.add('hidden');
+      recipientPhoneField.classList.add('hidden');
       shippingAddressField.classList.add('hidden');
+      orderNotesField.classList.add('hidden');
       buyButton.classList.add('hidden');
       downloadButton.classList.add('hidden');
       return;
+    }
+
+    const visitorName = sessionStorage.getItem('fpdp_visitor_name');
+    const visitorEmail = sessionStorage.getItem('fpdp_visitor_email');
+    if (visitorEmail) {
+      buyerIdentity.textContent = `Masuk sebagai: ${visitorName ? `${visitorName} ` : ''}(${visitorEmail})`;
+      buyerIdentity.classList.remove('hidden');
     }
 
     if (product.product_type === 'DIGITAL') {
@@ -112,7 +130,10 @@
           digitalAssetsButtons.append(button);
         });
         quantityField.classList.add('hidden');
+        recipientNameField.classList.add('hidden');
+        recipientPhoneField.classList.add('hidden');
         shippingAddressField.classList.add('hidden');
+        orderNotesField.classList.add('hidden');
         buyButton.classList.add('hidden');
         return;
       } catch (_) {
@@ -123,7 +144,11 @@
     downloadButton.classList.add('hidden');
     digitalAssetsButtons.replaceChildren();
     quantityField.classList.remove('hidden');
-    shippingAddressField.classList.toggle('hidden', product.product_type !== 'PHYSICAL');
+    const isPhysical = product.product_type === 'PHYSICAL';
+    recipientNameField.classList.toggle('hidden', !isPhysical);
+    recipientPhoneField.classList.toggle('hidden', !isPhysical);
+    shippingAddressField.classList.toggle('hidden', !isPhysical);
+    orderNotesField.classList.remove('hidden');
     buyButton.classList.remove('hidden');
   };
 
@@ -140,15 +165,23 @@
 
   buyButton.addEventListener('click', async () => {
     const quantity = Math.max(1, parseInt(quantityInput.value, 10) || 1);
-    const shippingAddress = shippingAddressInput.value.trim();
-    if (product.product_type === 'PHYSICAL' && !shippingAddress) {
-      return message('Isi alamat pengiriman terlebih dahulu.', true);
+    const notes = orderNotesInput.value.trim();
+    let shippingAddress = '';
+    if (product.product_type === 'PHYSICAL') {
+      const recipientName = recipientNameInput.value.trim();
+      const recipientPhone = recipientPhoneInput.value.trim();
+      const addressLine = shippingAddressInput.value.trim();
+      if (!recipientName || !recipientPhone || !addressLine) {
+        return message('Isi nama penerima, nomor telepon, dan alamat lengkap terlebih dahulu.', true);
+      }
+      shippingAddress = `Nama: ${recipientName}\nTelepon: ${recipientPhone}\nAlamat: ${addressLine}`;
     }
     buyButton.disabled = true;
     message('Memproses pembelian…');
     try {
       const body = { items: [{ product_id: productId, quantity }] };
       if (shippingAddress) body.shipping_address = shippingAddress;
+      if (notes) body.notes = notes;
       const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/orders`, {
         method: 'POST',
         body: JSON.stringify(body),

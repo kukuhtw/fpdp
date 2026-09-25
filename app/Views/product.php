@@ -4,10 +4,14 @@
   <p class="eyebrow"><a href="/shop">&larr; Shop</a></p>
   <section class="panel">
     <div id="product-details"><p class="muted">Memuat produk…</p></div>
-    <div id="product-actions" class="actions hidden">
+    <div id="product-actions" class="stack hidden">
+      <p id="buyer-identity" class="muted hidden"></p>
       <a id="google-login" class="button" href="/api/v1/profiles/<?= rawurlencode((string) $profile['handle']) ?>/visitor-auth/google/redirect?return_to=<?= rawurlencode('/shop/' . (string) $productId) ?>">Masuk dengan Google untuk membeli</a>
       <label id="quantity-field" class="hidden">Jumlah<input id="quantity-input" type="number" min="1" value="1" style="width:5rem"></label>
-      <label id="shipping-address-field" class="hidden">Alamat pengiriman<textarea id="shipping-address-input" rows="3" placeholder="Nama penerima, alamat lengkap, kota, kode pos, nomor telepon"></textarea></label>
+      <label id="recipient-name-field" class="hidden">Nama penerima<input id="recipient-name-input" type="text" maxlength="255" placeholder="Nama lengkap penerima"></label>
+      <label id="recipient-phone-field" class="hidden">Nomor telepon<input id="recipient-phone-input" type="tel" maxlength="30" placeholder="08xxxxxxxxxx"></label>
+      <label id="shipping-address-field" class="hidden">Alamat lengkap<textarea id="shipping-address-input" rows="3" placeholder="Jalan, kota, kode pos"></textarea></label>
+      <label id="order-notes-field" class="hidden">Catatan (opsional)<textarea id="order-notes-input" rows="2" placeholder="Catatan tambahan untuk penjual"></textarea></label>
       <button id="buy-button" class="hidden" type="button">Beli</button>
       <a id="download-button" class="button hidden" target="_blank" rel="noopener">Download</a>
       <div id="digital-assets-buttons" class="actions"></div>

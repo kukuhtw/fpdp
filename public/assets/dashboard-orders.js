@@ -46,6 +46,11 @@
       address.innerHTML = `<strong>Alamat kirim:</strong> ${escapeHtml(order.shipping_address).replace(/\n/g, '<br>')}`;
       parts.push(address);
     }
+    if (order.notes) {
+      const notes = document.createElement('p');
+      notes.innerHTML = `<strong>Catatan:</strong> ${escapeHtml(order.notes)}`;
+      parts.push(notes);
+    }
 
     const controls = document.createElement('div');
     controls.className = 'field-row';

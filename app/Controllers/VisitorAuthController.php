@@ -77,9 +77,16 @@ final class VisitorAuthController
             }
 
             $token = json_encode((string) $result['token']['access_token'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $name = json_encode((string) ($result['visitor']['display_name'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $email = json_encode((string) $result['visitor']['email'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             $target = json_encode($returnTo, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
-            return Response::html('<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Login berhasil</title></head><body><p>Login berhasil. Mengalihkan…</p><script>sessionStorage.setItem("fpdp_visitor_token", ' . $token . ');location.replace(' . $target . ');</script></body></html>');
+            // Stored alongside the token so pages like the product checkout
+            // form can show "signed in as ..." without a round trip — the
+            // buyer's name/email always come from this Google account, never
+            // from a freely-editable form field, so showing it here (rather
+            // than making it an editable input) is what keeps that honest.
+            return Response::html('<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Login berhasil</title></head><body><p>Login berhasil. Mengalihkan…</p><script>sessionStorage.setItem("fpdp_visitor_token", ' . $token . ');sessionStorage.setItem("fpdp_visitor_name", ' . $name . ');sessionStorage.setItem("fpdp_visitor_email", ' . $email . ');location.replace(' . $target . ');</script></body></html>');
         }
 
         return JsonEnvelope::success($payload);
