@@ -38,7 +38,7 @@ final class VisitorWalletService
      * @param array<string, mixed> $visitor
      * @return array{credited: bool, payment: array<string, mixed>, wallet: array<string, mixed>}
      */
-    public function topUp(int $nodeId, array $visitor, float $amount, string $currency = 'IDR'): array
+    public function topUp(int $nodeId, array $visitor, float $amount, string $currency = 'IDR', ?string $returnUrlBase = null, ?string $cancelUrl = null): array
     {
         if ($amount < self::MIN_TOPUP_AMOUNT) {
             throw new ValidationException([['field' => 'amount', 'reason' => 'below_minimum']]);
@@ -48,6 +48,7 @@ final class VisitorWalletService
         $wallet = $this->wallets->getOrCreate($visitorId, $currency);
 
         $gatewayCode = $this->resolveGatewayCode($nodeId);
+        $returnUrl = $returnUrlBase !== null ? $returnUrlBase . '&before=' . urlencode((string) $wallet['balance_amount']) : null;
         $payment = $this->payments->createPayment($gatewayCode, [
             'order_id' => sprintf('WALLET-%d-%d-%d', $wallet['id'], $visitorId, time()),
             'amount' => $amount,
@@ -55,6 +56,8 @@ final class VisitorWalletService
             'description' => 'Deposit top-up',
             'payer_email' => $visitor['email'] ?? null,
             'metadata' => ['purpose' => 'wallet_topup', 'wallet_id' => (int) $wallet['id'], 'visitor_id' => $visitorId],
+            'return_url' => $returnUrl,
+            'cancel_url' => $cancelUrl,
         ]);
 
         $credited = false;

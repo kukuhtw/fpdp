@@ -459,6 +459,9 @@ $router->get('/posts/{postId}', function (Request $request, array $params) use (
 $router->get('/about', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->about());
 });
+$router->get('/payment/thank-you', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->paymentThankYou());
+});
 $router->get('/about-me', function (Request $request, array $params) use ($buildContentPageController): Response {
     $connection = Database::connection();
     $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());

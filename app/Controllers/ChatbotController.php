@@ -138,7 +138,16 @@ final class ChatbotController
         $visitor = $this->requireVisitor($request);
         $input = $request->json() ?? [];
 
-        $result = $this->wallet->topUp((int) $profile['node_id'], $visitor, (float) ($input['amount'] ?? 0));
+        $origin = $request->scheme() . '://' . $profile['node_domain'];
+        $handle = rawurlencode((string) $params['handle']);
+        $result = $this->wallet->topUp(
+            (int) $profile['node_id'],
+            $visitor,
+            (float) ($input['amount'] ?? 0),
+            'IDR',
+            "{$origin}/payment/thank-you?type=wallet&handle={$handle}",
+            "{$origin}/@{$handle}",
+        );
 
         return JsonEnvelope::success([
             'credited' => $result['credited'],

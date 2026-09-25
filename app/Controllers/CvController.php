@@ -65,7 +65,15 @@ final class CvController
         $profile = $this->profiles->getPublicProfile($params['handle']);
         $visitor = $this->requireVisitor($request);
 
-        $result = $this->access->grantAccess((int) $profile['node_id'], (int) $visitor['id'], (string) $visitor['email']);
+        $origin = $request->scheme() . '://' . $profile['node_domain'];
+        $handle = rawurlencode((string) $params['handle']);
+        $result = $this->access->grantAccess(
+            (int) $profile['node_id'],
+            (int) $visitor['id'],
+            (string) $visitor['email'],
+            "{$origin}/payment/thank-you?type=cv&handle={$handle}",
+            "{$origin}/@{$handle}/cv",
+        );
 
         return JsonEnvelope::success($result);
     }

@@ -26,6 +26,20 @@ final class ContentPageController
         return $this->themes?->getActiveSlug($nodeId);
     }
 
+    /**
+     * Post-payment landing page for every checkout flow (product purchase,
+     * chatbot wallet top-up, CV/resume access) that redirects the visitor
+     * to a gateway-hosted checkout page. Entirely client-rendered — the
+     * query string (type/handle/ref) tells payment-thank-you.js which
+     * status endpoint to poll, since the gateway redirect itself carries no
+     * trustworthy payment outcome (that's confirmed server-side by the
+     * webhook, not this browser redirect).
+     */
+    public function paymentThankYou(): string
+    {
+        return View::render('payment-thank-you', ['title' => 'Payment · FPDP']);
+    }
+
     public function about(): string
     {
         return View::renderThemed(

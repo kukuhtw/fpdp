@@ -76,7 +76,7 @@ final class CvAccessService
      *
      * @return array{granted: bool, payment: array<string, mixed>|null}
      */
-    public function grantAccess(int $nodeId, int $visitorId, string $visitorEmail): array
+    public function grantAccess(int $nodeId, int $visitorId, string $visitorEmail, ?string $returnUrl = null, ?string $cancelUrl = null): array
     {
         $document = $this->getDocumentForNode($nodeId);
         $documentId = (int) $document['id'];
@@ -100,6 +100,8 @@ final class CvAccessService
             'description' => 'CV access: ' . $document['title'],
             'payer_email' => $visitorEmail,
             'metadata' => ['purpose' => 'cv_access', 'document_id' => $documentId, 'visitor_id' => $visitorId],
+            'return_url' => $returnUrl,
+            'cancel_url' => $cancelUrl,
         ]);
 
         if ($gatewayCode === self::SYNCHRONOUS_GATEWAY) {

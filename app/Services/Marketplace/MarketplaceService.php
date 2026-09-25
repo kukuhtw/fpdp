@@ -109,7 +109,7 @@ public function listProducts(int $nodeId, array $query = []): array
      * @param array<string, mixed> $visitor Google-authenticated visitor row (id, email, display_name).
      * @return array{order: array<string, mixed>, payment: array<string, mixed>|null}
      */
-    public function checkout(int $nodeId, array $visitor, array $input): array
+    public function checkout(int $nodeId, array $visitor, array $input, ?string $returnUrlBase = null, ?string $cancelUrl = null): array
     {
         $visitorId = (int) $visitor['id'];
         $order = $this->buildOrder($nodeId, $input, $visitorId, (string) $visitor['email'], $visitor['display_name'] ?? null);
@@ -121,6 +121,7 @@ public function listProducts(int $nodeId, array $query = []): array
         }
 
         $gatewayCode = $this->resolveGatewayCode($nodeId);
+        $returnUrl = $returnUrlBase !== null ? $returnUrlBase . '&ref=' . urlencode((string) $order['public_id']) : null;
         $payment = $this->getPayments()->createPayment($gatewayCode, [
             'order_id' => sprintf('MKT-%d-%d-%d', $order['id'], $visitorId, time()),
             'amount' => $totalAmount,
@@ -128,6 +129,8 @@ public function listProducts(int $nodeId, array $query = []): array
             'description' => 'Marketplace order ' . $order['public_id'],
             'payer_email' => $visitor['email'],
             'metadata' => ['purpose' => 'marketplace_order', 'order_public_id' => $order['public_id'], 'visitor_id' => $visitorId],
+            'return_url' => $returnUrl,
+            'cancel_url' => $cancelUrl,
         ]);
 
         if ($gatewayCode === self::SYNCHRONOUS_GATEWAY) {

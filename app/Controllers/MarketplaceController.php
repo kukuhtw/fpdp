@@ -139,7 +139,15 @@ final class MarketplaceController
         $profile = $this->requireProfiles()->getPublicProfile($params['handle']);
         $visitor = $this->requireVisitor($request);
 
-        $result = $this->marketplace->checkout((int) $profile['node_id'], $visitor, $request->json() ?? []);
+        $origin = $request->scheme() . '://' . $profile['node_domain'];
+        $handle = rawurlencode((string) $params['handle']);
+        $result = $this->marketplace->checkout(
+            (int) $profile['node_id'],
+            $visitor,
+            $request->json() ?? [],
+            "{$origin}/payment/thank-you?type=order&handle={$handle}",
+            "{$origin}/@{$handle}",
+        );
 
         $this->analytics?->recordShopConversion((int) $profile['node_id'], (string) $result['order']['public_id']);
 
