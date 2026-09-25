@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Payment;
 
 use App\Contracts\PaymentGatewayInterface;
+use App\Core\Exceptions\ConflictException;
+use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\UnauthorizedException;
 use App\Core\Exceptions\UnsupportedProviderException;
 use App\Core\Exceptions\ValidationException;
@@ -147,6 +149,63 @@ final class PaymentService
         $summary['recent_transactions'] = $this->getRepository()->findRecent($recentLimit);
 
         return $summary;
+    }
+
+    /**
+     * Every PENDING payment, with its metadata decoded into a
+     * human-readable purpose/reference — this is what lets the owner
+     * manually confirm a gateway that has no automatic webhook to rely on
+     * (chiefly the bundled Manual Transfer plugin, but nothing here is
+     * gateway-specific).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listPendingPayments(int $limit = 50): array
+    {
+        return array_map(static function (array $payment): array {
+            $metadata = is_string($payment['metadata'] ?? null) ? json_decode($payment['metadata'], true) : null;
+            $payment['purpose'] = is_array($metadata) ? ($metadata['purpose'] ?? null) : null;
+
+            return $payment;
+        }, $this->getRepository()->findByStatus('PENDING', $limit));
+    }
+
+    /**
+     * Owner-initiated manual confirmation: marks a PENDING payment PAID
+     * without a gateway webhook. This trusts the owner's own judgement the
+     * same way updateOrderStatus() already lets them override an order's
+     * status by hand — appropriate for Manual Transfer (there is no
+     * automatic signal at all; a human checking their bank account IS the
+     * confirmation) and as a manual fallback for any gateway whose webhook
+     * didn't arrive. Idempotent: confirming an already-PAID payment is a
+     * harmless no-op rather than an error, so a double click can't fail —
+     * `status_changed` tells the caller whether this call is what actually
+     * transitioned it, so PaymentController::confirmPayment() only
+     * dispatches fulfillment (grant CV access, credit the wallet, ...) once,
+     * the same way handleWebhook()'s own status_changed flag already
+     * prevents a retried webhook from re-crediting a wallet twice.
+     *
+     * @return array{status_changed: bool, payment: array<string, mixed>}
+     */
+    public function confirmPaymentManually(string $uuid): array
+    {
+        $repository = $this->getRepository();
+        $payment = $repository->findByUuid($uuid);
+        if ($payment === null) {
+            throw new NotFoundException('Payment not found.');
+        }
+
+        $status = (string) $payment['status'];
+        if ($status === 'PAID') {
+            return ['status_changed' => false, 'payment' => $payment];
+        }
+        if ($status !== 'PENDING') {
+            throw new ConflictException("This payment is already {$status} and cannot be confirmed.");
+        }
+
+        $repository->markStatus((int) $payment['id'], 'PAID');
+
+        return ['status_changed' => true, 'payment' => $repository->findByUuid($uuid) ?? $payment];
     }
 
     /**

@@ -142,6 +142,19 @@ final class PaymentRepository
     }
 
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findByStatus(string $status, int $limit = 50): array
+    {
+        $statement = $this->connection->prepare('SELECT * FROM payments WHERE status = :status ORDER BY id DESC LIMIT :limit');
+        $statement->bindValue('status', $status);
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
+    /**
      * @return array{count: int, amount: float}
      */
     private function sumAndCountByStatus(string $status): array

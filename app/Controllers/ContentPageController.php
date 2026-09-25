@@ -241,4 +241,9 @@ final class ContentPageController
     {
         return View::render('dashboard-orders', ['title' => 'Orders · Dashboard · FPDP']);
     }
+
+    public function paymentsManager(): string
+    {
+        return View::render('dashboard-payments', ['title' => 'Payments · Dashboard · FPDP']);
+    }
 }

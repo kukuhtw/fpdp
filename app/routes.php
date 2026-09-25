@@ -534,6 +534,10 @@ $router->get('/dashboard/orders', function (Request $request, array $params) use
     return Response::html($buildContentPageController()->ordersManager());
 });
 
+$router->get('/dashboard/payments', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->paymentsManager());
+});
+
 $router->get('/dashboard/themes', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->themeManager());
 });
@@ -660,6 +664,14 @@ $router->get('/api/v1/me/dashboard/overview', function (Request $request, array 
 
 $router->get('/api/v1/me/dashboard/payments', function (Request $request, array $params) use ($buildPaymentController): Response {
     return $buildPaymentController()->summary($request);
+});
+
+$router->get('/api/v1/me/payments/pending', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->listPending($request);
+});
+
+$router->post('/api/v1/me/payments/{uuid}/confirm', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->confirmPayment($request, $params);
 });
 
 $router->get('/api/v1/me/payment-gateways', function (Request $request, array $params) use ($buildPaymentController): Response {

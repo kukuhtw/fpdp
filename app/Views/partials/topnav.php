@@ -18,6 +18,7 @@
     <a href="/dashboard/rag" class="owner-nav hidden">RAG Documents</a>
     <a href="/dashboard/products" class="owner-nav hidden">Products</a>
     <a href="/dashboard/orders" class="owner-nav hidden">Orders</a>
+    <a href="/dashboard/payments" class="owner-nav hidden">Payments</a>
     <a href="/dashboard/integrations" class="owner-nav hidden">Integrations</a>
     <a href="/dashboard/settings" class="owner-nav hidden">Settings</a>
     <a href="/dashboard/federation" class="owner-nav hidden">Federasi</a>

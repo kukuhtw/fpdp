@@ -38,6 +38,42 @@ final class PaymentController
     }
 
     /**
+     * GET /api/v1/me/payments/pending
+     *
+     * Owner-only: every payment awaiting confirmation, across all three
+     * checkout flows (product order, CV access, wallet top-up) — chiefly
+     * for gateways like Manual Transfer that have no automatic webhook.
+     */
+    public function listPending(Request $request): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->payments->listPendingPayments());
+    }
+
+    /**
+     * POST /api/v1/me/payments/{uuid}/confirm
+     *
+     * Owner-only manual confirmation: marks a PENDING payment PAID and runs
+     * the same fulfillment dispatch a gateway webhook would (grant CV
+     * access, complete the order, credit the wallet) — see fulfill() below.
+     *
+     * @param array<string, string> $params
+     */
+    public function confirmPayment(Request $request, array $params): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        $result = $this->payments->confirmPaymentManually((string) ($params['uuid'] ?? ''));
+
+        if ($result['status_changed'] && $this->isConfirmedPaid($result['payment'])) {
+            $this->fulfill($result['payment']);
+        }
+
+        return JsonEnvelope::success($result['payment']);
+    }
+
+    /**
      * GET /api/v1/me/payment-gateways
      *
      * Owner-only list of supported gateways and which environment(s) have
