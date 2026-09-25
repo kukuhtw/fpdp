@@ -111,7 +111,7 @@
         <tr><td>Remote node discovery (WebFinger + Actor documents)</td><td><span class="status-tag status-done">Done</span></td></tr>
         <tr><td>Follow / Accept / Reject</td><td><span class="status-tag status-done">Done</span></td></tr>
         <tr><td>Outgoing activity delivery (signed)</td><td><span class="status-tag status-done">Done</span></td></tr>
-        <tr><td>Incoming posts / federated timeline</td><td><span class="status-tag status-todo">Planned</span></td></tr>
+        <tr><td>Incoming posts / federated timeline</td><td><span class="status-tag status-done">Done</span></td></tr>
         <tr><td>Block / mute / report</td><td><span class="status-tag status-wip">In progress</span></td></tr>
         <tr><td>ActivityPub compatibility</td><td><span class="status-tag status-done">Done</span></td></tr>
       </table>
