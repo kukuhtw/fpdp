@@ -21,9 +21,27 @@
     <p class="mn-muted">Status permintaan: Pending sampai disetujui di <a href="/dashboard/federation">/dashboard/federation</a>.</p>
   </section>
 
+  <section id="chatbot-widget" class="panel hidden">
+    <p class="eyebrow">Tanya AI</p>
+    <h2>Chatbot <?= htmlspecialchars((string) $profile['display_name'], ENT_QUOTES, 'UTF-8') ?></h2>
+    <p id="chatbot-price-note" class="muted"></p>
+    <div id="chatbot-signin" class="hidden"><a id="chatbot-google-login" class="button" href="#">Masuk dengan Google untuk chat</a></div>
+    <div id="chatbot-chat" class="hidden stack">
+      <p id="chatbot-wallet-note" class="muted"></p>
+      <div class="field-row"><input id="chatbot-topup-amount" type="number" min="1000" step="1000" value="10000" style="width:8rem"><button id="chatbot-topup-button" type="button" class="secondary">Top up saldo</button></div>
+      <div id="chatbot-log"></div>
+      <form id="chatbot-ask-form" class="field-row"><input id="chatbot-question-input" type="text" placeholder="Tulis pertanyaan Anda…" maxlength="1000" required style="flex:1"><button type="submit">Kirim</button></form>
+    </div>
+    <p id="chatbot-status" class="status" role="status" aria-live="polite"></p>
+    <p id="chatbot-payment-confirm-link"></p>
+  </section>
+
   <section class="mn-feed">
     <?php if ($posts === []): ?><p class="mn-empty">No published posts yet.</p><?php endif; ?>
     <?php foreach ($posts as $post): \App\Core\View::partial('post-card', ['post' => $post]); endforeach; ?>
   </section>
 </main>
+<script src="/assets/topnav-auth.js" defer></script>
+<script src="/assets/lightbox.js" defer></script>
+<script src="/assets/chatbot-widget.js" defer></script>
 </body></html>

@@ -35,11 +35,15 @@ function tn_dataFor(string $view): array
         'post' => ['title' => 't', 'profile' => $profile, 'post' => ['title' => 'T', 'content' => 'C', 'slug' => null, 'id' => 1, 'published_at' => null, 'handle' => 'alice', 'display_name' => 'Alice']],
         'profile' => ['title' => 't', 'profile' => $profile, 'posts' => []],
         'public-cv' => ['title' => 't', 'profile' => $profile],
+        'shop' => ['title' => 't', 'profile' => $profile],
+        'product' => ['title' => 't', 'profile' => $profile, 'productId' => 'prod-1'],
+        'timeline' => ['title' => 't', 'posts' => [], 'nextCursor' => null],
+        'about' => ['title' => 't'],
         default => ['title' => 't', 'profile' => $profile],
     };
 }
 
-$views = ['youtube', 'about-me', 'wall-coretan', 'post', 'profile', 'public-cv'];
+$views = ['youtube', 'about-me', 'wall-coretan', 'post', 'profile', 'public-cv', 'shop', 'product', 'timeline', 'about'];
 $themes = [
     'editorial' => ['navClass' => 'ed-nav', 'brandClass' => 'ed-brand'],
     'minimal' => ['navClass' => 'mn-nav', 'brandClass' => 'mn-brand'],
@@ -61,6 +65,16 @@ foreach ($themes as $themeSlug => $classes) {
             );
         }
     }
+
+    // profile is the one view every theme must keep functionally identical
+    // to the core one beyond just the nav: the chatbot widget (and the JS/
+    // data-attribute it depends on) was added to app/Views/profile.php but
+    // silently never ported to either theme's own profile.php — exactly the
+    // kind of drift this file exists to catch.
+    $profileHtml = View::renderThemed('profile', tn_dataFor('profile'), $themeSlug);
+    tn_assert(str_contains($profileHtml, 'id="chatbot-widget"'), "{$themeSlug}/profile is missing the chatbot widget section");
+    tn_assert(str_contains($profileHtml, 'data-profile-handle="alice"'), "{$themeSlug}/profile is missing data-profile-handle on <body> — chatbot-widget.js and topnav-auth.js can't run without it");
+    tn_assert(str_contains($profileHtml, 'chatbot-widget.js'), "{$themeSlug}/profile is missing the chatbot-widget.js script tag");
 }
 
 fwrite(STDOUT, "Themed nav test passed\n");
