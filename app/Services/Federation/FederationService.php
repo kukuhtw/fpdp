@@ -337,6 +337,11 @@ final class FederationService
         $type = (string) ($activity['type'] ?? '');
         $actorUri = (string) ($activity['actor'] ?? '');
         $activityId = (string) ($activity['id'] ?? '');
+        // Unconditional, one line per inbox request — every prior fix in
+        // this class only logs specific failure branches, which is no
+        // help when the actual activity type reaching us is unknown. This
+        // is cheap and permanent; not gated behind a debug flag.
+        error_log("[FederationService] inbox: type={$type} actor={$actorUri} id={$activityId} objectType=" . (is_array($activity['object'] ?? null) ? (string) ($activity['object']['type'] ?? '(embedded, no type)') : (is_string($activity['object'] ?? null) ? '(bare id string)' : '(none)')));
         if ($type === '' || $actorUri === '' || $activityId === '') {
             throw new ValidationException([['field' => '_', 'reason' => 'missing_required_fields']]);
         }
