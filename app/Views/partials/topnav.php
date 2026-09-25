@@ -1,6 +1,16 @@
-<nav class="topbar">
-  <a class="brand" href="/">FPDP</a>
-  <div class="nav-links">
+<?php
+// Single source of truth for the site nav — every page (themed or not)
+// renders this same link list via \App\Core\View::partial('topnav', ...),
+// so a new link only ever needs to be added here once. A theme passes its
+// own navClass/brandClass/linksClass to keep its distinct branding (see
+// themes/editorial and themes/minimal) without duplicating the <a> list.
+$navClass = $navClass ?? 'topbar';
+$brandClass = $brandClass ?? 'brand';
+$linksClass = $linksClass ?? 'nav-links';
+?>
+<nav class="<?= htmlspecialchars($navClass, ENT_QUOTES, 'UTF-8') ?>">
+  <a class="<?= htmlspecialchars($brandClass, ENT_QUOTES, 'UTF-8') ?>" href="/">FPDP</a>
+  <div class="<?= htmlspecialchars($linksClass, ENT_QUOTES, 'UTF-8') ?>">
     <a href="/">Home</a>
     <a href="/about-me">About Me</a>
     <a href="/youtube">YouTube</a>
