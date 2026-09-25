@@ -38,6 +38,11 @@
     return payload;
   };
 
+  // Attributes below are built via innerHTML with single-quoted values, and
+  // valuesByEnv now carries owner-entered freeform text (e.g. account_holder)
+  // — JSON.stringify escapes " but not ', so an apostrophe in a saved value
+  // would otherwise break out of the attribute. Escape it to an entity.
+  const escapeAttr = (json) => json.replace(/'/g, '&#39;');
   const envLabels = { SANDBOX: 'Sandbox', LIVE: 'Live' };
   const fieldLabels = {
     api_key: 'API Key',
@@ -83,7 +88,8 @@
       // the browser once saved), so this is the only in-form confirmation
       // that a previous save actually reached the database.
       const configuredByEnv = {};
-      gw.environments.forEach((e) => { configuredByEnv[e.environment] = e.configured_keys; });
+      const valuesByEnv = {};
+      gw.environments.forEach((e) => { configuredByEnv[e.environment] = e.configured_keys; valuesByEnv[e.environment] = e.values || {}; });
 
       card.innerHTML = `
         <div class="gateway-card-head">
@@ -94,7 +100,7 @@
         <p class="muted">${envInfo}</p>
         ${gw.webhook_url ? `<p class="small"><strong>Webhook URL:</strong> <code style="font-size:.8rem;word-break:break-all">${gw.webhook_url}</code></p>` : ''}
         <div class="gateway-actions" style="display:flex;gap:.5rem;margin-top:.5rem">
-          <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${JSON.stringify(gw.allowed_config_keys)}' data-active-env="${activeEnv}" data-configured-by-env='${JSON.stringify(configuredByEnv)}'>Configure</button>
+          <button class="button secondary small configure-btn" data-code="${gw.code}" data-keys='${escapeAttr(JSON.stringify(gw.allowed_config_keys))}' data-active-env="${activeEnv}" data-configured-by-env='${escapeAttr(JSON.stringify(configuredByEnv))}' data-values-by-env='${escapeAttr(JSON.stringify(valuesByEnv))}'>Configure</button>
           ${!isActive ? `<button class="button small activate-btn" data-code="${gw.code}">Set Active</button>` : ''}
         </div>
       `;
@@ -111,7 +117,7 @@
     }
   };
 
-  const buildFormFields = (keys) => {
+  const buildFormFields = (keys, values) => {
     gatewayFields.replaceChildren();
     if (keys.length === 0) {
       const p = document.createElement('p');
@@ -125,44 +131,53 @@
       label.textContent = fieldLabels[key] || key;
       const input = document.createElement('input');
       input.name = key;
-      input.type = key.includes('secret') || key === 'api_key' || key === 'server_key' ? 'password' : 'text';
-      input.value = '';
-      input.placeholder = 'Enter ' + (fieldLabels[key] || key);
+      const isSecret = key.includes('secret') || key === 'api_key' || key === 'server_key';
+      input.type = isSecret ? 'password' : 'text';
+      // Secret-classified fields (matches PaymentService::isSecretConfigKey())
+      // never come back from the API once saved, so they always start
+      // blank. Non-secret fields (bank_name, account_number, ...) are
+      // pre-filled from `values` when already configured, so the owner
+      // isn't forced to retype them just to change one other field.
+      input.value = isSecret ? '' : (values[key] || '');
+      input.placeholder = isSecret ? `Enter ${fieldLabels[key] || key}` : `${fieldLabels[key] || key} (previously saved value shown if any)`;
       label.append(input);
       gatewayFields.append(label);
     });
   };
 
-  const updateConfigExistingNote = () => {
+  const refreshConfigForm = () => {
     const keys = JSON.parse(gatewayForm.dataset.keys || '[]');
     const configuredByEnv = JSON.parse(gatewayForm.dataset.configuredByEnv || '{}');
+    const valuesByEnv = JSON.parse(gatewayForm.dataset.valuesByEnv || '{}');
     const env = gatewayForm.elements.environment.value;
     const configuredKeys = configuredByEnv[env] || [];
+
+    buildFormFields(keys, valuesByEnv[env] || {});
+
     if (keys.length === 0) {
       configExistingNote.textContent = '';
     } else if (keys.every((key) => configuredKeys.includes(key))) {
-      configExistingNote.textContent = `✅ ${envLabels[env] || env} already has saved credentials. Fields below are left blank for security — fill in the full set again only if you want to change them.`;
+      configExistingNote.textContent = `✅ ${envLabels[env] || env} already has saved credentials. Non-secret fields below are pre-filled; secret fields (password-type) are left blank for security — fill those in again only if you want to change them.`;
       configExistingNote.className = 'status success';
     } else {
       configExistingNote.textContent = `${envLabels[env] || env} is not fully configured yet.`;
       configExistingNote.className = 'muted';
     }
   };
-  gatewayForm.elements.environment.addEventListener('change', updateConfigExistingNote);
+  gatewayForm.elements.environment.addEventListener('change', refreshConfigForm);
 
   gatewayList.addEventListener('click', async (e) => {
     const btn = e.target.closest('.configure-btn');
     if (btn) {
       const code = btn.dataset.code;
-      const keys = JSON.parse(btn.dataset.keys || '[]');
       const activeEnv = btn.dataset.activeEnv || 'SANDBOX';
       gatewayForm.elements.code.value = code;
       gatewayForm.elements.environment.value = activeEnv;
       gatewayForm.dataset.keys = btn.dataset.keys || '[]';
       gatewayForm.dataset.configuredByEnv = btn.dataset.configuredByEnv || '{}';
+      gatewayForm.dataset.valuesByEnv = btn.dataset.valuesByEnv || '{}';
       configSubtitle.textContent = `Configuring: ${code} (${envLabels[activeEnv] || activeEnv})`;
-      buildFormFields(keys);
-      updateConfigExistingNote();
+      refreshConfigForm();
       gatewayForm.classList.remove('hidden');
       showStatus('');
       return;

@@ -314,7 +314,7 @@ $configure = $router->dispatch(new Request('PATCH', '/api/v1/me/payment-gateways
     'config' => [
         'bank_name' => 'Bank Contoh',
         'account_number' => '1234567890',
-        'account_holder' => 'Alice Owner',
+        'account_holder' => "Alice O'Brien",
         'webhook_secret' => $webhookSecret,
     ],
 ]), bearer($ownerToken)));
@@ -324,6 +324,31 @@ assert_that($configureData['provider_check'] === 'NOT_VERIFIED_PLUGIN_GATEWAY', 
 
 $activate = $router->dispatch(new Request('PUT', '/api/v1/me/payment-gateways/MANUAL_TRANSFER/activate', [], null, bearer($ownerToken)));
 assert_that($activate->status === 200, "Activating the plugin gateway failed: {$activate->body}");
+
+// 2b. Non-secret fields (bank_name, account_number, account_holder) round-trip
+// back to the owner so they aren't forced to retype them on every edit —
+// but the true credential (webhook_secret) never does, even though it was
+// just saved successfully. A value containing an apostrophe (account_holder)
+// also exercises that special characters survive encrypt/decrypt intact.
+$listAfterConfigure = $router->dispatch(new Request('GET', '/api/v1/me/payment-gateways', [], null, bearer($ownerToken)));
+$manualGateway = null;
+foreach (json_decode($listAfterConfigure->body, true)['data']['gateways'] as $gw) {
+    if ($gw['code'] === 'MANUAL_TRANSFER') {
+        $manualGateway = $gw;
+    }
+}
+assert_that($manualGateway !== null, 'MANUAL_TRANSFER should still be listed after configuring it');
+$liveEnv = null;
+foreach ($manualGateway['environments'] as $env) {
+    if ($env['environment'] === 'LIVE') {
+        $liveEnv = $env;
+    }
+}
+assert_that($liveEnv !== null, 'LIVE environment should be present after configuring it');
+assert_that($liveEnv['values']['bank_name'] === 'Bank Contoh', 'bank_name should round-trip back to the owner: ' . json_encode($liveEnv['values']));
+assert_that($liveEnv['values']['account_number'] === '1234567890', 'account_number should round-trip back to the owner');
+assert_that($liveEnv['values']['account_holder'] === "Alice O'Brien", 'account_holder should round-trip back to the owner with special characters intact');
+assert_that(!array_key_exists('webhook_secret', $liveEnv['values']), 'webhook_secret must NEVER be returned, even though it was just saved: ' . json_encode($liveEnv['values']));
 
 // 3. Owner uploads a priced CV.
 $fileBytes = 'PDF-ish content for the priced CV.';

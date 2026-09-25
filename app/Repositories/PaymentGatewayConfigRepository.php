@@ -44,9 +44,14 @@ final class PaymentGatewayConfigRepository
     }
 
     /**
-     * Config rows for a gateway, across both environments, with the
-     * encrypted value replaced by a boolean `is_set` flag — the decrypted
-     * secret itself is never returned by a listing endpoint.
+     * Config rows for a gateway, across both environments, with each row's
+     * `decrypted_value` included (and `is_decryptable` set) so the owner
+     * can be shown non-secret fields they already saved (e.g. a bank
+     * account number) without re-entering them. The raw `encrypted_value`
+     * is never returned. Callers building an API response from this MUST
+     * filter which keys' `decrypted_value` they actually expose — see
+     * PaymentService::isSecretConfigKey() — a true credential (API key,
+     * webhook secret) must never round-trip back to the browser.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -61,9 +66,10 @@ final class PaymentGatewayConfigRepository
         $metadata = [];
         foreach ($statement->fetchAll() as $row) {
             try {
-                Crypto::decrypt((string) $row['encrypted_value']);
+                $row['decrypted_value'] = Crypto::decrypt((string) $row['encrypted_value']);
                 $row['is_decryptable'] = true;
             } catch (Throwable) {
+                $row['decrypted_value'] = null;
                 $row['is_decryptable'] = false;
             }
             unset($row['encrypted_value']);

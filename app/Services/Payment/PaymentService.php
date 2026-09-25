@@ -179,8 +179,17 @@ final class PaymentService
                 $environments[$env]['environment'] = $env;
                 $environments[$env]['is_active'] = (bool) $row['is_active'];
                 $environments[$env]['configured_keys'] ??= [];
+                $environments[$env]['values'] ??= [];
                 if ((bool) ($row['is_decryptable'] ?? false)) {
-                    $environments[$env]['configured_keys'][] = (string) $row['config_key'];
+                    $key = (string) $row['config_key'];
+                    $environments[$env]['configured_keys'][] = $key;
+                    // Only a non-secret field's value round-trips back to the
+                    // browser (e.g. a bank account number the owner would
+                    // otherwise have to retype) — a real credential (API key,
+                    // webhook secret) is never re-exposed once saved.
+                    if (!self::isSecretConfigKey($key)) {
+                        $environments[$env]['values'][$key] = (string) $row['decrypted_value'];
+                    }
                 }
             }
 
@@ -205,6 +214,20 @@ final class PaymentService
         $activeGateway = $nodeId !== null ? $this->getNodeRepo()->getActiveGateway($nodeId) : null;
 
         return ['active_gateway' => $activeGateway, 'gateways' => $gateways];
+    }
+
+    /**
+     * A config_key counts as a real credential (never shown back to the
+     * owner once saved) rather than plain reference data (e.g. a bank
+     * account number, safe to redisplay) if its name suggests a secret.
+     * Mirrors dashboard-settings.js's identical rule for which fields
+     * render as a password input — kept in sync deliberately, since a key
+     * classified as "safe" here but masked there (or vice versa) would be
+     * a real inconsistency, not just a cosmetic one.
+     */
+    public static function isSecretConfigKey(string $key): bool
+    {
+        return str_contains($key, 'secret') || in_array($key, ['api_key', 'server_key'], true);
     }
 
     /**
