@@ -4,7 +4,11 @@
 <?php \App\Core\View::partial('topnav', ['navClass' => 'ed-nav', 'brandClass' => 'ed-brand', 'linksClass' => 'ed-nav-links']); ?>
 <main class="ed-main">
   <header class="profile-hero">
-    <div class="avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr((string) $profile['display_name'], 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
+    <?php if (trim((string) ($profile['avatar_url'] ?? '')) !== ''): ?>
+      <img class="avatar-photo" src="<?= htmlspecialchars((string) $profile['avatar_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Foto profil <?= htmlspecialchars((string) $profile['display_name'], ENT_QUOTES, 'UTF-8') ?>">
+    <?php else: ?>
+      <div class="avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr((string) $profile['display_name'], 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
     <div>
       <p class="eyebrow">@<?= htmlspecialchars((string) $profile['handle'], ENT_QUOTES, 'UTF-8') ?></p>
       <h1>CV / Resume</h1>

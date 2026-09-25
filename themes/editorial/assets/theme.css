@@ -20,7 +20,7 @@ a:hover{text-decoration:underline}
 .ed-handle{margin:0 0 20px;color:var(--ed-muted);font-style:italic}
 .ed-bio{max-width:620px;margin:0 auto;font-size:1.05rem;color:#4a4030}
 
-.ed-main{width:min(760px,calc(100% - 32px));margin:0 auto 80px;display:grid;gap:36px}
+.ed-main{width:min(760px,calc(100% - 32px));margin:56px auto 80px;display:grid;gap:36px}
 
 .ed-follow{padding:26px 30px;background:var(--ed-card);border:1px solid var(--ed-line);border-left:5px solid var(--ed-accent);border-radius:4px;font-family:system-ui,sans-serif;font-size:.95rem}
 .ed-follow h2{font-family:Georgia,serif;font-size:1.4rem;margin:.2em 0 .5em}
