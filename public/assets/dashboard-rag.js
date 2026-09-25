@@ -15,6 +15,12 @@
   const faqStatus = document.querySelector('#faq-status');
   const faqList = document.querySelector('#faq-list');
   const faqCardTemplate = document.querySelector('#faq-card-template');
+  const chatbotSettingsContent = document.querySelector('#chatbot-settings-content');
+  const chatbotSettingsForm = document.querySelector('#chatbot-settings-form');
+  const chatbotEnabledInput = document.querySelector('#chatbot-enabled-input');
+  const chatbotPriceInput = document.querySelector('#chatbot-price-input');
+  const chatbotCurrencyInput = document.querySelector('#chatbot-currency-input');
+  const chatbotSettingsStatus = document.querySelector('#chatbot-settings-status');
 
   let selectedDocument = null;
 
@@ -197,12 +203,42 @@
     }
   });
 
+  // ---- Chatbot settings ----
+  const loadChatbotSettings = async () => {
+    try {
+      const result = await api('/api/v1/me/chatbot-settings');
+      chatbotEnabledInput.checked = result.data.enabled;
+      chatbotPriceInput.value = result.data.price_per_question;
+      chatbotCurrencyInput.value = result.data.currency;
+    } catch (error) {
+      message(chatbotSettingsStatus, error.message, true);
+    }
+  };
+
+  chatbotSettingsForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await api('/api/v1/me/chatbot-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          enabled: chatbotEnabledInput.checked,
+          price_per_question: chatbotPriceInput.value,
+          currency: chatbotCurrencyInput.value,
+        }),
+      });
+      message(chatbotSettingsStatus, 'Pengaturan chatbot tersimpan.');
+    } catch (error) {
+      message(chatbotSettingsStatus, error.message, true);
+    }
+  });
+
   // ---- Auth ----
   const verify = async () => {
     if (!token()) {
       authSummary.textContent = 'Masuk untuk mengelola dokumen RAG.';
       loginForm.classList.remove('hidden');
       content.classList.add('hidden');
+      chatbotSettingsContent.classList.add('hidden');
       document.querySelectorAll('.owner-nav').forEach((el) => el.classList.add('hidden'));
       document.querySelectorAll('.guest-nav').forEach((el) => el.classList.remove('hidden'));
       return;
@@ -212,9 +248,11 @@
       authSummary.textContent = `Masuk sebagai ${result.data.user.email}.`;
       loginForm.classList.add('hidden');
       content.classList.remove('hidden');
+      chatbotSettingsContent.classList.remove('hidden');
       document.querySelectorAll('.owner-nav').forEach((el) => el.classList.remove('hidden'));
       document.querySelectorAll('.guest-nav').forEach((el) => el.classList.add('hidden'));
       await loadDocuments();
+      await loadChatbotSettings();
     } catch (_) {
       sessionStorage.removeItem(tokenKey);
       verify();

@@ -5,7 +5,7 @@
 <main class="shell dashboard-shell">
   <section class="panel">
     <p class="eyebrow">Owner dashboard</p><h1>RAG Documents</h1>
-    <p class="muted">Upload dokumen tentang diri Anda (teks/markdown), lalu generate FAQ darinya. FAQ akan dipakai sebagai grounding untuk fitur chatbot pengunjung (menyusul).</p>
+    <p class="muted">Upload dokumen tentang diri Anda (teks/markdown), lalu generate FAQ darinya. FAQ akan dipakai sebagai grounding untuk fitur chatbot pengunjung.</p>
     <p id="auth-summary" class="muted">Masuk untuk mengelola dokumen RAG.</p>
     <form id="login-form" class="stack" method="post">
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
@@ -37,6 +37,23 @@
         <p id="faq-status" class="status" role="status" aria-live="polite"></p>
         <div id="faq-list" class="stack"></div>
       </div>
+    </section>
+  </section>
+
+  <section id="chatbot-settings-content" class="hidden">
+    <section class="panel">
+      <h2>Pengaturan Chatbot Pengunjung</h2>
+      <p class="muted">Aktifkan agar tombol chat muncul di halaman profil publik Anda. Chatbot menjawab memakai FAQ di atas sebagai konteks, dan membutuhkan LLM provider yang sudah dikonfigurasi di Settings.</p>
+      <form id="chatbot-settings-form" class="stack">
+        <label class="check"><input id="chatbot-enabled-input" type="checkbox"> Aktifkan chatbot untuk pengunjung</label>
+        <div class="field-row">
+          <label>Harga per pertanyaan<input id="chatbot-price-input" type="number" min="0" step="0.01" value="0"></label>
+          <label>Mata uang<select id="chatbot-currency-input"><option value="IDR">IDR</option><option value="USD">USD</option></select></label>
+        </div>
+        <p class="muted">Isi 0 untuk gratis. Pengunjung tetap harus masuk dengan Google sebelum bertanya.</p>
+        <button type="submit">Simpan pengaturan</button>
+      </form>
+      <p id="chatbot-settings-status" class="status" role="status" aria-live="polite"></p>
     </section>
   </section>
 </main>
