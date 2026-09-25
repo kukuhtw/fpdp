@@ -147,6 +147,8 @@ final class ChatbotController
             'IDR',
             "{$origin}/payment/thank-you?type=wallet&handle={$handle}",
             "{$origin}/@{$handle}",
+            isset($input['name']) ? (string) $input['name'] : null,
+            isset($input['phone']) ? (string) $input['phone'] : null,
         );
 
         return JsonEnvelope::success([

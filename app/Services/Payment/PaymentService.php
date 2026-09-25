@@ -165,6 +165,14 @@ final class PaymentService
         return array_map(static function (array $payment): array {
             $metadata = is_string($payment['metadata'] ?? null) ? json_decode($payment['metadata'], true) : null;
             $payment['purpose'] = is_array($metadata) ? ($metadata['purpose'] ?? null) : null;
+            // Surfaced so the owner can match an incoming bank transfer (for
+            // gateways with no automatic confirmation, like Manual Transfer)
+            // to the right visitor — not collected for every purpose (e.g.
+            // marketplace orders already carry buyer_name/email on the order
+            // itself), so these are simply absent when not present.
+            $payment['buyer_name'] = is_array($metadata) ? ($metadata['buyer_name'] ?? null) : null;
+            $payment['buyer_phone'] = is_array($metadata) ? ($metadata['buyer_phone'] ?? null) : null;
+            $payment['buyer_email'] = is_array($metadata) ? ($metadata['buyer_email'] ?? null) : null;
 
             return $payment;
         }, $this->getRepository()->findByStatus('PENDING', $limit));

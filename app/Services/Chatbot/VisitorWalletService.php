@@ -38,10 +38,13 @@ final class VisitorWalletService
      * @param array<string, mixed> $visitor
      * @return array{credited: bool, payment: array<string, mixed>, wallet: array<string, mixed>}
      */
-    public function topUp(int $nodeId, array $visitor, float $amount, string $currency = 'IDR', ?string $returnUrlBase = null, ?string $cancelUrl = null): array
+    public function topUp(int $nodeId, array $visitor, float $amount, string $currency = 'IDR', ?string $returnUrlBase = null, ?string $cancelUrl = null, ?string $buyerName = null, ?string $buyerPhone = null): array
     {
         if ($amount < self::MIN_TOPUP_AMOUNT) {
             throw new ValidationException([['field' => 'amount', 'reason' => 'below_minimum']]);
+        }
+        if ($buyerName === null || trim($buyerName) === '' || $buyerPhone === null || trim($buyerPhone) === '') {
+            throw new ValidationException([['field' => 'name', 'reason' => 'required'], ['field' => 'phone', 'reason' => 'required']]);
         }
 
         $visitorId = (int) $visitor['id'];
@@ -55,7 +58,14 @@ final class VisitorWalletService
             'currency' => $wallet['currency'],
             'description' => 'Deposit top-up',
             'payer_email' => $visitor['email'] ?? null,
-            'metadata' => ['purpose' => 'wallet_topup', 'wallet_id' => (int) $wallet['id'], 'visitor_id' => $visitorId],
+            'metadata' => [
+                'purpose' => 'wallet_topup',
+                'wallet_id' => (int) $wallet['id'],
+                'visitor_id' => $visitorId,
+                'buyer_name' => $buyerName,
+                'buyer_phone' => $buyerPhone,
+                'buyer_email' => $visitor['email'] ?? null,
+            ],
             'return_url' => $returnUrl,
             'cancel_url' => $cancelUrl,
         ]);
