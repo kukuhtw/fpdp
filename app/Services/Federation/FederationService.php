@@ -1069,10 +1069,13 @@ final class FederationService
     }
 
     /**
+     * Also used by ActivityPubController::outbox() to render the same
+     * post shape for outbox listing that followers receive via Create.
+     *
      * @param array<string, mixed> $post
      * @return array<string, mixed>
      */
-    private static function buildFederatedPostObject(string $actorUri, string $objectUri, array $post): array
+    public static function buildFederatedPostObject(string $actorUri, string $objectUri, array $post): array
     {
         $type = (string) ($post['post_type'] ?? 'NOTE') === 'ARTICLE' ? 'Article' : 'Note';
         $addressing = (string) ($post['visibility'] ?? 'PUBLIC') === 'UNLISTED'

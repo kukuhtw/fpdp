@@ -341,6 +341,7 @@ $buildActivityPubController = static function () use ($buildFederationService): 
         new ProfileService(new ProfileRepository($connection)),
         new NodeKeyService(new NodeKeyRepository($connection)),
         $buildFederationService(),
+        new PostRepository($connection),
     );
 };
 
@@ -439,6 +440,10 @@ $router->get('/@{handle}/followers', function (Request $request, array $params) 
 
 $router->get('/@{handle}/following', function (Request $request, array $params) use ($buildActivityPubController): Response {
     return $buildActivityPubController()->following($params);
+});
+
+$router->get('/@{handle}/outbox', function (Request $request, array $params) use ($buildActivityPubController): Response {
+    return $buildActivityPubController()->outbox($params);
 });
 
 $router->get('/.well-known/webfinger', function (Request $request, array $params) use ($buildActivityPubController): Response {
