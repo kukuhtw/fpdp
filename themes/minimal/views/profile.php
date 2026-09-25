@@ -27,7 +27,9 @@
     <p id="chatbot-price-note" class="muted"></p>
     <div id="chatbot-signin" class="hidden"><a id="chatbot-google-login" class="button" href="#">Masuk dengan Google untuk chat</a></div>
     <div id="chatbot-chat" class="hidden stack">
+      <p id="chatbot-buyer-identity" class="muted hidden"></p>
       <p id="chatbot-wallet-note" class="muted"></p>
+      <div class="field-row"><input id="chatbot-topup-name" type="text" maxlength="255" placeholder="Nama"><input id="chatbot-topup-phone" type="tel" maxlength="30" placeholder="Nomor telepon"></div>
       <div class="field-row"><input id="chatbot-topup-amount" type="number" min="1000" step="1000" value="10000" style="width:8rem"><button id="chatbot-topup-button" type="button" class="secondary">Top up saldo</button></div>
       <div id="chatbot-log"></div>
       <form id="chatbot-ask-form" class="field-row"><input id="chatbot-question-input" type="text" placeholder="Tulis pertanyaan Anda…" maxlength="1000" required style="flex:1"><button type="submit">Kirim</button></form>

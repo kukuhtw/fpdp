@@ -8,7 +8,10 @@
   const signinBox = document.querySelector('#chatbot-signin');
   const googleLogin = document.querySelector('#chatbot-google-login');
   const chatBox = document.querySelector('#chatbot-chat');
+  const buyerIdentity = document.querySelector('#chatbot-buyer-identity');
   const walletNote = document.querySelector('#chatbot-wallet-note');
+  const topupName = document.querySelector('#chatbot-topup-name');
+  const topupPhone = document.querySelector('#chatbot-topup-phone');
   const topupAmount = document.querySelector('#chatbot-topup-amount');
   const topupButton = document.querySelector('#chatbot-topup-button');
   const log = document.querySelector('#chatbot-log');
@@ -82,18 +85,29 @@
     const signedIn = Boolean(sessionStorage.getItem(tokenKey));
     signinBox.classList.toggle('hidden', signedIn);
     chatBox.classList.toggle('hidden', !signedIn);
+    const visitorName = sessionStorage.getItem('fpdp_visitor_name');
+    const visitorEmail = sessionStorage.getItem('fpdp_visitor_email');
+    if (signedIn && visitorEmail) {
+      buyerIdentity.textContent = `Masuk sebagai: ${visitorName ? `${visitorName} ` : ''}(${visitorEmail})`;
+      buyerIdentity.classList.remove('hidden');
+    } else {
+      buyerIdentity.classList.add('hidden');
+    }
     if (signedIn) await refreshWallet();
   };
 
   topupButton.addEventListener('click', async () => {
     const amount = Number(topupAmount.value);
     if (!amount || amount < 1000) return message('Minimal top up Rp 1.000.', true);
+    const name = topupName.value.trim();
+    const phone = topupPhone.value.trim();
+    if (!name || !phone) return message('Isi nama dan nomor telepon terlebih dahulu.', true);
     topupButton.disabled = true;
     message('Memproses top up…');
     try {
       const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/wallet/topup`, {
         method: 'POST',
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, name, phone }),
       });
       if (result.data.payment?.payment_url) {
         message('Mengalihkan ke halaman pembayaran…');
