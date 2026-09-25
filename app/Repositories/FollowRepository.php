@@ -41,12 +41,27 @@ final class FollowRepository
     /**
      * @return array<string, mixed>|null
      */
-    public function findByProfileAndTarget(int $profileId, string $targetActorUri): ?array
+    /**
+     * $direction disambiguates a mutual-follow pair: without it, "we
+     * follow X" (OUTGOING, target_actor_uri = X) and "X follows us"
+     * (INCOMING, target_actor_uri = X) are indistinguishable, since both
+     * store the other party's actor URI in the same column. A caller
+     * checking for an existing OUTGOING relationship that instead matches
+     * an unrelated INCOMING one (or vice versa) silently misbehaves —
+     * e.g. an inbound Follow from someone we already follow gets treated
+     * as "already following", and no incoming request is ever recorded.
+     */
+    public function findByProfileAndTarget(int $profileId, string $targetActorUri, ?string $direction = null): ?array
     {
-        $statement = $this->connection->prepare(
-            'SELECT * FROM follows WHERE profile_id = :profile_id AND target_actor_uri = :target_actor_uri',
-        );
-        $statement->execute(['profile_id' => $profileId, 'target_actor_uri' => $targetActorUri]);
+        $where = 'profile_id = :profile_id AND target_actor_uri = :target_actor_uri';
+        $parameters = ['profile_id' => $profileId, 'target_actor_uri' => $targetActorUri];
+        if ($direction !== null) {
+            $where .= ' AND direction = :direction';
+            $parameters['direction'] = $direction;
+        }
+
+        $statement = $this->connection->prepare("SELECT * FROM follows WHERE {$where}");
+        $statement->execute($parameters);
 
         $row = $statement->fetch();
         return $row === false ? null : $row;

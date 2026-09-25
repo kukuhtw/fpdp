@@ -534,7 +534,7 @@ final class FederationService
     public function sendFollow(int $nodeId, int $profileId, string $targetActorUri, string $targetDomain, ?string $targetFedAddress = null): array
     {
         $fr = $this->getFollowRepo();
-        $existing = $fr->findByProfileAndTarget($profileId, $targetActorUri);
+        $existing = $fr->findByProfileAndTarget($profileId, $targetActorUri, 'OUTGOING');
         // PENDING and DISCONNECTED are not active relationships: PENDING
         // means the remote server's Accept was never received (e.g. their
         // side accepted before our inbox/WebFinger was reachable, and gave
@@ -595,7 +595,7 @@ final class FederationService
         }
 
         $fr = $this->getFollowRepo();
-        $existing = $fr->findByProfileAndTarget($localProfileId, $actorUri);
+        $existing = $fr->findByProfileAndTarget($localProfileId, $actorUri, 'INCOMING');
         if ($existing !== null && $existing['status'] === 'BLOCKED') {
             $this->queueOutgoingActivity($nodeId, 'Reject', $objectUri, parse_url($actorUri, PHP_URL_HOST) ?? '', $actorUri);
             return ['status' => 'rejected', 'message' => 'Blocked actor'];
