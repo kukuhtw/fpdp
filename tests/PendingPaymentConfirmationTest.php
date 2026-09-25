@@ -204,7 +204,7 @@ $upload = $router->dispatch(new Request('POST', '/api/v1/me/cv', [], json_encode
 ]), bearer($ownerToken)));
 ppc_assert($upload->status === 201, "Priced CV upload failed: {$upload->body}");
 
-$access = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], null, bearer($visitorToken)));
+$access = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], json_encode(['name' => 'Visitor One', 'phone' => '081234567890']), bearer($visitorToken)));
 ppc_assert($access->status === 200, "Requesting CV access failed: {$access->body}");
 $cvOrderId = json_decode($access->body, true)['data']['payment']['order_id'];
 
@@ -239,7 +239,7 @@ ppc_assert($router->dispatch(new Request('POST', '/api/v1/me/payments/does-not-e
 // 6. Wallet top-up: confirming twice (a double click) must credit only ONCE —
 // this is the exact scenario confirmPaymentManually()'s status_changed
 // guard exists to prevent.
-$topup = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/wallet/topup', [], json_encode(['amount' => 20000]), bearer($visitorToken)));
+$topup = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/wallet/topup', [], json_encode(['amount' => 20000, 'name' => 'Visitor One', 'phone' => '081234567890']), bearer($visitorToken)));
 ppc_assert($topup->status === 201, "Wallet top-up request failed: {$topup->body}");
 $walletOrderId = json_decode($topup->body, true)['data']['payment']['order_id'];
 
