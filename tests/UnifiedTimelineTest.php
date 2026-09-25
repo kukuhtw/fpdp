@@ -37,6 +37,7 @@ foreach ([
     'CREATE TABLE remote_actors (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_node_id INTEGER, actor_uri TEXT, federated_address TEXT UNIQUE, display_name TEXT, avatar_url TEXT, canonical_url TEXT, inbox_url TEXT, shared_inbox_url TEXT, public_key_id TEXT, public_key_pem TEXT, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE federated_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, relationship_status TEXT DEFAULT "PENDING", show_on_profile INTEGER DEFAULT 1, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (profile_id, remote_actor_id))',
     'CREATE TABLE federated_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_actor_id INTEGER, object_uri TEXT, canonical_url TEXT, title TEXT, content TEXT, attachments TEXT, visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP)',
+    'CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, title TEXT, description TEXT, price TEXT DEFAULT "0", currency TEXT DEFAULT "IDR", status TEXT DEFAULT "ACTIVE", visibility TEXT DEFAULT "PUBLIC", is_promoted INTEGER DEFAULT 0, media TEXT, product_type TEXT DEFAULT "PHYSICAL", digital_asset_url TEXT, digital_asset_metadata TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
 ] as $sql) {
     $db->exec($sql);
 }
@@ -128,6 +129,31 @@ utl_assert($localOnly['status'] === 200 && count($localOnly['body']['data']) ===
 // ---- Test 4: the HTML /timeline page defaults to the merged view without an explicit source_type ----
 $html = $dispatch('GET', '/timeline');
 utl_assert($html['status'] === 200, '/timeline should render successfully: ' . json_encode($html));
+
+// ---- Test 5: a product marked "Promosikan ke Fediverse" appears in the timeline; a non-promoted one does not ----
+$nodeId = (int) $db->query('SELECT id FROM nodes LIMIT 1')->fetchColumn();
+$promotedStmt = $db->prepare(
+    "INSERT INTO products (public_id, node_id, title, description, price, currency, status, visibility, is_promoted, created_at)
+     VALUES (:pid, :node_id, 'Kaos Edisi Terbatas', 'Kaos katun premium.', '150000', 'IDR', 'ACTIVE', 'PUBLIC', 1, :created_at)",
+);
+$promotedStmt->execute(['pid' => Uuid::v4(), 'node_id' => $nodeId, 'created_at' => gmdate('Y-m-d H:i:s', time() + 10)]);
+$promotedProductId = (string) $db->lastInsertId();
+$promotedProductPublicId = $db->query('SELECT public_id FROM products WHERE id = ' . $promotedProductId)->fetchColumn();
+
+$notPromotedStmt = $db->prepare(
+    "INSERT INTO products (public_id, node_id, title, description, price, currency, status, visibility, is_promoted, created_at)
+     VALUES (:pid, :node_id, 'Produk Biasa', 'Tidak dipromosikan.', '50000', 'IDR', 'ACTIVE', 'PUBLIC', 0, :created_at)",
+);
+$notPromotedStmt->execute(['pid' => Uuid::v4(), 'node_id' => $nodeId, 'created_at' => gmdate('Y-m-d H:i:s', time() + 20)]);
+
+$withProduct = $dispatch('GET', '/api/v1/timeline', null, [], ['source_type' => 'ALL']);
+utl_assert($withProduct['status'] === 200, 'Timeline with a promoted product should succeed: ' . json_encode($withProduct));
+$productItems = array_filter($withProduct['body']['data'], static fn (array $it): bool => $it['source_type'] === 'PRODUCT');
+utl_assert(count($productItems) === 1, 'Exactly the promoted product should appear, not the non-promoted one: ' . json_encode($withProduct['body']['data']));
+$productItem = array_values($productItems)[0];
+utl_assert($productItem['canonical_url'] === "/shop/{$promotedProductPublicId}", 'Product canonical_url should point at its shop page: ' . json_encode($productItem));
+utl_assert(str_contains($productItem['content'], '150.000'), 'Product content should include the formatted price: ' . $productItem['content']);
+utl_assert(str_contains($productItem['content'], 'Kaos katun premium'), 'Product content should include the description: ' . $productItem['content']);
 
 Database::reset();
 unset($db, $router, $dispatch);

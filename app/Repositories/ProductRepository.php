@@ -103,6 +103,32 @@ final class ProductRepository
     }
 
     /**
+     * Products the owner has explicitly opted into public announcement —
+     * the same gate outgoing fediverse product delivery uses (is_promoted,
+     * not Private, ACTIVE) — for the local unified timeline.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listPromoted(int $nodeId, int $limit, ?int $beforeId = null): array
+    {
+        $where = ["p.node_id = :node_id", "p.status = 'ACTIVE'", "p.visibility IN ('PUBLIC', 'UNLISTED')", 'p.is_promoted = 1'];
+        $parameters = ['node_id' => $nodeId];
+
+        if ($beforeId !== null) {
+            $where[] = 'p.id < :before_id';
+            $parameters['before_id'] = $beforeId;
+        }
+
+        $statement = $this->connection->prepare(
+            self::SELECT . ' WHERE ' . implode(' AND ', $where)
+            . ' ORDER BY p.id DESC LIMIT ' . ($limit + 1),
+        );
+        $statement->execute($parameters);
+
+        return array_map([self::class, 'decodeJsonColumns'], $statement->fetchAll());
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function listByNodeId(int $nodeId): array

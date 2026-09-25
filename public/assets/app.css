@@ -60,6 +60,10 @@ a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:under
 .post-list-meta .badge{font-size:.72rem;padding:3px 9px;border-radius:999px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
 .badge-green{background:#e3efe9;color:var(--accent);}
 .badge-yellow{background:#f5edce;color:#8a6f2b;}
+.badge-fediverse,.badge-product{display:inline-block;font-size:.72rem;padding:3px 9px;border-radius:999px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+.badge-fediverse{background:#e3efe9;color:var(--accent);}
+.badge-product{background:#eef1fb;color:#3d4ea6;}
+.post-card-federated,.post-card-product{border-left:3px solid var(--line);}
 .post-list-meta .button.small{padding:6px 12px;font-size:.82rem;}
 .post-list-meta .muted{white-space:nowrap;}
 .gateway-card{padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;}

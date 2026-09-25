@@ -1,9 +1,14 @@
 <?php
 $isFederated = !empty($post['is_federated']);
+$isProduct = !empty($post['is_product']);
 if ($isFederated) {
     $postUrl = (string) ($post['permalink'] ?? '#');
     $profileUrl = (string) ($post['profile_link'] ?? $postUrl);
     $externalAttrs = ' target="_blank" rel="noopener noreferrer"';
+} elseif ($isProduct) {
+    $postUrl = (string) ($post['permalink'] ?? '#');
+    $profileUrl = '/@' . rawurlencode((string) $post['handle']);
+    $externalAttrs = '';
 } else {
     $slug = ($post['slug'] ?? '') !== '' ? '-' . rawurlencode((string) $post['slug']) : '';
     $postUrl = '/posts/' . (int) $post['id'] . $slug;
@@ -11,13 +16,14 @@ if ($isFederated) {
     $externalAttrs = '';
 }
 ?>
-<article class="post-card<?= $isFederated ? ' post-card-federated' : '' ?>">
+<article class="post-card<?= $isFederated ? ' post-card-federated' : '' ?><?= $isProduct ? ' post-card-product' : '' ?>">
     <header class="post-meta">
         <a href="<?= htmlspecialchars($profileUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $externalAttrs ?>>
             <?= htmlspecialchars((string) $post['display_name'], ENT_QUOTES, 'UTF-8') ?>
         </a>
         <span>@<?= htmlspecialchars((string) $post['handle'], ENT_QUOTES, 'UTF-8') ?></span>
         <?php if ($isFederated): ?><span class="badge-fediverse" title="Post dari akun yang Anda follow di fediverse">Fediverse</span><?php endif; ?>
+        <?php if ($isProduct): ?><span class="badge-product" title="Produk yang dipromosikan">Produk</span><?php endif; ?>
         <?php if ($post['published_at'] !== null): ?>
             <time datetime="<?= htmlspecialchars((string) $post['published_at'], ENT_QUOTES, 'UTF-8') ?>">
                 <?= htmlspecialchars(date('M j, Y', strtotime((string) $post['published_at'])), ENT_QUOTES, 'UTF-8') ?>
@@ -41,5 +47,5 @@ if ($isFederated) {
             <?php endif; ?>
         <?php endforeach; ?>
     </div><?php endif; ?>
-    <footer><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $externalAttrs ?>><?= $isFederated ? 'Lihat postingan asli ↗' : 'Permalink' ?></a></footer>
+    <footer><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $externalAttrs ?>><?= $isFederated ? 'Lihat postingan asli ↗' : ($isProduct ? 'Lihat produk & beli →' : 'Permalink') ?></a></footer>
 </article>

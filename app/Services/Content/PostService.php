@@ -13,6 +13,7 @@ use App\Repositories\ExternalPostRepository;
 use App\Repositories\FederatedPostRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\PostRepository;
+use App\Repositories\ProductRepository;
 use App\Repositories\ProfileRepository;
 use App\Services\Security\AuditService;
 use DateTimeImmutable;
@@ -32,6 +33,7 @@ final class PostService
         private readonly ?FederatedPostRepository $federatedPosts = null,
         private readonly ?NodeRepository $nodes = null,
         private readonly ?ProfileRepository $profiles = null,
+        private readonly ?ProductRepository $products = null,
     ) {
     }
 
@@ -187,6 +189,8 @@ final class PostService
         }
 
         $localRows = [];
+        $productRows = [];
+        $localProfile = $this->resolveLocalProfile();
         if ($sourceType === 'ALL') {
             $localRows = $this->posts->listPublic($limit + 1, null);
             if ($beforeTimestamp !== null) {
@@ -195,10 +199,20 @@ final class PostService
                     static fn (array $row): bool => $row['published_at'] !== null && $row['published_at'] < $beforeTimestamp,
                 ));
             }
+
+            if ($this->products !== null && $localProfile !== null) {
+                $productRows = $this->products->listPromoted((int) $localProfile['node_id'], $limit + 1);
+                if ($beforeTimestamp !== null) {
+                    $productRows = array_values(array_filter(
+                        $productRows,
+                        static fn (array $row): bool => ($row['created_at'] ?? null) !== null && $row['created_at'] < $beforeTimestamp,
+                    ));
+                }
+            }
         }
 
         $federatedRows = [];
-        $profileId = $this->resolveLocalProfileId();
+        $profileId = $localProfile !== null ? (int) $localProfile['id'] : null;
         if ($this->federatedPosts !== null && $profileId !== null) {
             $federatedRows = $this->federatedPosts->listForProfile($profileId, $limit + 1, $beforeTimestamp);
         }
@@ -206,8 +220,12 @@ final class PostService
         $items = array_merge(
             array_map(static fn (array $row): array => $row + ['is_federated' => false], $localRows),
             array_map([self::class, 'normalizeFederatedRow'], $federatedRows),
+            $localProfile !== null
+                ? array_map(static fn (array $row): array => self::normalizeProductRow($row, $localProfile), $productRows)
+                : [],
         );
-        usort($items, static fn (array $a, array $b): int => strcmp((string) $b['published_at'], (string) $a['published_at']));
+        $sortKey = static fn (array $row): string => (string) ($row['published_at'] ?? $row['created_at'] ?? '');
+        usort($items, static fn (array $a, array $b): int => strcmp($sortKey($b), $sortKey($a)));
 
         $hasMore = count($items) > $limit;
         $page = array_slice($items, 0, $limit);
@@ -215,12 +233,15 @@ final class PostService
 
         return [
             'items' => $page,
-            'next_cursor' => $hasMore && $last !== null ? rtrim(strtr(base64_encode((string) $last['published_at']), '+/', '-_'), '=') : null,
+            'next_cursor' => $hasMore && $last !== null ? rtrim(strtr(base64_encode($sortKey($last)), '+/', '-_'), '=') : null,
             'has_more' => $hasMore,
         ];
     }
 
-    private function resolveLocalProfileId(): ?int
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveLocalProfile(): ?array
     {
         if ($this->nodes === null || $this->profiles === null) {
             return null;
@@ -229,8 +250,7 @@ final class PostService
         if ($node === null) {
             return null;
         }
-        $profile = $this->profiles->findByNodeId((int) $node['id']);
-        return $profile !== null ? (int) $profile['id'] : null;
+        return $this->profiles->findByNodeId((int) $node['id']);
     }
 
     /**
@@ -256,6 +276,54 @@ final class PostService
             'permalink' => $row['canonical_url'] ?: $row['actor_canonical_url'],
             'profile_link' => $row['actor_canonical_url'] ?: $row['canonical_url'],
             'media' => is_array($row['attachments'] ?? null) ? $row['attachments'] : [],
+        ];
+    }
+
+    /**
+     * A product only ever reaches here if the owner explicitly marked it
+     * "Promosikan ke Fediverse" (the same gate outgoing product federation
+     * uses) — this mirrors that content shape (price + description +
+     * checkout link, photo as media) for the local timeline.
+     *
+     * @param array<string, mixed> $product
+     * @param array<string, mixed> $localProfile
+     * @return array<string, mixed>
+     */
+    private static function normalizeProductRow(array $product, array $localProfile): array
+    {
+        $price = number_format((float) ($product['price'] ?? 0), 0, ',', '.');
+        $currency = (string) ($product['currency'] ?? 'IDR');
+        $description = trim(strip_tags((string) ($product['description'] ?? '')));
+
+        $content = '<p><strong>' . htmlspecialchars($currency, ENT_QUOTES, 'UTF-8') . ' ' . $price . '</strong></p>';
+        if ($description !== '') {
+            $content .= '<p>' . nl2br(htmlspecialchars($description, ENT_QUOTES, 'UTF-8')) . '</p>';
+        }
+
+        $media = is_array($product['media'] ?? null) ? $product['media'] : [];
+        $normalizedMedia = array_values(array_filter(array_map(static function ($item): ?array {
+            if (!is_array($item) || !is_string($item['url'] ?? null) || $item['url'] === '') {
+                return null;
+            }
+            return [
+                'media_type' => strtoupper((string) ($item['type'] ?? 'IMAGE')),
+                'url' => $item['url'],
+                'alt_text' => is_string($item['alt_text'] ?? null) ? $item['alt_text'] : null,
+            ];
+        }, $media)));
+
+        return [
+            'is_federated' => false,
+            'is_product' => true,
+            'public_id' => $product['public_id'],
+            'title' => $product['title'],
+            'content' => $content,
+            'published_at' => $product['created_at'] ?? null,
+            'handle' => $localProfile['handle'],
+            'display_name' => $localProfile['display_name'],
+            'avatar_url' => $localProfile['avatar_url'] ?? null,
+            'permalink' => "/shop/{$product['public_id']}",
+            'media' => $normalizedMedia,
         ];
     }
 

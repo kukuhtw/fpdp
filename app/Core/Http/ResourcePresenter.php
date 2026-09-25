@@ -93,6 +93,37 @@ final class ResourcePresenter
             ];
         }
 
+        if (!empty($post['is_product'])) {
+            $publishedAt = $post['published_at'] === null ? null : self::timestamp((string) $post['published_at']);
+            return [
+                'id' => $post['public_id'],
+                'title' => $post['title'],
+                'content' => $post['content'],
+                'post_type' => 'PRODUCT',
+                'source_type' => 'PRODUCT',
+                'source_provider' => 'FPDP',
+                'canonical_url' => $post['permalink'],
+                'slug_url' => $post['permalink'],
+                'author' => [
+                    'handle' => $post['handle'],
+                    'display_name' => $post['display_name'],
+                    'profile_url' => '/@' . $post['handle'],
+                    'avatar_url' => $post['avatar_url'] ?? null,
+                ],
+                'media' => array_map(
+                    static fn (array $media): array => [
+                        'type' => $media['media_type'],
+                        'url' => $media['url'],
+                        'alt_text' => $media['alt_text'] ?? null,
+                    ],
+                    is_array($post['media'] ?? null) ? $post['media'] : [],
+                ),
+                'visibility' => 'PUBLIC',
+                'published_at' => $publishedAt,
+                'updated_at' => $publishedAt,
+            ];
+        }
+
         $slug = ($post['slug'] ?? '') !== '' ? '-' . $post['slug'] : '';
 
         return [
