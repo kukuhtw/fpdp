@@ -173,4 +173,26 @@ final class FollowRepository
         $row = $statement->fetch();
         return $row === false ? null : $row;
     }
+
+    /**
+     * Fallback for matching an inbound Accept/Reject when its object id
+     * doesn't match activity_public_id — real-world resends (see
+     * FederationService::sendFollow()) generate a fresh activity id each
+     * time, so a response to a stale attempt won't exact-match the latest
+     * one. (profile_id, target_actor_uri) is unique, so a still-PENDING
+     * outgoing follow to the actor who's responding is an unambiguous match
+     * regardless of which specific attempt they're actually answering.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findPendingOutgoingByTarget(string $targetActorUri): ?array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT * FROM follows WHERE target_actor_uri = :target_actor_uri AND direction = 'OUTGOING' AND status = 'PENDING'",
+        );
+        $statement->execute(['target_actor_uri' => $targetActorUri]);
+
+        $row = $statement->fetch();
+        return $row === false ? null : $row;
+    }
 }

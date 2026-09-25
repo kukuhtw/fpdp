@@ -747,13 +747,12 @@ final class FederationService
             return ['status' => 'error', 'message' => 'Invalid Accept payload'];
         }
 
-        $fr = $this->getFollowRepo();
-        $follow = $fr->findByActivityPublicId($objectId);
+        $follow = $this->findFollowForAcceptReject($objectId, (string) ($activity['actor'] ?? ''));
         if ($follow === null) {
             return ['status' => 'not_found', 'message' => 'No matching follow request'];
         }
 
-        $fr->updateStatus($follow['public_id'], 'ACCEPTED', null);
+        $this->getFollowRepo()->updateStatus($follow['public_id'], 'ACCEPTED', null);
 
         $remoteActor = $follow['remote_actor_id'] !== null
             ? $this->actors->findById((int) $follow['remote_actor_id'])
@@ -782,13 +781,12 @@ final class FederationService
             return ['status' => 'error', 'message' => 'Invalid Reject payload'];
         }
 
-        $fr = $this->getFollowRepo();
-        $follow = $fr->findByActivityPublicId($objectId);
+        $follow = $this->findFollowForAcceptReject($objectId, (string) ($activity['actor'] ?? ''));
         if ($follow === null) {
             return ['status' => 'not_found', 'message' => 'No matching follow request'];
         }
 
-        $fr->updateStatus($follow['public_id'], 'REJECTED', null);
+        $this->getFollowRepo()->updateStatus($follow['public_id'], 'REJECTED', null);
 
         return ['status' => 'rejected', 'message' => 'Follow rejected by remote'];
     }
@@ -1315,7 +1313,7 @@ final class FederationService
         return match ($type) {
             'Follow', 'Block' => $this->resolveLocalProfileFromActorUri((string) ($activity['object'] ?? '')),
             'Undo' => $this->resolveLocalProfileFromActorUri($this->extractUndoTargetUri($activity)),
-            'Accept', 'Reject' => $this->resolveLocalProfileFromFollowObject(self::extractActivityObjectId($activity['object'] ?? null) ?? ''),
+            'Accept', 'Reject' => $this->resolveLocalProfileFromFollowObject(self::extractActivityObjectId($activity['object'] ?? null) ?? '', (string) ($activity['actor'] ?? '')),
             'Create', 'Update', 'Delete' => $this->resolveLocalProfileFromRemoteActorUri((string) ($activity['actor'] ?? '')),
             default => null,
         };
@@ -1383,16 +1381,33 @@ final class FederationService
     /**
      * @return array<string, mixed>|null
      */
-    private function resolveLocalProfileFromFollowObject(string $activityId): ?array
+    private function resolveLocalProfileFromFollowObject(string $activityId, string $accepterActorUri): ?array
     {
-        if ($activityId === '') {
-            return null;
+        $follow = $this->findFollowForAcceptReject($activityId, $accepterActorUri);
+        return $follow !== null ? $this->profiles->findById((int) $follow['profile_id']) : null;
+    }
+
+    /**
+     * Shared Accept/Reject → Follow matching used by both profile
+     * resolution and processAccept()/processReject(), so the fallback only
+     * needs to live in one place. See findPendingOutgoingByTarget() for why
+     * the fallback exists: a resend generates a fresh activity id, so a
+     * response to a stale attempt won't exact-match activity_public_id.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function findFollowForAcceptReject(string $activityId, string $accepterActorUri): ?array
+    {
+        $fr = $this->getFollowRepo();
+
+        if ($activityId !== '') {
+            $follow = $fr->findByActivityPublicId($activityId);
+            if ($follow !== null) {
+                return $follow;
+            }
         }
-        $follow = $this->getFollowRepo()->findByActivityPublicId($activityId);
-        if ($follow === null) {
-            return null;
-        }
-        return $this->profiles->findById((int) $follow['profile_id']);
+
+        return $accepterActorUri !== '' ? $fr->findPendingOutgoingByTarget($accepterActorUri) : null;
     }
 
     /**
