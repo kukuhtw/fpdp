@@ -38,12 +38,26 @@
 
     const meta = document.createElement('p');
     meta.className = 'muted';
-    meta.textContent = `${itemsText} · ${new Date(order.created_at).toLocaleString('id-ID')}${order.buyer_email ? ' · ' + order.buyer_email : ''}`;
+    meta.textContent = `${itemsText} · ${new Date(order.created_at).toLocaleString('id-ID')}`;
 
     const parts = [head, meta];
+    // Pemesan (buyer_name/buyer_email) always come from the authenticated
+    // visitor's Google account, never a free-text field — see product.js.
+    // Nomor telepon has no dedicated column; it's the "Telepon: ..." line
+    // inside shipping_address (only collected for PHYSICAL orders).
+    if (order.buyer_name) {
+      const buyer = document.createElement('p');
+      buyer.innerHTML = `<strong>Nama pemesan:</strong> ${escapeHtml(order.buyer_name)}`;
+      parts.push(buyer);
+    }
+    if (order.buyer_email) {
+      const email = document.createElement('p');
+      email.innerHTML = `<strong>Email:</strong> ${escapeHtml(order.buyer_email)}`;
+      parts.push(email);
+    }
     if (order.shipping_address) {
       const address = document.createElement('p');
-      address.innerHTML = `<strong>Alamat kirim:</strong> ${escapeHtml(order.shipping_address).replace(/\n/g, '<br>')}`;
+      address.innerHTML = `<strong>Pengiriman:</strong> ${escapeHtml(order.shipping_address).replace(/\n/g, '<br>')}`;
       parts.push(address);
     }
     if (order.notes) {
