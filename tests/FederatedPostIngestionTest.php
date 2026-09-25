@@ -35,7 +35,7 @@ foreach ([
     'CREATE TABLE remote_nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, domain TEXT UNIQUE, name TEXT, status TEXT DEFAULT "ACTIVE", trust_state TEXT DEFAULT "UNKNOWN", last_seen_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE remote_actors (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_node_id INTEGER, actor_uri TEXT, federated_address TEXT UNIQUE, display_name TEXT, avatar_url TEXT, canonical_url TEXT, inbox_url TEXT, shared_inbox_url TEXT, public_key_id TEXT, public_key_pem TEXT, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE federated_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, relationship_status TEXT DEFAULT "PENDING", show_on_profile INTEGER DEFAULT 1, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (profile_id, remote_actor_id))',
-    'CREATE TABLE federated_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_actor_id INTEGER, object_uri TEXT, canonical_url TEXT, title TEXT, content TEXT, visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP)',
+    'CREATE TABLE federated_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_actor_id INTEGER, object_uri TEXT, canonical_url TEXT, title TEXT, content TEXT, attachments TEXT, visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP)',
     'CREATE TABLE node_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER, key_type TEXT DEFAULT "rsa", public_key TEXT, private_key TEXT, fingerprint TEXT UNIQUE, is_current INTEGER DEFAULT 1, rotated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE follows (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, target_actor_uri TEXT, target_federated_address TEXT, status TEXT DEFAULT "PENDING", direction TEXT DEFAULT "OUTGOING", activity_public_id TEXT, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE federation_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, direction TEXT, activity_type TEXT, actor_uri TEXT, object_uri TEXT, target_node_domain TEXT, target_actor_uri TEXT, payload TEXT, signature TEXT, status TEXT DEFAULT "PENDING", retry_count INTEGER DEFAULT 0, last_error TEXT, next_attempt_at TIMESTAMP, delivered_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
@@ -135,6 +135,11 @@ $createPayload = [
         'published' => gmdate('c'),
         'to' => ['https://www.w3.org/ns/activitystreams#Public'],
         'cc' => [$remote['actorUri'] . '/followers'],
+        'attachment' => [
+            ['type' => 'Document', 'mediaType' => 'image/jpeg', 'url' => 'https://sender.example/media/photo.jpg', 'name' => 'A photo'],
+            // A malicious/malformed attachment url must be silently dropped, not stored.
+            ['type' => 'Document', 'mediaType' => 'image/png', 'url' => 'javascript:alert(1)', 'name' => 'evil'],
+        ],
     ],
 ];
 $signedCreate = fpost_sign_request($remote['privateKey'], $remote['keyId'], 'POST', $inboxPath, 'test.local', $createPayload);
@@ -147,6 +152,12 @@ fpost_assert($storedPost['content'] === '<p>Hello from the fediverse!</p>', 'Sto
 fpost_assert($storedPost['visibility'] === 'PUBLIC', 'A Note addressed to the Public collection should be stored as PUBLIC: ' . json_encode($storedPost));
 fpost_assert(str_starts_with((string) $storedPost['canonical_url'], 'https://sender.example/@alice/'), 'canonical_url should come from the Link url, not the object id: ' . json_encode($storedPost));
 fpost_assert((int) $storedPost['remote_actor_id'] === $remote['remoteActorId'], 'Post should be attributed to the sending remote actor');
+
+$attachments = json_decode((string) $storedPost['attachments'], true);
+fpost_assert(is_array($attachments) && count($attachments) === 1, 'Exactly one valid attachment should be stored (the javascript: URI one dropped): ' . json_encode($storedPost['attachments']));
+fpost_assert($attachments[0]['media_type'] === 'IMAGE', 'image/jpeg should map to media_type IMAGE: ' . json_encode($attachments));
+fpost_assert($attachments[0]['url'] === 'https://sender.example/media/photo.jpg', 'Attachment url should be preserved');
+fpost_assert($attachments[0]['alt_text'] === 'A photo', 'Attachment name should map to alt_text');
 
 // ---- Test 2: a duplicate Create for the same object (different activity id) is a no-op, not a second row ----
 $dupCreatePayload = $createPayload;
