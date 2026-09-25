@@ -17,6 +17,7 @@
       <div id="digital-assets-buttons" class="actions"></div>
     </div>
     <p id="product-status" class="status" role="status" aria-live="polite"></p>
+    <p id="payment-confirm-link"></p>
   </section>
 </main>
 <script src="/assets/product.js" defer></script>

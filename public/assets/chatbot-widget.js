@@ -17,6 +17,7 @@
   const status = document.querySelector('#chatbot-status');
 
   let currency = 'IDR';
+  let lastKnownBalance = 0;
 
   const api = async (path, options = {}) => {
     const headers = { ...(options.headers || {}) };
@@ -53,10 +54,22 @@
   const refreshWallet = async () => {
     try {
       const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/wallet`);
+      lastKnownBalance = Number(result.data.balance_amount) || 0;
       walletNote.textContent = `Saldo Anda: ${formatMoney(result.data.balance_amount)}`;
     } catch (_) {
       // Ignore — the ask/top-up flows surface their own errors.
     }
+  };
+
+  const showConfirmLink = () => {
+    const el = document.querySelector('#chatbot-payment-confirm-link');
+    if (!el) return;
+    el.innerHTML = '';
+    const link = document.createElement('a');
+    link.className = 'button secondary';
+    link.href = `/payment/thank-you?type=wallet&handle=${encodeURIComponent(handle)}&before=${encodeURIComponent(lastKnownBalance)}`;
+    link.textContent = 'Sudah transfer? Cek status pembayaran →';
+    el.append(link);
   };
 
   const signOut = () => {
@@ -88,6 +101,7 @@
         return;
       }
       message(result.data.payment?.instructions || 'Top up berhasil.');
+      if (result.data.payment?.instructions) showConfirmLink();
       await refreshWallet();
     } catch (error) {
       if (error.status === 401) { signOut(); message('Sesi berakhir, silakan masuk lagi.', true); return; }

@@ -57,6 +57,17 @@
     status.className = `status ${error ? 'error' : 'success'}`;
   };
 
+  const confirmLink = document.querySelector('#payment-confirm-link');
+  const showConfirmLink = (orderPublicId) => {
+    if (!confirmLink) return;
+    confirmLink.innerHTML = '';
+    const link = document.createElement('a');
+    link.className = 'button secondary';
+    link.href = `/payment/thank-you?type=order&ref=${encodeURIComponent(orderPublicId)}&handle=${encodeURIComponent(handle)}`;
+    link.textContent = 'Sudah transfer? Cek status pembayaran →';
+    confirmLink.append(link);
+  };
+
   const formatPrice = (price, currency) => {
     const amount = Number(price);
     if (!amount) return 'Gratis';
@@ -199,9 +210,11 @@
       }
       if (payment?.instructions) {
         message(payment.instructions);
+        showConfirmLink(order.public_id);
         return;
       }
       message('Pesanan dibuat, menunggu konfirmasi pembayaran.');
+      showConfirmLink(order.public_id);
     } catch (error) {
       message(error.message, true);
     } finally {

@@ -23,6 +23,7 @@
       <button id="download-button" class="hidden">Download CV</button>
     </div>
     <p id="cv-status" class="status" role="status" aria-live="polite"></p>
+    <p id="payment-confirm-link"></p>
   </section>
 </main>
 <script src="/assets/public-cv.js" defer></script>
