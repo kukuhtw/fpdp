@@ -105,11 +105,23 @@
     meta.textContent = `${payment.order_id} · dibuat ${when}`;
     const amount = document.createElement('p');
     amount.innerHTML = `<strong>${money(payment.amount, payment.currency)}</strong>`;
+    const parts = [head, meta, amount];
+    // Lets the owner match an incoming bank transfer (no automatic
+    // confirmation for gateways like Manual Transfer) to the right visitor.
+    if (payment.buyer_name || payment.buyer_phone || payment.buyer_email) {
+      const buyer = document.createElement('p');
+      const bits = [];
+      if (payment.buyer_name) bits.push(`<strong>Nama:</strong> ${escapeHtml(payment.buyer_name)}`);
+      if (payment.buyer_phone) bits.push(`<strong>Telepon:</strong> ${escapeHtml(payment.buyer_phone)}`);
+      if (payment.buyer_email) bits.push(`<strong>Email:</strong> ${escapeHtml(payment.buyer_email)}`);
+      buyer.innerHTML = bits.join(' · ');
+      parts.push(buyer);
+    }
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = 'Konfirmasi Lunas';
     button.addEventListener('click', () => confirmPayment(payment.uuid, button));
-    card.append(head, meta, amount, button);
+    card.append(...parts, button);
     return card;
   };
 

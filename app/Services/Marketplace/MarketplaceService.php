@@ -128,7 +128,14 @@ public function listProducts(int $nodeId, array $query = []): array
             'currency' => $order['currency'],
             'description' => 'Marketplace order ' . $order['public_id'],
             'payer_email' => $visitor['email'],
-            'metadata' => ['purpose' => 'marketplace_order', 'order_public_id' => $order['public_id'], 'visitor_id' => $visitorId],
+            'metadata' => [
+                'purpose' => 'marketplace_order',
+                'order_public_id' => $order['public_id'],
+                'visitor_id' => $visitorId,
+                'buyer_name' => $order['buyer_name'],
+                'buyer_phone' => null,
+                'buyer_email' => $order['buyer_email'],
+            ],
             'return_url' => $returnUrl,
             'cancel_url' => $cancelUrl,
         ]);
