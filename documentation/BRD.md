@@ -21,13 +21,14 @@ Membuat personal internet node untuk setiap individu, sehingga user tidak bergan
 - Federated posting dan komunikasi antar node
 - Payment gateway abstraction
 - Integrasi konten eksternal
-- Marketplace dan produk local
+- Toko online pribadi milik owner node (satu penjual per node) dan produk lokal
+- Distribusi produk ke fediverse sebagai fondasi federated commerce
 - Dashboard admin untuk konfigurasi
 
 ### Diluar Scope pada MVP
 - Implementasi semua gateway pembayaran secara penuh
 - Semua connector sosial OAuth secara lengkap
-- Federated commerce end-to-end pada fase awal
+- Federated commerce end-to-end (order lintas node) pada fase awal — tetap menjadi keunggulan utama dan target fase berikutnya
 - Plugin marketplace publik
 
 ## 5. User Persona
@@ -41,7 +42,7 @@ Membuat personal internet node untuk setiap individu, sehingga user tidak bergan
 - Mengelola koneksi eksternal
 - Menonaktifkan atau mengaktifkan fitur tertentu
 
-### 5.3 Seller / merchant
+### 5.3 Seller / merchant (owner yang berjualan)
 - Menjual produk lokal atau federated
 - Menggunakan gateway pembayaran sesuai preferensi
 
@@ -106,7 +107,7 @@ Membuat personal internet node untuk setiap individu, sehingga user tidak bergan
 - Kesalahan konfigurasi payment dan credential security.
 
 ## 11. Kesimpulan
-BRD ini menetapkan arah bisnis yang menempatkan user sebagai pemilik digital identity dan data. Platform bukan sekadar media sosial baru, tetapi personal internet node yang menghubungkan website, sosial, federasi, marketplace, dan pembayaran secara mandiri.
+BRD ini menetapkan arah bisnis yang menempatkan user sebagai pemilik digital identity dan data. Platform bukan sekadar media sosial baru, tetapi personal internet node yang menghubungkan website, sosial, federasi, toko online pribadi, federated commerce, dan pembayaran secara mandiri.
 
 ## 12. Addendum: Interaksi AI dan Monetisasi (2026-09-19)
 

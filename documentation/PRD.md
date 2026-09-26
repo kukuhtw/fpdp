@@ -1,14 +1,14 @@
 # Product Requirements Document (PRD)
 
 ## 1. Ringkasan Produk
-FPDP adalah platform personal digital home yang memungkinkan setiap pengguna memiliki domain pribadi, profil, feed sosial, marketplace, dan payment endpoint. Produk ini dirancang untuk bekerja di node-node independen yang saling berhubungan melalui federasi.
+FPDP adalah platform personal digital home yang memungkinkan setiap pengguna memiliki domain pribadi, profil, feed sosial, toko online pribadi, dan payment endpoint. Produk ini dirancang untuk bekerja di node-node independen yang saling berhubungan melalui federasi, sehingga produk dari toko setiap node dapat tersebar ke fediverse dan dipesan dari node lain (federated commerce).
 
 ## 2. Problem Statement
 Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, konten, dan transaksi. Kondisi ini membuat data, audience, dan komunikasi bergantung pada satu entitas. FPDP mengatasi masalah ini dengan membuat domain pengguna sebagai pusat digital identity, sambil tetap terhubung ke network lain melalui federasi dan integrasi eksternal.
 
 ## 3. Goal
 - Mengembangkan platform yang dapat beroperasi sebagai independent node.
-- Menyediakan personal website + social feed + portfolio + marketplace dalam satu pengalaman.
+- Menyediakan personal website + social feed + portfolio + toko online pribadi dalam satu pengalaman.
 - Mengintegrasikan konten dari berbagai platform tanpa kehilangan atribusi.
 - Menyediakan abstraction payment agar node bebas memilih gateway.
 
@@ -16,7 +16,7 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 1. Individual personal brand
 2. Creator / content producer
 3. Freelancer / professional
-4. Seller / merchant
+4. Owner yang berjualan (seller / merchant) — satu penjual per node
 5. Admin node / operator
 
 ## 5. User Stories
@@ -98,7 +98,7 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 
 ## 9. Out of Scope
 - Full plugin marketplace pada MVP
-- E-commerce advanced multi-vendor settlement
+- Marketplace multi-penjual dan multi-vendor settlement (FPDP adalah toko online pribadi milik owner node)
 - Full OAuth social connectors di fase awal
 
 ## 10. Prioritas Produk
@@ -114,7 +114,7 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 - Federation and remote actors
 
 ### Phase 4
-- Marketplace and payment abstraction
+- Toko online pribadi, payment abstraction, dan federated commerce
 
 ### Phase 5
 - Advanced connectors and plugin ecosystem

@@ -9,7 +9,7 @@
 - 5.0 Federation layer
 - 6.0 Payment layer
 - 7.0 External content integration
-- 8.0 Marketplace
+- 8.0 Personal Online Shop & Federated Commerce
 - 9.0 Administration dashboard
 - 10.0 Testing, security, and deployment
 
@@ -73,7 +73,7 @@
 6. Display external attribution.
 7. Add rate limiting, timeout, and retries.
 
-### 8.0 Marketplace
+### 8.0 Personal Online Shop & Federated Commerce
 
 1. Product data model
 2. Product list and query
@@ -121,8 +121,8 @@
 ### Nice to have
 
 - OAuth connectors
-- Advanced marketplace features
-- Federated commerce
+- Advanced personal-shop features
+- End-to-end federated commerce (cross-node orders) — key differentiator
 - Plugin marketplace
 
 ## 4. Suggested team

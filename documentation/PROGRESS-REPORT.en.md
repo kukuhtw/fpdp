@@ -2,19 +2,20 @@
 
 ## 1. Snapshot
 
-**Verification date:** September 20, 2026
-**Evidence:** repository routes, controllers, services, repositories, migrations, UI, tests, and deployment configuration—not planning documents alone.
+**Verification date:** September 26, 2026
+**Evidence:** repository routes, controllers, services, repositories, migrations, views, gateway plugins, tests, and deployment configuration—not planning documents alone. The test suite was re-run on the same date (see Section 8).
 
-FPDP has moved beyond a basic prototype. Identity, local publishing, external aggregation, a basic marketplace, payment abstraction, analytics, and most federation foundations exist as testable code. Dokploy staging is live and validated, the home page (`/`) now renders the node owner's personal digital home live, and the owner dashboard Overview is wired to real APIs. The next stage is no longer scaffolding but connecting commercial flows end to end (including a way to pick which payment gateway is active), filling in the remaining dashboard panels, validating external integrations against real sandboxes/servers, and hardening production operations.
+FPDP is past its core MVP. Since the September 21 report, visitor commerce flows are connected (public product checkout, paid CV access, wallet top-up, manual payment confirmation), a paid LLM + RAG visitor chatbot is live, the owner dashboard has panels for nearly every domain, and federation speaks ActivityPub (WebFinger, actor, inbox/outbox, inbound and outbound federated posts). The next focus is validation against real sandboxes/servers, refunds and reconciliation, security settings, and operational hardening.
 
 Repository snapshot:
 
-- **40 MySQL migrations** (`0001`–`0040`);
-- **31 test scripts**;
-- REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, marketplace, analytics, federation, and post-media upload;
-- real UI for the home page (a live personal digital home per node), local timeline, public profile, post page, post editor (with direct media upload), and the owner dashboard Overview;
-- 4 payment gateway adapters: Dummy, Paywuz, Midtrans, and PayPal (Orders API v2);
-- a Dockerfile and Dokploy-specific Compose deployment — deployed and validated on staging;
+- **58 MySQL migrations** (`0001`–`0058`);
+- **47 test scripts** (43 passing, 4 failing — see Section 8);
+- REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, personal online shop (including visitor checkout and digital assets), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, themes, and media upload;
+- real UI: home, unified timeline (local + federated + promoted products), profile, post, shop, product page, public CV, "coretan" wall, YouTube page, payment thank-you page, and 12 owner dashboard pages;
+- 3 public themes: `default`, `editorial`, `minimal`;
+- 6 payment gateways: Dummy, Paywuz, Midtrans, PayPal (built in) + iPaymu and Manual Transfer (plugins under `gateways/`);
+- a Dockerfile and Dokploy Compose deployment — staging live and validated;
 - bilingual product and technical documentation.
 
 ## 2. Phase status
@@ -25,7 +26,7 @@ flowchart LR
     P1 --> P2["Phase 2<br/>Local content & timeline"]
     P2 --> P3["Phase 3<br/>External aggregation"]
     P3 --> P4["Phase 4<br/>MVP hardening"]
-    P4 --> P5["Phase 5<br/>Marketplace & payments"]
+    P4 --> P5["Phase 5<br/>Online shop & payment"]
     P5 --> P6["Phase 6<br/>Federation"]
     P6 --> P7["Phase 7+<br/>Ecosystem, AI, scale"]
 
@@ -33,191 +34,211 @@ flowchart LR
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
     classDef planned fill:#f1e3e1,stroke:#a13d37,color:#17211b;
     class P0,P1,P2,P3 done;
-    class P4,P5,P6 partial;
-    class P7 planned;
+    class P4,P5,P6,P7 partial;
 ```
 
 | Workstream | Status | Summary |
 |---|---|---|
-| Engineering foundation | **Done** | PSR-4, router, PDO, migration runner, config, envelopes, exception mapping, CI |
-| Identity & profile | **MVP complete** | Register/login/logout/`me`, hashed tokens, rate limiting, profile visibility, Google visitor OAuth |
-| Local content | **MVP complete** | CRUD, draft/publish, visibility, soft delete, media, canonical URLs, cursor timeline, UI |
-| External aggregation | **MVP complete** | RSS/Atom/Custom API, SSRF-safe HTTP, sync worker, deduplication, persistence, timeline merge |
-| Operations & hardening | **Partial** | CI, base audit exist; Dokploy staging is live and validated (migrations, health check, owner bootstrap); backup/restore recovery exercise remains |
-| Marketplace | **Mostly done** | Products and orders exist; public checkout and payment are not connected end to end |
-| Payments | **Mostly done** | Dummy, Paywuz, Midtrans, PayPal (Orders API v2), encrypted config, webhook/idempotency; real sandbox (every provider) and reconciliation remain; no way to pick the active gateway for checkout yet |
-| Federation | **Backend mostly done** | Keys, discovery, signed inbox/outbox, follow lifecycle, moderation, delivery retry; cross-server/UI remain |
-| Dashboard | **Partial** | Owner Overview is live at `/dashboard` (KPIs, traffic chart, top content, recent activity) using existing APIs; Payments/Analytics/Federation are not separate panels yet, node settings remain |
-| AI & advertising | **Planned** | Strategy is documented; LLM chat and advertising marketplace are not implemented |
+| Engineering foundation | **Done** | PSR-4, router, PDO, migration runner, config, JSON envelope, exception mapping (now with exception logging), CI |
+| Identity & profile | **Done for MVP** | Register/login/logout/`me`, hashed tokens, rate limiting, profile visibility, Google OAuth visitors |
+| Local content | **Done for MVP** | CRUD, draft/publish, visibility, soft delete, media upload, lightbox, canonical URLs, cursor timeline, dashboard post list and delete |
+| External aggregation | **Done for MVP** | RSS/Atom/Custom API, YouTube feeds, LinkedIn Organizations, anti-SSRF HTTP client, sync worker, dedup |
+| Operations & hardening | **Partial** | CI, basic audit, validated Dokploy staging; backup/restore exercise, RBAC, and retention not done |
+| Personal online shop | **Done for MVP** | The node owner's own shop: products, orders, public visitor checkout, shipping address, digital assets + download, promoted products |
+| Payment | **Mostly done** | 6 gateways, gateway plugin system, active-gateway selection, per-environment sandbox/live, manual confirmation; real sandboxes, refund UI, and reconciliation not done |
+| Federation | **Mostly done** | ActivityPub (WebFinger, actor, inbox/outbox, followers/following), federated posts and products, federation worker, federation dashboard; cross-server interop testing not formally documented |
+| Dashboard | **Mostly done** | 12 live owner pages; standalone Analytics panel and security settings missing |
+| AI | **Mostly done** | LLM providers (OpenAI, Anthropic, OpenRouter), describe-image, RAG + FAQ, paid visitor chatbot via wallet, conversation history |
+| Advertising | **Not started** | Strategy document only |
 
-## 3. Delivered capabilities
+## 3. What is available
 
 ### 3.1 Platform and baseline security
 
-- Front controller and router with static, segment-parameter, and canonical `/@handle` routes.
-- The home page (`/`) renders the node owner's public profile live (the BRD's personal-digital-home vision) once the node has an owner with a `PUBLIC` profile; falls back to a static placeholder for a fresh install or a non-public profile.
-- Configuration from defaults, `.env`, and native container environment variables.
-- Password hashing, hashed/revocable bearer tokens, and authentication rate limits.
-- SSRF-aware outbound HTTP with private-target blocking, redirect, timeout, and response-size limits.
-- Consistent JSON success/error envelopes and automated CI checks.
+- Front controller and router support static routes, segment parameters, and canonical `/@handle`.
+- The home page (`/`) renders the owner's personal digital home live, falling back to a placeholder for fresh installs or non-public profiles.
+- Config reads defaults, `.env`, and native container environment variables.
+- Passwords are hashed; bearer tokens are hashed and revocable.
+- Rate limiting for register/login, wall comments, LLM calls, and RAG.
+- The external HTTP client blocks private/internal targets and limits redirects, timeouts, and response size.
+- Uncaught exceptions are now logged instead of only returning a generic 500.
+- `scripts/rotate-app-key.php` re-encrypts gateway credentials and OAuth tokens transactionally.
+- GitHub Actions runs syntax checks and the test suite.
 
-### 3.2 Identity, profiles, and visitors
+### 3.2 Identity, profile, and visitors
 
-- Registration provisions a node, owner user, and profile in one flow.
-- Login, logout, `/api/v1/me`, public profile reads, and owner profile updates.
-- `PUBLIC`, `UNLISTED`, and `PRIVATE` profile visibility.
-- Google visitor OAuth with signed state and hashed visitor tokens.
+- Registration creates the node, owner user, and profile in one flow.
+- Login, logout, `/api/v1/me`, public profile, profile update, and a dashboard-editable About Me page.
+- Profile visibility: `PUBLIC`, `UNLISTED`, `PRIVATE`.
+- Google OAuth visitors with signed state and hashed visitor tokens; owners can list visitors (`/api/v1/me/visitors`).
 
-### 3.3 Local content and media
+### 3.3 Local content, media, and interaction
 
-- Post create/read/update/soft delete and ownership enforcement.
-- Draft, publish, and unpublish through `published_at`.
-- Stable profile/post canonical URLs and cursor pagination.
-- Up to ten ordered `IMAGE`, `VIDEO`, `AUDIO`, or `FILE` metadata items with HTTPS/credential/alt-text validation.
-- **Direct media file upload** (`POST /api/v1/me/media`, owner-only): an alternative to pasting an external URL. The client-claimed `content_type` is never trusted — the actual bytes are sniffed server-side (`finfo`) and checked against an allowlist per media type; SVG is deliberately excluded from `IMAGE` and `FILE` is restricted to PDF, since content served back with the wrong type is a stored-XSS vector. Files are served from `GET /api/v1/media/{key}` (an unguessable UUID storage key is the access control, the same model as any external CDN link), inline, with `X-Content-Type-Options: nosniff` and a one-year immutable cache.
-- Live local timeline, profile, post, and post-editor (including a media upload button) pages.
+- Create/read/update/soft-delete posts; draft/publish; visibility and ownership enforcement.
+- Up to 10 media items per post; direct upload (`POST /api/v1/me/media`) with server-side MIME detection, no SVG, and `FILE` limited to PDF.
+- The post editor embeds YouTube, TikTok, and Instagram videos; bare URLs in timeline excerpts are auto-linked.
+- Click-to-zoom lightbox for post images and product photos.
+- "Coretan" wall (guestbook): visitors post comments; the owner replies and deletes.
 
 ### 3.4 External content
 
-- RSS, Atom, and Custom API connectors.
-- YouTube normalization from official feeds and privacy-enhanced embed support.
-- Feed-source management, synchronization, deduplication, persistence, statistics, and attributed timeline merge.
+- RSS, Atom, Custom API, and official YouTube feed connectors with privacy-enhanced embeds.
+- LinkedIn Organizations: OAuth, Organization discovery, encrypted tokens, post fetch, disconnect.
+- Feed-source management, sync trigger, sync worker, deduplication, stats.
+- The unified timeline merges local posts, external content, sanitized federated posts, and promoted products.
 
-### 3.5 CV and visitor-monetization foundation
+> Correction: the **Facebook Pages** integration and the **Instagram litescrap** connector listed in the previous report have been **removed** from the repository (commit `629c807`) and are no longer available.
 
-- CV storage outside the webroot, public metadata, payment-aware access grants, and gated downloads.
-- Replacing a CV invalidates previous grants.
-- Visitor identity is distinct from owner identity.
+### 3.5 CV and visitor monetization
 
-### 3.6 Marketplace and payments
+- Owners upload a CV to `storage/` outside the webroot; replacing it revokes old grants.
+- Public CV page with the real profile photo, access request, paywall, post-payment grant, and protected download.
+- Access grants now store buyer identity (name, email, etc.) and offer extended CV access options.
 
-- Product CRUD and orders with immutable product snapshots.
-- Order lifecycle and ownership validation.
-- `PaymentGatewayInterface`, Dummy, Paywuz, Midtrans, and PayPal (Orders API v2) adapters.
-- The PayPal adapter handles the two-step capture flow (approve, then capture) via lazy-capture inside `getPaymentStatus()`, refunds by looking up the capture id (not the order id), verifies webhooks through PayPal's own `verify-webhook-signature` API (not a local HMAC), and explicitly rejects unsupported currencies including IDR.
-- Payment/transaction persistence, webhook verification, and duplicate-event handling.
-- AES-256-GCM encrypted gateway configuration through API without returning secrets.
-- Payment dashboard summary API.
-- **Known gap:** there is no mechanism for the owner or a visitor to choose which gateway is active — checkout still resolves a gateway through an explicit parameter/env var per feature (e.g. `CV_PAYMENT_GATEWAY` for CV access), not a UI choice.
+### 3.6 Personal online shop and payment
 
-### 3.7 Federation
+Scope: an online shop owned by the website owner (one seller per node, not a multi-seller marketplace). Visitors can buy directly on the node, and product posts spread to the fediverse. Federated commerce — buyers on other nodes/the fediverse ordering products — is a key differentiator of the platform and remains a goal.
 
-- Ed25519 node identity and signing keys.
-- Public capability discovery and cached remote keys.
-- Signed public inbox, authenticated outbox, Follow/Accept/Reject/Undo/Block processing.
-- Incoming/outgoing follow direction, federated connections, and public latest-post previews.
-- Remote-node trust states, delivery retries, exponential backoff, deduplication, and timestamp replay reduction.
-- Federation summary and capability-settings APIs.
 
-### 3.8 Analytics and dashboard
+- Product CRUD, orders with immutable snapshots, status lifecycle.
+- **Public visitor checkout** (`POST /api/v1/profiles/{handle}/orders`) with buyer identity and shipping address.
+- **Product digital assets**: owner upload, buyer download after payment.
+- Promoted products (`is_promoted`) appear in the timeline and are federated.
+- `PaymentGatewayInterface`, factory, Dummy/Paywuz/Midtrans/PayPal adapters, and a **gateway plugin system** (`gateways/*/gateway.json`) with iPaymu and Manual Transfer plugins.
+- Per-environment (Sandbox/Live) credentials encrypted with AES-256-GCM in `payment_gateway_configs`; saved non-secret values are shown in Settings, secrets are not.
+- Saving a gateway verifies credentials with the provider (PayPal OAuth, authenticated Midtrans request); activation rejects incomplete configuration.
+- The PayPal environment is read from database config with a `PAYPAL_ENVIRONMENT` fallback; iPaymu follows the same environment dropdown.
+- The gateway code is resolved before payment validation (products, CV, and wallet top-up).
+- Webhook verification and duplicate-event handling.
+- **Payment confirmation page** for product/CV/wallet, confirmation links across all themes, and a thank-you page (`/payment/thank-you`).
+- **Manual confirmation of pending payments** by the owner (`/api/v1/me/payments/pending`, `.../{uuid}/confirm`).
+- Payments dashboard: balance/approximate settlement, success rate, recent transactions, and buyer details.
 
-- Privacy-conscious daily visitor HMACs; raw IP addresses are not stored.
-- Profile view, post view, outbound click, and shop-conversion events.
-- Seven-day summary, unique visitors, traffic chart, and top content.
-- Dashboard overview aggregating content, marketplace, payment, federation, analytics, and audit activity.
-- **Live owner Overview UI** at `/dashboard` (vanilla JS + PHP, no framework, backed by the existing `/api/v1/me/dashboard/overview`): node status, 6 KPI tiles (published posts, products, pending orders, revenue this month, followers, unique visitors), a 7-day bar chart (views vs. unique visitors, a colorblind-safe validated palette), a top-content list, and recent activity. Verified against a real browser (Playwright): sign-in flow, live data rendering, chart hover tooltips, zero console errors.
+### 3.7 AI, RAG, and chatbot
 
-### 3.9 Deployment
+- `LLMProviderInterface` + factory for OpenAI, Anthropic, and OpenRouter; per-node configuration (`llm_configs`).
+- `describe-image`: drafts a product description from a photo, manually triggered and rate limited.
+- RAG: owners upload documents and generate/edit/delete FAQs from them.
+- **Visitor chatbot** with a widget in every theme; owners toggle it and set pricing.
+- **Visitor wallet**: top-up through the active gateway, owners can grant balance manually; balance pays for chat.
+- Owner-facing chatbot session and message history; a pending-orders (buying interest) filter from conversations.
+
+### 3.8 Federation
+
+- Ed25519 node identity, signing keys, and RSA keys for ActivityPub HTTP Signatures.
+- WebFinger (`/.well-known/webfinger`), actor document, `/@handle/inbox`, `/@handle/outbox`, `/followers`, `/following`.
+- Follow, Accept, Reject, Undo, Block; `INCOMING`/`OUTGOING` direction with a unique pair per direction; mutual-follow status fixes.
+- Follow-request approve/reject, remote-node trust state (`UNKNOWN`, `TRUSTED`, `BLOCKED`), capability settings.
+- Inbound and outbound Create/Update/Delete for federated posts, including image attachments; federated product delivery.
+- A federation worker service that actually delivers queued activities; retry, exponential backoff, dedup, timestamp window.
+- Every inbox activity and unresolved Accept/Reject is logged; actor resolution is retried before an inbound Follow is dropped.
+- Federation dashboard (`/dashboard/federation`) with a follow form accepting an account or profile URL.
+
+### 3.9 Analytics and dashboard
+
+- Daily visitor hashing with HMAC + `APP_KEY`; raw IPs are not stored.
+- Profile view, post view, outbound click, and shop conversion events; dashboard analytics API.
+- Live dashboard pages: Overview, Posts (editor + list), About Me, CV, Products, Orders (buyer info and filters), Payments, Integrations, Federation, RAG, Themes, Settings (gateway, LLM, chatbot), and Coretan.
+- Theme selection from the dashboard; site navigation unified into one source across all themes.
+
+### 3.10 Deployment
 
 - Web installer for VPS/shared hosting.
-- PHP 8.3 + Apache image.
-- Dokploy Compose with MySQL 8.4, health checks, persistent volumes, automatic migrations, and owner bootstrap.
+- PHP 8.3 + Apache Docker image; `.well-known` publicly allowed in the vhost.
+- Dokploy Compose: app + MySQL 8.4 + federation worker, health check, persistent volumes, automatic migrations, owner bootstrap.
 - Production secret validation and web-installer lock.
-- English and Indonesian deployment guides.
 
 ## 4. Partially complete
 
 ### 4.1 Production validation
 
-- The Docker image was not built in this development workspace because Docker CLI is unavailable here, but the image build and Dokploy staging deployment were run on the server and confirmed successful by the project owner (2026-09-19): every migration ran cleanly, the health check passed, owner bootstrap created the first account, and the domain/TLS are live.
-- The full migration set is not exercised against disposable MySQL 8 by the repository test suite (CI); migration validation so far comes from the staging run above, not an automated CI job.
-- No recovery exercise (backup/restore/rollback) has been run.
-- `sodium` availability must be verified explicitly in the built production image.
+- Dokploy staging was validated (September 19, 2026), but no CI job runs all migrations against a disposable MySQL 8.
+- Backup/restore/rollback is documented but not tested through a recovery exercise.
+- The `sodium` extension is not declared explicitly in the `Dockerfile`; its availability in the image needs verification.
 
-### 4.2 Checkout and marketplace
+### 4.2 Payment production
 
-- Orders are not connected to gateway payments in a public visitor checkout.
-- Checkout UI, receipt, status polling, cancellation, and refund experiences remain.
-- `SHOP_CONVERSION` still reflects owner-created orders rather than true visitor checkout.
-- External-product labels and federated order requests remain.
+- Paywuz, Midtrans, PayPal, and iPaymu are tested with a fake HTTP requester, not against real provider sandboxes. Paywuz has no non-transactional verification endpoint.
+- A Midtrans refund after `PAID` is recorded as a transaction event but does not always reconcile the payment to `REFUNDED`.
+- No owner UI/API for refunds or payment cancellation; `POST /payments/{id}/cancel` from the API contract is not implemented.
+- The Payments dashboard balance is an approximation from the `payments` table; there is no settlement/payout ledger, gateway-fee accounting, or reconciliation job.
+- Manual Transfer does not support refunds (per its plugin capabilities).
 
-### 4.3 Production payments
+### 4.3 Dashboard and settings
 
-- Paywuz, Midtrans, and PayPal use fake HTTP requesters in tests; real sandbox validation remains for all three.
-- Midtrans refund events after `PAID` do not always reconcile the payment to `REFUNDED`.
-- No settlement/payout ledger, fee accounting, or reconciliation job exists.
-- `APP_KEY` rotation cannot automatically re-encrypt gateway credentials.
-- No UI/API exists yet to choose which gateway is active for a given checkout; each feature hardcodes one gateway through an env var.
+- The analytics API exists, but there is no standalone `/dashboard/analytics` page beyond the Overview summary.
+- Node settings are incomplete: default/enabled languages, custom CSS/layout, and general node config (themes are available).
+- Security settings are missing: 2FA and session management.
 
-### 4.4 Dashboard and settings
+### 4.4 Federation production
 
-- Owner Overview is live at `/dashboard` (see 3.8); Payments, Analytics, and Federation are not separate dashboard panels beyond what Overview already summarizes.
-- Content, Timeline, Integrations, Products, and Orders have domain APIs but no integrated dashboard panels.
-- Theme, layout, custom CSS, default/enabled languages, node configuration, 2FA, and session management remain.
+- No formal record yet of interop testing between two FPDP instances or another ActivityPub server on separate domains, although many recent fixes came from real-world testing.
+- Replay protection does not use a nonce cache.
+- Stored capabilities do not yet enforce feature access.
+- Older follow data may need an `INCOMING`/`OUTGOING` direction backfill.
+- `app/Services/Federation/Federaltest.php` looks like a scratch file inside the service namespace and should be reviewed.
 
-### 4.5 Production federation
+### 4.5 External integrations
 
-- No two-instance, cross-domain FPDP interoperability test has run.
-- No live federation dashboard for follow/trust/block/moderation/capability actions exists.
-- Replay protection lacks a nonce cache.
-- Stored capabilities do not enforce feature access.
-- Historical follow records may require incoming/outgoing direction backfill.
+- LinkedIn is not validated against the production Community Management API.
+- The YouTube embed renderer on timeline/profile is still limited; playlist normalization is unsupported.
 
 ### 4.6 Authorization, audit, and analytics hardening
 
-- No centralized role/permission middleware distinguishes owner/admin actions.
-- Payment-credential and remote-trust changes are not fully audited.
-- The public outbound-click endpoint lacks dedicated rate limiting.
+- No centralized role/permission middleware (owner vs admin).
+- The audit trail covers auth, posts, profile, and wall comments; payment-credential changes, gateway activation, manual payment confirmation, wallet grants, and remote-node trust are not audited.
+- The public outbound-click endpoint has no dedicated rate limit.
 - `analytics_events` has no retention/cleanup job.
 
 ## 5. Not started
 
-- Production OAuth connectors for LinkedIn, X, Threads, TikTok, and Shopee. Instagram uses a non-OAuth "litescrap" connector (public profile HTML scraping) instead — see `InstagramConnector`; not yet validated against production accounts.
-- LLM provider configuration, profile/CV-grounded chat, paid sessions, and AI cost controls.
-- Advertising marketplace: slots, pricing, booking, approval, and delivery windows.
-- Production plugin/adapter marketplace and federated commerce.
-- Multi-node administration, shared/object storage, and horizontal scaling.
+- Advertising marketplace: ad slots, pricing, booking, approval, delivery windows.
+- Per-post paywall (per-post pricing and entitlement).
+- OAuth connectors for Facebook, Instagram, X, Threads, TikTok, and Shopee.
+- AI cost controls/usage reporting beyond rate limits (per-node spend ceiling).
+- Production plugin/adapter marketplace (a local gateway plugin system exists).
+- **End-to-end federated commerce (cross-node orders)** — a key differentiator: visitors on other nodes/the fediverse can order products distributed through federation. Product distribution to the fediverse already works; the cross-node order, payment, and confirmation flow does not yet.
+- Multi-node administration, shared/object storage, horizontal scaling.
 - License file and formal contribution policy.
 
-## 6. Recommended priority
+## 6. Next priorities
 
 ```mermaid
 flowchart LR
-    A["1. Dokploy staging<br/>+ MySQL migration test"] --> B["2. Payment sandbox<br/>+ public checkout"]
-    B --> C["3. Live dashboard<br/>+ node settings"]
-    C --> D["4. Federation<br/>cross-server test"]
-    D --> E["5. Authorization,<br/>audit, retention"]
-    E --> F["6. OAuth, AI,<br/>ads & ecosystem"]
+    A["1. Fix failing<br/>tests"] --> B["2. Payment sandbox<br/>+ refund & reconciliation"]
+    B --> C["3. Sensitive audit<br/>+ RBAC"]
+    C --> D["4. Security &<br/>node settings"]
+    D --> E["5. Formal federation<br/>interop"]
+    E --> F["6. Ads, post paywall,<br/>social OAuth"]
 ```
 
-1. ~~Deploy a staging node through Dokploy and validate image build, health checks, volumes, bootstrap, and every migration on MySQL 8.~~ **Done** — Dokploy staging is live and validated (2026-09-19).
-2. Validate Paywuz, Midtrans, and PayPal against real sandboxes.
-3. Connect public checkout → order → payment → webhook → fulfillment/refund, including a way to choose the active gateway.
-4. ~~Turn the dashboard mockup into a live UI, starting with APIs already available.~~ **Partially done** — Overview is live at `/dashboard` (2026-09-20); Payments/Analytics/Federation panels and node settings remain.
-5. Implement node appearance/language and security settings.
-6. Run cross-server federation interoperability tests.
-7. Add RBAC middleware, sensitive-action audit coverage, analytics rate limiting, and retention.
-8. Continue with social OAuth, AI chat, advertising, and ecosystem work afterward.
+1. Fix the `PostEndpointsTest` fixture (`slug` column) and make RSA-based tests independent of local OpenSSL configuration.
+2. Test Paywuz, Midtrans, PayPal, and iPaymu against real sandboxes; add owner refund/cancel and a reconciliation job.
+3. Add credential changes, gateway activation, manual confirmation, wallet grants, and remote-node trust to the audit trail; add RBAC middleware.
+4. Implement 2FA/session management, language settings, and an Analytics page.
+5. Document a two-domain federation interop test and add a nonce cache.
+6. Add an analytics retention job and an outbound-click rate limit.
+7. Only then continue with advertising, per-post paywall, additional social OAuth, and ecosystem work.
 
-## 7. Operational decisions and risks
+## 7. Risks and operational decisions
 
-- The current deployment assumes **one owner and one app replica per node**.
-- Do not scale horizontally before migration locking and shared/object storage exist.
-- MySQL and `storage/` must be restored from a consistent recovery point.
+- Deployment assumes **one owner and one app replica per node**; do not scale before migration locking and shared storage exist.
+- MySQL and `storage/` (CVs, media, digital assets, RAG documents) must be restored from a consistent recovery point.
 - Code rollback does not reverse forward migrations.
-- `APP_KEY` protects OAuth state, analytics HMACs, and encrypted gateway credentials; rotation requires a dedicated procedure.
-- Production policy must decide whether public registration remains open.
-- Payment and federation require real remote-system testing before being called production-ready.
+- `APP_KEY` protects OAuth state, analytics HMAC, gateway credentials, and OAuth tokens; rotation must use `scripts/rotate-app-key.php`.
+- Manual payment confirmation grants access/fulfillment without provider proof; without an audit trail it is hard to trace in a dispute.
+- The chatbot uses the owner's LLM API key; without a spend ceiling, abuse can run up provider bills.
+- **Buyer personal data** (name, email, phone, shipping address) is now stored in orders, payment metadata, and CV grants. In line with ISO/IEC 27001:2022 controls (A.5.34 Privacy and protection of PII, A.8.10 Information deletion, A.8.15 Logging), the following must be defined: a processing basis and privacy notice for buyers, retention and deletion periods, restricted dashboard access, and auditing of access to buyer data.
+- Payment and federation must be tested against real remote systems before being called production-ready.
 
 ## 8. Latest validation
 
-- **31/31 test scripts passed** in the latest development run.
-- PHP syntax checks passed for configuration and owner bootstrap.
-- Owner bootstrap passed its SQLite integration test.
-- `git diff --check` passed.
-- Docker build/Compose rendering did not run in this development workspace because Docker CLI is unavailable here; this acceptance step was run directly on the Dokploy server and confirmed successful by the project owner.
-- `ExternalContentTest` passed but Windows emitted a temporary SQLite cleanup warning; functionality passed, while cleanup can be improved.
-- The Overview dashboard, the live home page, and the full media-upload flow (choose file → upload → URL auto-filled → save post → image renders on the public post page) were verified against a real browser (Playwright, headless Chromium): screenshots were inspected, zero console errors on every flow.
+Run on September 26, 2026 in the development workspace (PHP 8.5.8 CLI, Windows), using the same loop as CI (`php tests/*Test.php`):
+
+- **43 of 47 tests pass.**
+- `PostEndpointsTest` **fails due to a fixture bug**: the test's SQLite schema lacks the `posts.slug` column now used by `PostRepository`.
+- `FederationInboxTest`, `FederatedPostIngestionTest`, and `MutualFollowTest` **fail due to the local environment**: `openssl_pkey_new()` cannot generate an RSA keypair (`error:80000003`, no OpenSSL config found by this Windows PHP). CI results on Linux need confirmation.
+- Docker build was not run in this workspace; the staging deployment was confirmed by the project owner.
 
 ## 9. References
 
@@ -227,5 +248,7 @@ flowchart LR
 - [ERD](ERD.en.md)
 - [API Contract](API-CONTRACT.en.md) and [OpenAPI](openapi.yaml)
 - [Federation Concept](FEDERATION-CONCEPT.en.md)
+- [AI Monetization Strategy](AI-MONETIZATION-STRATEGY.en.md)
 - [Dokploy Guide](DOKPLOY-DEPLOYMENT.en.md)
+- [Theme Guide](THEME-GUIDE.en.md)
 - [Mockup](mockup/README.md)

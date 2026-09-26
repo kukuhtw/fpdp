@@ -26,7 +26,7 @@ Instal node → Buat akun owner → Lengkapi profil publik
 → Lihat personal digital home publik
 ```
 
-Payment, marketplace, dan federasi tidak ditempatkan pada critical path sampai siklus ownership dan content tersebut stabil.
+Payment, toko online pribadi, dan federasi tidak ditempatkan pada critical path sampai siklus ownership dan content tersebut stabil.
 
 ## 3. Strategi pengembangan
 
@@ -224,7 +224,7 @@ Exit criteria:
 
 **Milestone:** Personal Digital Home MVP.
 
-### Fase 5 — Marketplace dan payment
+### Fase 5 — Toko online pribadi dan payment
 
 **Tujuan:** mendukung journey produk-ke-pembayaran lokal yang dapat dipercaya.
 
@@ -288,7 +288,7 @@ Kandidat pekerjaan:
 
 - connector sosial OAuth;
 - registry adapter/plugin dan compatibility policy;
-- eksperimen federated commerce;
+- federated commerce (order lintas node) — keunggulan utama platform: produk yang tersebar ke fediverse dapat dipesan dan dibayar dari node lain;
 - search lanjutan, media processing, dan caching;
 - operational tooling multi-node;
 - accessibility, localization, import/export, dan data portability.

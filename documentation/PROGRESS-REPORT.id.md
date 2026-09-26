@@ -2,63 +2,20 @@
 
 ## 1. Snapshot
 
-**Tanggal verifikasi:** 21 September 2026
+**Tanggal verifikasi:** 26 September 2026
+**Dasar verifikasi:** route, controller, service, repository, migration, view, gateway plugin, test, dan konfigurasi deployment pada repository—bukan hanya dokumen rencana. Test suite dijalankan ulang pada tanggal yang sama (lihat Bagian 8).
 
-## 0. Pembaruan task terbaru
-
-Bagian ini mencatat pekerjaan yang sudah masuk ke repository sampai 21 September 2026, sekaligus mengoreksi gap pada laporan sebelumnya.
-
-| Area | Status | Perbaikan/implementasi |
-|---|---|---|
-| Menu integrasi | **Selesai untuk Facebook dan LinkedIn** | Halaman `/dashboard/integrations`, tombol OAuth, daftar akun terhubung, putuskan akun, serta daftar external feed tersedia. |
-| Facebook Pages | **Selesai di level implementasi** | OAuth Meta, penyimpanan token terenkripsi, pemilihan Page yang dikelola, fetch post Page, dan koneksi ke external content tersedia. Belum divalidasi dengan aplikasi Meta production. |
-| LinkedIn Organizations | **Selesai di level implementasi** | OAuth LinkedIn, discovery Organization yang dikelola, penyimpanan token, fetch post Organization, daftar koneksi, dan disconnect tersedia. Belum divalidasi dengan Community Management API production. |
-| Google OAuth visitor | **Selesai di level implementasi** | Login visitor untuk akses CV, signed state, callback, token visitor, serta dokumentasi `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` tersedia. Error deployment tetap harus diperiksa dari konfigurasi redirect URI dan environment server. |
-| CV/resume | **Selesai untuk MVP** | Menu `/dashboard/cv`, upload/replace dokumen, metadata/harga, halaman CV publik, access request, paywall, grant setelah pembayaran, dan download terlindungi tersedia. |
-| PayPal | **Selesai di level adapter** | Orders API v2, capture, status, refund, verifikasi webhook, environment fallback, dan panduan mendapatkan Client ID, Secret, serta Webhook ID tersedia. Pengujian Sandbox nyata masih diperlukan. |
-| Pemilihan payment gateway | **Selesai** | Owner dapat menyimpan konfigurasi dan mengaktifkan gateway melalui Settings. Gateway checkout disimpan pada `nodes.active_gateway`; CV tidak lagi bergantung pada `CV_PAYMENT_GATEWAY`. |
-| Sandbox/Live gateway | **Sebagian** | Credential per environment tersimpan terenkripsi di `payment_gateway_configs`. Midtrans meneruskan mode DB dengan benar. PayPal masih perlu menyamakan pilihan DB dengan `PAYPAL_ENVIRONMENT` di server. |
-| Dokumentasi payment gateway | **Selesai** | Prioritas `.env`/database, field dan tabel, API, query diagnosis, alasan status “berhasil”, serta prosedur Sandbox/Live didokumentasikan. |
-| Paywall per post | **Belum tersedia** | Paywall yang sudah berjalan adalah akses CV/resume. Model harga dan entitlement per post masih perlu migration, API, UI, dan fulfillment tersendiri. |
-| Instagram, TikTok, dan impor native YouTube | **Sebagian** | YouTube masuk melalui feed resmi/external source. Instagram kini punya connector "litescrap" (scraping HTML profil publik tanpa OAuth/App Review Meta) — lihat `InstagramConnector`; ini best-effort dan bisa berhenti jika Instagram mengubah markup atau memblokir permintaan otomatis. OAuth/API native TikTok belum diimplementasikan. |
-
-### Perbaikan penting yang telah dilakukan
-
-1. Menambahkan `nodes.active_gateway` dan seluruh alur pemilihan gateway aktif dari repository, service, route, sampai UI Settings.
-2. Mengubah pembayaran akses CV agar membaca gateway aktif milik node, bukan konfigurasi gateway CV yang terpisah.
-3. Memisahkan aksi **Save configuration** dari **Activate gateway** pada dashboard.
-4. Menampilkan environment aktif dan key yang sudah tersimpan tanpa mengembalikan secret ke browser.
-5. Menambahkan integrasi Facebook Pages dan LinkedIn Organizations ke menu dashboard.
-6. Menambahkan menu upload/download CV & Resume pada navigasi owner dan halaman publik CV.
-7. Menambahkan dokumentasi Google OAuth, PayPal, Facebook, serta konfigurasi payment gateway.
-8. Mengoreksi dokumentasi PayPal yang sebelumnya masih menyebut `CV_PAYMENT_GATEWAY`.
-
-### Temuan yang sudah diperbaiki di kode
-
-- Penyimpanan gateway sekarang memeriksa credential/probe provider sebelum menulis database. PayPal diverifikasi lewat OAuth, Midtrans lewat request berautentikasi, dan Paywuz memerlukan transaksi Sandbox lanjutan karena tidak ada endpoint verifikasi non-transaksi pada kontrak yang tersedia.
-- Backend mewajibkan seluruh key dan UI hanya menampilkan “Configured” jika set key lengkap.
-- Aktivasi gateway menolak konfigurasi yang belum lengkap; `DUMMY` tetap dapat aktif tanpa credential.
-- Environment PayPal aktif dari database sekarang diteruskan ke adapter.
-- Tersedia `scripts/rotate-app-key.php` untuk re-encryption payment credential dan token OAuth secara transaksional.
-- Google, Facebook, dan LinkedIn memeriksa pasangan client/app ID dan secret sebelum memulai redirect OAuth.
-
-### Batasan eksternal
-
-- Credential dan exact redirect URI tetap harus dibuat di dashboard Google/Meta/LinkedIn oleh pemilik akun.
-- Permission dan app review merupakan keputusan provider dan tidak dapat diotomatisasi dari repository.
-- Uji akun nyata tetap menjadi acceptance test deployment karena membutuhkan akun dan persetujuan provider.
-**Dasar verifikasi:** route, controller, service, repository, migration, UI, test, dan konfigurasi deployment pada repository—bukan hanya dokumen rencana.
-
-FPDP sudah melewati tahap prototype dasar. Identity, local publishing, external aggregation, marketplace dasar, payment abstraction, analytics, dan sebagian besar fondasi federasi tersedia sebagai kode yang dapat diuji. Staging Dokploy sudah live dan tervalidasi, halaman utama (`/`) kini menampilkan personal digital home pemilik node secara live, dan dashboard Overview owner sudah tersambung ke API sungguhan. Fokus berikutnya bukan lagi membuat kerangka, tetapi menghubungkan flow komersial end-to-end (termasuk mekanisme pemilihan payment gateway aktif), melengkapi panel dashboard lain, memvalidasi integrasi eksternal terhadap sandbox/server nyata, dan mengeraskan operasional production.
+FPDP sudah melewati tahap MVP inti. Sejak laporan 21 September, flow komersial visitor sudah tersambung (checkout produk publik, pembayaran akses CV, top-up wallet, konfirmasi pembayaran manual), chatbot visitor berbayar berbasis LLM + RAG sudah live, dashboard owner sudah punya panel untuk hampir semua domain, dan federasi sudah berbicara ActivityPub (WebFinger, actor, inbox/outbox, post federasi masuk/keluar). Fokus berikutnya adalah validasi terhadap sandbox/server nyata, refund & rekonsiliasi, security settings, serta hardening operasional.
 
 Ringkasan repository saat laporan ini dibuat:
 
-- **43 migration MySQL** (`0001`–`0043`);
-- **32 test script**;
-- REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, marketplace, analytics, federation, dan upload media post;
-- UI nyata untuk halaman utama (personal digital home live per node), timeline lokal, profil publik, halaman post, post editor (dengan upload media langsung), dan dashboard Overview owner;
-- 4 payment gateway adapter: Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2);
-- Dockerfile serta Docker Compose khusus Dokploy — sudah di-deploy dan tervalidasi di staging;
+- **58 migration MySQL** (`0001`–`0058`);
+- **47 test script** (43 lulus, 4 gagal — lihat Bagian 8);
+- REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, toko online pribadi (termasuk checkout visitor dan aset digital), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, theme, dan upload media;
+- UI nyata: home, timeline terpadu (lokal + federasi + produk promosi), profil, post, shop, halaman produk, CV publik, wall "coretan", halaman YouTube, halaman terima kasih pembayaran, serta 12 halaman dashboard owner;
+- 3 theme publik: `default`, `editorial`, `minimal`;
+- 6 payment gateway: Dummy, Paywuz, Midtrans, PayPal (built-in) + iPaymu dan Manual Transfer (plugin di `gateways/`);
+- Dockerfile serta Docker Compose Dokploy — staging live dan tervalidasi;
 - dokumentasi produk dan teknis bilingual.
 
 ## 2. Status fase
@@ -69,7 +26,7 @@ flowchart LR
     P1 --> P2["Phase 2<br/>Konten lokal & timeline"]
     P2 --> P3["Phase 3<br/>Agregasi eksternal"]
     P3 --> P4["Phase 4<br/>Hardening MVP"]
-    P4 --> P5["Phase 5<br/>Marketplace & payment"]
+    P4 --> P5["Phase 5<br/>Toko online & payment"]
     P5 --> P6["Phase 6<br/>Federasi"]
     P6 --> P7["Phase 7+<br/>Ekosistem, AI, scale"]
 
@@ -77,208 +34,211 @@ flowchart LR
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
     classDef planned fill:#f1e3e1,stroke:#a13d37,color:#17211b;
     class P0,P1,P2,P3 done;
-    class P4,P5,P6 partial;
-    class P7 planned;
+    class P4,P5,P6,P7 partial;
 ```
 
 | Workstream | Status | Ringkasan |
 |---|---|---|
-| Fondasi engineering | **Selesai** | PSR-4, router, PDO, migration runner, config, JSON envelope, exception mapping, CI |
+| Fondasi engineering | **Selesai** | PSR-4, router, PDO, migration runner, config, JSON envelope, exception mapping (kini dengan logging exception), CI |
 | Identity & profile | **Selesai untuk MVP** | Register/login/logout/`me`, token hash, rate limit, profile visibility, Google OAuth visitor |
-| Konten lokal | **Selesai untuk MVP** | CRUD, draft/publish, visibility, soft-delete, media, canonical URL, cursor timeline, UI |
-| External aggregation | **Selesai untuk MVP** | RSS/Atom/Custom API, anti-SSRF HTTP client, sync worker, dedup, persistence, timeline merge |
-| Operasional & hardening | **Sebagian** | CI, audit dasar tersedia; staging Dokploy sudah live dan tervalidasi (migration, health check, bootstrap owner); backup/restore recovery exercise belum selesai |
-| Marketplace | **Sebagian besar** | Product dan order tersedia; checkout visitor + payment belum tersambung end-to-end |
-| Payment | **Sebagian besar** | Dummy, Paywuz, Midtrans, PayPal (Orders API v2), encrypted config, webhook/idempotency, serta pemilihan gateway aktif tersedia; sandbox nyata dan reconciliation belum selesai |
-| Federasi | **Sebagian besar backend** | Keys, discovery, signed inbox/outbox, follow lifecycle, moderation, delivery retry; cross-server/UI belum selesai |
-| Dashboard | **Sebagian** | Overview owner sudah live (KPI, traffic chart, top content, recent activity) di `/dashboard`, menggunakan API yang sudah ada; Payments/Analytics/Federation belum jadi panel terpisah, node settings belum live |
-| AI & ads | **Direncanakan** | Dokumen strategi tersedia; LLM chat dan ad marketplace belum diimplementasikan |
+| Konten lokal | **Selesai untuk MVP** | CRUD, draft/publish, visibility, soft-delete, media upload, lightbox, canonical URL, cursor timeline, daftar & hapus post di dashboard |
+| External aggregation | **Selesai untuk MVP** | RSS/Atom/Custom API, YouTube feed, LinkedIn Organizations, anti-SSRF HTTP client, sync worker, dedup |
+| Operasional & hardening | **Sebagian** | CI, audit dasar, staging Dokploy tervalidasi; backup/restore exercise, RBAC, dan retention belum |
+| Toko online pribadi | **Selesai untuk MVP** | Toko milik owner node: product, order, checkout visitor publik, alamat pengiriman, aset digital + download, produk promosi |
+| Payment | **Sebagian besar** | 6 gateway, sistem plugin gateway, pemilihan gateway aktif, sandbox/live per environment, konfirmasi manual; sandbox nyata, refund UI, dan rekonsiliasi belum |
+| Federasi | **Sebagian besar** | ActivityPub (WebFinger, actor, inbox/outbox, followers/following), post & produk federasi, federation worker, dashboard federation; uji interop lintas server belum terdokumentasi formal |
+| Dashboard | **Sebagian besar** | 12 halaman owner live; panel Analytics tersendiri dan security settings belum |
+| AI | **Sebagian besar** | LLM provider (OpenAI, Anthropic, OpenRouter), describe-image, RAG + FAQ, chatbot visitor berbayar via wallet, riwayat percakapan |
+| Advertising | **Belum dimulai** | Hanya dokumen strategi |
 
 ## 3. Yang sudah tersedia
 
 ### 3.1 Platform dan keamanan dasar
 
 - Front controller dan router mendukung route statis, parameter segment, dan canonical `/@handle`.
-- Halaman utama (`/`) menampilkan profil publik owner node secara live (personal digital home sesuai visi BRD) ketika node sudah punya owner dengan profile `PUBLIC`; fallback ke placeholder statis untuk instalasi baru atau profile non-public.
-- Config membaca default, `.env`, dan environment variable native container.
-- Password memakai hashing; bearer token di-hash saat disimpan dan dapat dicabut.
-- Register/login memiliki rate limiting.
-- HTTP client external memblokir target private/internal, membatasi redirect, timeout, dan ukuran response.
-- JSON response menggunakan success/error envelope yang konsisten.
+- Halaman utama (`/`) menampilkan personal digital home owner secara live; fallback ke placeholder untuk instalasi baru atau profile non-public.
+- Config membaca default, `.env`, dan environment variable container.
+- Password di-hash; bearer token di-hash dan dapat dicabut.
+- Rate limiting untuk register/login, wall comment, panggilan LLM, dan RAG.
+- HTTP client eksternal memblokir target private/internal, membatasi redirect, timeout, dan ukuran response.
+- Exception yang tidak tertangani kini di-log, bukan hanya dikembalikan sebagai 500 generik.
+- `scripts/rotate-app-key.php` melakukan re-encryption credential gateway dan token OAuth secara transaksional.
 - GitHub Actions menjalankan syntax check dan test suite.
 
 ### 3.2 Identity, profile, dan visitor
 
 - Registrasi membuat node, owner user, dan profile dalam satu flow.
-- Login, logout, `/api/v1/me`, baca profile publik, dan update profile tersedia.
+- Login, logout, `/api/v1/me`, profile publik, update profile, dan halaman About Me yang dapat diedit dari dashboard.
 - Profile visibility: `PUBLIC`, `UNLISTED`, `PRIVATE`.
-- Google OAuth visitor memakai state bertanda tangan dan token visitor yang di-hash.
+- Google OAuth visitor dengan signed state dan visitor token yang di-hash; owner dapat melihat daftar visitor (`/api/v1/me/visitors`).
 
-### 3.3 Konten lokal dan media
+### 3.3 Konten lokal, media, dan interaksi
 
-- Create/read/update/soft-delete post.
-- Draft/publish/unpublish melalui `published_at`.
-- Visibility post dan ownership enforcement.
-- Canonical post/profile URL.
-- Cursor pagination untuk post dan timeline.
-- Maksimal 10 media berurutan per post (`IMAGE`, `VIDEO`, `AUDIO`, `FILE`).
-- URL media wajib HTTPS, tanpa embedded credential; alt text dibatasi.
-- **Upload file media langsung** (`POST /api/v1/me/media`, owner-only): alternatif dari sekadar tempel URL eksternal. Validasi tidak percaya `content_type` yang diklaim client — tipe file di-deteksi server-side (`finfo`) dan dicocokkan ke allowlist per media type; SVG sengaja tidak diizinkan untuk `IMAGE` dan `FILE` dibatasi ke PDF saja, karena file yang disajikan kembali dengan tipe salah adalah vektor stored-XSS. File disajikan lewat `GET /api/v1/media/{key}` (storage key UUID = kontrol akses, sama seperti URL CDN eksternal manapun), inline dengan header `X-Content-Type-Options: nosniff` dan cache 1 tahun immutable.
-- UI nyata: timeline, profile, post page, post editor (termasuk tombol upload media).
+- Create/read/update/soft-delete post; draft/publish; visibility dan ownership enforcement.
+- Maksimal 10 media per post; upload langsung (`POST /api/v1/me/media`) dengan deteksi MIME server-side, tanpa SVG, `FILE` hanya PDF.
+- Post editor mendukung embed video YouTube, TikTok, dan Instagram; bare URL pada excerpt timeline otomatis menjadi link.
+- Lightbox click-to-zoom untuk gambar post dan foto produk.
+- Wall "coretan" (buku tamu): visitor menulis komentar, owner membalas dan menghapus.
 
 ### 3.4 Konten eksternal
 
-- Connector RSS, Atom, dan Custom API.
-- Normalisasi YouTube dari official feed dan privacy-enhanced embed support.
-- Feed-source management, sync trigger, sync worker, deduplication, persistence, dan statistik.
-- External items dapat digabungkan ke timeline dengan source attribution.
+- Connector RSS, Atom, Custom API, dan YouTube official feed dengan privacy-enhanced embed.
+- LinkedIn Organizations: OAuth, discovery Organization, token terenkripsi, fetch post, disconnect.
+- Feed-source management, sync trigger, sync worker, deduplication, statistik.
+- Timeline terpadu menggabungkan post lokal, konten eksternal, post federasi (tersanitasi), dan produk promosi.
 
-### 3.5 CV dan visitor monetization foundation
+> Catatan koreksi: integrasi **Facebook Pages** dan connector **Instagram litescrap** yang tercatat di laporan sebelumnya sudah **dihapus** dari repository (commit `629c807`). Keduanya tidak lagi tersedia.
 
-- Owner upload CV ke `storage/` di luar webroot.
-- Public metadata, access request, payment-aware grant, dan gated download.
-- Mengganti dokumen membatalkan grant lama.
-- Google OAuth membedakan visitor dari owner.
+### 3.5 CV dan monetisasi visitor
 
-### 3.6 Marketplace dan payment
+- Owner upload CV ke `storage/` di luar webroot; mengganti dokumen membatalkan grant lama.
+- Halaman CV publik dengan foto profil asli, access request, paywall, grant setelah pembayaran, dan download terlindungi.
+- Grant akses kini menyimpan identitas pembeli (nama, email, dsb.) dan pilihan akses CV yang diperluas.
 
-- Product CRUD dan order dengan immutable product snapshot.
-- Order status lifecycle dan ownership validation.
-- `PaymentGatewayInterface`, factory, Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2) adapters.
-- Adapter PayPal menangani two-step capture (approve lalu capture) lewat lazy-capture di `getPaymentStatus()`, refund berdasarkan capture id (bukan order id), verifikasi webhook lewat API `verify-webhook-signature` PayPal (bukan HMAC lokal), dan menolak currency yang tidak didukung PayPal termasuk IDR secara eksplisit.
-- Payment dan transaction persistence.
-- Webhook verification serta duplicate-event handling.
-- Gateway credentials dapat disimpan terenkripsi AES-256-GCM melalui API dan tidak dikembalikan ke client.
-- Dashboard payment summary tersedia sebagai API.
-- Owner dapat memilih gateway default node dari Settings. Pilihan disimpan pada `nodes.active_gateway` dan dipakai oleh flow pembayaran CV.
+### 3.6 Toko online pribadi dan payment
 
-### 3.7 Federasi
+Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketplace multi-penjual). Pengunjung dapat membeli langsung di node, dan posting produk tersebar ke fediverse. Federated commerce — pembeli dari node/fediverse lain dapat memesan produk — adalah keunggulan utama platform dan tetap menjadi target.
 
-- Ed25519 node identity dan signing key.
-- Public capability discovery.
-- Remote-node key discovery dan cache.
-- Signed public inbox dan authenticated outbox.
-- Follow, Accept, Reject, Undo, dan Block processing.
-- Incoming/outgoing follow direction.
-- Federated connections dan latest-post preview pada public profile API.
-- Remote-node trust state (`UNKNOWN`, `TRUSTED`, `BLOCKED`).
-- Delivery queue, retry, exponential backoff, deduplication, dan timestamp-window replay reduction.
-- Federation summary serta capability settings API.
 
-### 3.8 Analytics dan dashboard
+- Product CRUD, order dengan immutable snapshot, status lifecycle.
+- **Checkout visitor publik** (`POST /api/v1/profiles/{handle}/orders`) dengan identitas pembeli dan alamat pengiriman.
+- **Aset digital produk**: owner upload, pembeli download setelah pembayaran.
+- Produk promosi (`is_promoted`) tampil di timeline dan ikut difederasikan.
+- `PaymentGatewayInterface`, factory, adapter Dummy/Paywuz/Midtrans/PayPal, serta **sistem plugin gateway** (`gateways/*/gateway.json`) dengan plugin iPaymu dan Manual Transfer.
+- Credential per environment (Sandbox/Live) terenkripsi AES-256-GCM di `payment_gateway_configs`; nilai non-secret yang tersimpan ditampilkan kembali di Settings, secret tidak.
+- Penyimpanan gateway memverifikasi credential ke provider (PayPal OAuth, Midtrans request berautentikasi); aktivasi menolak konfigurasi tidak lengkap.
+- Environment PayPal dibaca dari konfigurasi database dengan fallback `PAYPAL_ENVIRONMENT`; iPaymu mengikuti dropdown environment yang sama.
+- Gateway code di-resolve sebelum validasi pembayaran (produk, CV, dan top-up wallet).
+- Webhook verification dan duplicate-event handling.
+- **Halaman konfirmasi pembayaran** untuk produk/CV/wallet, link konfirmasi di semua theme, dan halaman terima kasih (`/payment/thank-you`).
+- **Konfirmasi manual pembayaran pending** oleh owner (`/api/v1/me/payments/pending`, `.../{uuid}/confirm`).
+- Dashboard Payments: saldo/perkiraan settlement, success rate, transaksi terbaru, dan detail pembeli.
 
-- Privacy-conscious daily visitor hashing menggunakan HMAC dan `APP_KEY`; IP mentah tidak disimpan.
-- Profile view, post view, outbound click, dan shop-conversion events.
-- Ringkasan 7 hari, unique visitors, traffic chart, dan top content.
-- Dashboard overview mengagregasi post, timeline mix, products, orders, revenue, federation, analytics, dan recent activity.
-- **UI Overview owner live** di `/dashboard` (vanilla JS + PHP, tanpa framework, memakai `/api/v1/me/dashboard/overview` yang sudah ada): status node, 6 KPI tile (published posts, products, pending orders, revenue bulan ini, followers, unique visitors), grafik bar 7-hari (views vs unique visitors, palet warna tervalidasi colorblind-safe), daftar top content, dan recent activity. Terverifikasi lewat browser sungguhan (Playwright): login flow, render data live, hover tooltip pada chart, nol console error.
+### 3.7 AI, RAG, dan chatbot
 
-### 3.9 Deployment
+- `LLMProviderInterface` + factory untuk OpenAI, Anthropic, dan OpenRouter; konfigurasi per node (`llm_configs`).
+- `describe-image`: draf deskripsi produk dari foto, dipicu manual dan dibatasi rate limit.
+- RAG: owner upload dokumen, generate/edit/hapus FAQ dari dokumen.
+- **Chatbot visitor** dengan widget di semua theme; owner mengatur aktif/nonaktif dan harga.
+- **Wallet visitor**: top-up lewat gateway aktif, owner dapat memberi saldo manual; saldo dipakai untuk chat berbayar.
+- Riwayat sesi dan pesan chatbot untuk owner; filter pending orders (minat beli) dari percakapan.
+
+### 3.8 Federasi
+
+- Ed25519 node identity, signing key, dan RSA key untuk HTTP Signature ActivityPub.
+- WebFinger (`/.well-known/webfinger`), actor document, `/@handle/inbox`, `/@handle/outbox`, `/followers`, `/following`.
+- Follow, Accept, Reject, Undo, Block; arah follow `INCOMING`/`OUTGOING` dengan unique pair per arah; perbaikan status mutual-follow.
+- Follow request approval/reject, remote-node trust state (`UNKNOWN`, `TRUSTED`, `BLOCKED`), capability settings.
+- Post federasi Create/Update/Delete masuk dan keluar, termasuk lampiran gambar; delivery produk federasi.
+- Federation worker service yang benar-benar mengirim antrean aktivitas; retry, exponential backoff, dedup, timestamp window.
+- Logging setiap aktivitas inbox dan Accept/Reject yang tidak ter-resolve; retry resolusi actor sebelum Follow dibuang.
+- Dashboard federation (`/dashboard/federation`) dengan form follow yang menerima akun atau URL profil.
+
+### 3.9 Analytics dan dashboard
+
+- Visitor hashing harian berbasis HMAC + `APP_KEY`; IP mentah tidak disimpan.
+- Event profile view, post view, outbound click, dan shop conversion; API analytics dashboard.
+- Halaman dashboard live: Overview, Posts (editor + daftar), About Me, CV, Products, Orders (dengan info pembeli dan filter), Payments, Integrations, Federation, RAG, Themes, Settings (gateway, LLM, chatbot), dan Coretan.
+- Pemilihan theme dari dashboard; navigasi situs disatukan dalam satu sumber untuk semua theme.
+
+### 3.10 Deployment
 
 - Web installer untuk VPS/shared hosting.
-- Docker image PHP 8.3 + Apache.
-- Dokploy Compose: app + MySQL 8.4, health check, persistent volumes, migration otomatis, dan bootstrap owner.
-- Production secret validation dan web-installer lock.
-- Panduan Dokploy, VPS, serta shared hosting tersedia dalam English dan Bahasa Indonesia.
+- Docker image PHP 8.3 + Apache; `.well-known` diizinkan publik di vhost.
+- Dokploy Compose: app + MySQL 8.4 + federation worker, health check, persistent volume, migration otomatis, bootstrap owner.
+- Validasi secret production dan lock web installer.
 
 ## 4. Yang masih sebagian selesai
 
 ### 4.1 Production validation
 
-- Docker image tidak dibangun pada workspace pengembangan ini karena Docker CLI tidak tersedia di sini, tetapi build image dan deployment ke staging Dokploy sudah dijalankan di server dan dikonfirmasi berhasil oleh pemilik project (19 September 2026): seluruh migration jalan bersih, health check lulus, bootstrap owner berhasil membuat akun pertama, dan domain/TLS aktif.
-- Seluruh migration belum diuji end-to-end pada MySQL 8 disposable dalam test suite repository (CI); validasi migration sejauh ini berasal dari staging run di atas, bukan dari job CI otomatis.
+- Staging Dokploy sudah tervalidasi (19 September 2026), tetapi belum ada job CI yang menjalankan seluruh migration di MySQL 8 disposable.
 - Backup/restore/rollback baru terdokumentasi, belum diuji lewat recovery exercise.
-- Availability extension `sodium` pada image hasil build perlu diverifikasi eksplisit.
+- Extension `sodium` tidak dideklarasikan eksplisit di `Dockerfile`; ketersediaannya di image perlu diverifikasi.
 
-### 4.2 Checkout dan marketplace
+### 4.2 Payment production
 
-- Order belum membuat payment melalui gateway dalam checkout visitor publik.
-- Belum ada checkout UI, receipt, payment-status polling, cancellation, dan refund experience.
-- `SHOP_CONVERSION` saat ini mengikuti pembuatan order owner, belum merepresentasikan checkout visitor secara akurat.
-- External product labels dan federated order request belum tersedia.
+- Paywuz, Midtrans, PayPal, dan iPaymu diuji dengan fake HTTP requester, belum terhadap sandbox provider nyata. Paywuz belum punya endpoint verifikasi non-transaksi.
+- Refund Midtrans setelah `PAID` tercatat sebagai transaction event, tetapi belum selalu merekonsiliasi status payment menjadi `REFUNDED`.
+- Belum ada UI/API owner untuk refund atau pembatalan pembayaran; `POST /payments/{id}/cancel` pada API contract belum diimplementasikan.
+- Saldo di dashboard Payments adalah perkiraan dari tabel `payments`; belum ada ledger settlement/payout, akuntansi fee gateway, atau reconciliation job.
+- Manual Transfer tidak mendukung refund (sesuai capability plugin).
 
-### 4.3 Payment production
+### 4.3 Dashboard dan settings
 
-- Paywuz, Midtrans, dan PayPal diuji dengan fake HTTP requester, belum terhadap sandbox provider nyata.
-- Refund/partial refund Midtrans setelah `PAID` tercatat sebagai transaction event tetapi belum selalu merekonsiliasi status payment menjadi `REFUNDED`.
-- Belum ada settlement/payout ledger, gateway-fee accounting, dan reconciliation job.
-- Rotasi `APP_KEY` belum dapat melakukan re-encryption credential gateway otomatis.
-- UI/API pemilihan gateway aktif sudah tersedia. Validasi kelengkapan credential dan verifikasi provider pada saat save/activate masih belum tersedia.
+- API analytics sudah ada, tetapi belum ada halaman `/dashboard/analytics` tersendiri di luar ringkasan Overview.
+- Node settings belum lengkap: default/enabled languages, custom CSS/layout, dan node config umum (theme sudah tersedia).
+- Security settings belum ada: 2FA dan session management.
 
-### 4.4 Dashboard dan settings
+### 4.4 Federasi production
 
-- Overview owner sudah live di `/dashboard` (lihat 3.8); Payments, Analytics, dan Federation belum jadi panel dashboard tersendiri di luar apa yang sudah dirangkum di Overview.
-- Content, Timeline, Integrations, Products, dan Orders memiliki domain endpoint, tetapi belum menjadi panel dashboard terintegrasi.
-- Node settings belum tersedia: theme, layout, custom CSS, default/enabled languages, dan node config.
-- Security settings belum tersedia: 2FA dan session management.
-
-### 4.5 Federasi production
-
-- Belum ada test dua instance FPDP pada host/domain berbeda.
-- Belum ada dashboard federation live untuk follow, trust, block, moderation, dan capability.
-- Replay protection belum memakai nonce cache; timestamp window dan activity-id dedup masih menjadi proteksi utama.
+- Belum ada catatan formal uji interoperabilitas dua instance FPDP atau server ActivityPub lain pada domain berbeda, walaupun banyak perbaikan terbaru berasal dari uji nyata.
+- Replay protection belum memakai nonce cache.
 - Capability yang disimpan belum menegakkan akses fitur.
-- Data follow lama mungkin memerlukan backfill arah `INCOMING`/`OUTGOING`.
+- Data follow lama mungkin perlu backfill arah `INCOMING`/`OUTGOING`.
+- File `app/Services/Federation/Federaltest.php` terlihat seperti file uji coba di dalam namespace service dan perlu ditinjau.
+
+### 4.5 Integrasi eksternal
+
+- LinkedIn belum divalidasi terhadap Community Management API production.
+- Renderer embed YouTube pada timeline/profile masih terbatas; normalisasi playlist belum didukung.
 
 ### 4.6 Authorization, audit, dan analytics hardening
 
-- Belum ada middleware role/permission terpusat untuk membedakan owner/admin.
-- Perubahan payment credential dan remote-node trust belum semuanya masuk audit trail.
-- Endpoint public outbound-click belum mempunyai rate limiting khusus.
-- `analytics_events` belum memiliki retention/cleanup job.
-- Audit coverage belum mencakup seluruh aksi administratif sensitif.
+- Belum ada middleware role/permission terpusat (owner vs admin).
+- Audit trail mencakup auth, post, profile, dan wall comment; perubahan payment credential, aktivasi gateway, konfirmasi pembayaran manual, grant wallet, dan remote-node trust belum diaudit.
+- Endpoint publik outbound-click belum punya rate limiting khusus.
+- `analytics_events` belum punya retention/cleanup job.
 
 ## 5. Belum dimulai
 
-- OAuth connector production untuk X, Threads, TikTok, dan Shopee. Implementasi Facebook Pages dan LinkedIn Organizations sudah tersedia, tetapi belum divalidasi terhadap akun production. Instagram memakai connector "litescrap" (bukan OAuth) dan juga belum divalidasi terhadap akun production.
-- LLM provider configuration, profile/CV-grounded chatbot, paid chat session, serta AI usage/cost controls.
-- Advertising marketplace: ad slot, pricing, booking, approval, dan delivery window.
-- Production plugin/adapter marketplace.
-- Federated commerce end-to-end.
-- Multi-node administration, shared/object storage, dan horizontal scaling.
+- Advertising marketplace: ad slot, pricing, booking, approval, delivery window.
+- Paywall per post (harga dan entitlement per post).
+- OAuth connector untuk Facebook, Instagram, X, Threads, TikTok, dan Shopee.
+- Cost control/usage report AI di luar rate limit (plafon biaya per node).
+- Production plugin/adapter marketplace (sistem plugin gateway lokal sudah ada).
+- **Federated commerce end-to-end (order lintas node)** — keunggulan utama: pengunjung dari node/fediverse lain dapat memesan produk yang tersebar lewat federasi. Distribusi produk ke fediverse sudah berjalan; alur order, pembayaran, dan konfirmasi lintas node belum.
+- Multi-node administration, shared/object storage, horizontal scaling.
 - License file dan formal contribution policy.
 
 ## 6. Prioritas berikutnya
 
 ```mermaid
 flowchart LR
-    A["1. Dokploy staging<br/>+ MySQL migration test"] --> B["2. Payment sandbox<br/>+ checkout publik"]
-    B --> C["3. Dashboard live<br/>+ node settings"]
-    C --> D["4. Federation<br/>cross-server test"]
-    D --> E["5. Authorization,<br/>audit, retention"]
-    E --> F["6. OAuth, AI,<br/>ads & ecosystem"]
+    A["1. Perbaiki test<br/>yang gagal"] --> B["2. Payment sandbox<br/>+ refund & rekonsiliasi"]
+    B --> C["3. Audit sensitif<br/>+ RBAC"]
+    C --> D["4. Security &<br/>node settings"]
+    D --> E["5. Federation<br/>interop formal"]
+    E --> F["6. Ads, paywall post,<br/>OAuth sosial"]
 ```
 
-Urutan rekomendasi:
-
-1. ~~Deploy satu staging node melalui Dokploy dan validasi build, health check, volume, bootstrap, serta seluruh migration pada MySQL 8.~~ **Selesai** — staging Dokploy live dan tervalidasi (19 September 2026).
-2. Uji Paywuz, Midtrans, dan PayPal terhadap sandbox sungguhan.
-3. Sambungkan public checkout → order → payment → webhook → fulfillment/refund. Mekanisme memilih gateway aktif sudah tersedia.
-4. ~~Ubah dashboard mockup menjadi UI live, dimulai dari Overview, Payments, Analytics, dan Federation yang API-nya sudah ada.~~ **Sebagian selesai** — Overview sudah live di `/dashboard` (20 September 2026); panel Payments/Analytics/Federation dan node settings masih menyusul.
-5. Implementasikan node appearance/language settings dan security settings.
-6. Jalankan dua node nyata untuk interoperability federation.
-7. Tambahkan RBAC middleware, audit sensitif, analytics rate limiting, dan retention job.
-8. Baru lanjutkan social OAuth, AI chatbot, advertising, dan ecosystem work.
+1. Perbaiki fixture `PostEndpointsTest` (kolom `slug`) dan buat test berbasis RSA tidak bergantung pada konfigurasi OpenSSL lokal.
+2. Uji Paywuz, Midtrans, PayPal, dan iPaymu terhadap sandbox nyata; tambahkan refund/cancel owner dan reconciliation job.
+3. Masukkan perubahan credential, aktivasi gateway, konfirmasi manual, grant wallet, dan trust remote node ke audit trail; tambahkan RBAC middleware.
+4. Implementasikan 2FA/session management, language settings, dan halaman Analytics.
+5. Dokumentasikan uji interop federasi dua domain dan tambahkan nonce cache.
+6. Tambahkan retention job analytics dan rate limit outbound-click.
+7. Baru lanjutkan advertising, paywall per post, OAuth sosial tambahan, dan ecosystem work.
 
 ## 7. Risiko dan keputusan operasional
 
-- Deployment saat ini diasumsikan **satu owner dan satu app replica per node**.
-- Jangan scale app sebelum migration locking serta shared/object storage tersedia.
-- MySQL dan `storage/` harus dipulihkan dari recovery point yang konsisten.
-- Code rollback tidak otomatis membalikkan forward migration.
-- `APP_KEY` melindungi OAuth state, analytics HMAC, dan encrypted gateway credential; rotasinya memerlukan prosedur khusus.
-- Registration publik dapat membuat node tambahan; production policy perlu menentukan apakah registration dibuka atau dibatasi.
-- Payment dan federation wajib diuji dengan sistem remote nyata sebelum diklaim production-ready.
+- Deployment diasumsikan **satu owner dan satu app replica per node**; jangan scale sebelum migration locking dan shared storage tersedia.
+- MySQL dan `storage/` (CV, media, aset digital, dokumen RAG) harus dipulihkan dari recovery point yang konsisten.
+- Code rollback tidak membalikkan forward migration.
+- `APP_KEY` melindungi OAuth state, analytics HMAC, credential gateway, dan token OAuth; rotasi wajib memakai `scripts/rotate-app-key.php`.
+- Konfirmasi pembayaran manual memberi akses/fulfillment tanpa bukti dari provider; tanpa audit trail, tindakan ini sulit ditelusuri saat sengketa.
+- Chatbot memakai API key LLM milik owner; tanpa plafon biaya, penyalahgunaan dapat menimbulkan tagihan provider.
+- **Data pribadi pembeli** (nama, email, telepon, alamat pengiriman) kini disimpan di order, payment metadata, dan grant CV. Sesuai kontrol ISO/IEC 27001:2022 (A.5.34 Privasi & perlindungan PII, A.8.10 Penghapusan informasi, A.8.15 Logging), perlu ditetapkan: dasar pemrosesan dan pemberitahuan privasi kepada pembeli, periode retensi dan penghapusan, pembatasan akses dashboard, serta audit akses data pembeli.
+- Payment dan federasi wajib diuji dengan sistem remote nyata sebelum diklaim production-ready.
 
 ## 8. Validasi terakhir
 
-- Repository saat ini memiliki **32 test script**. Klaim kelulusan penuh 31/31 berasal dari verifikasi sebelumnya; seluruh 32 test perlu dijalankan kembali setelah perubahan integrasi terbaru.
-- PHP syntax untuk konfigurasi dan owner bootstrap lulus.
-- Bootstrap owner tervalidasi terhadap database SQLite test.
-- `git diff --check` lulus.
-- Docker build/Compose rendering tidak dijalankan pada workspace pengembangan ini karena Docker CLI tidak tersedia di sini; acceptance step ini sudah dijalankan langsung di server Dokploy dan dikonfirmasi berhasil oleh pemilik project.
-- `ExternalContentTest` lulus tetapi Windows sempat memberi warning cleanup file SQLite yang masih terbuka; bukan kegagalan fungsi, tetapi test cleanup dapat diperbaiki.
-- Dashboard Overview, halaman utama live, dan flow upload media (pilih file → upload → URL terisi otomatis → simpan post → gambar tampil di halaman post publik) diverifikasi lewat browser sungguhan (Playwright, headless Chromium): screenshot diperiksa, nol console error pada setiap flow.
+Dijalankan 26 September 2026 di workspace pengembangan (PHP 8.5.8 CLI, Windows), dengan loop yang sama seperti CI (`php tests/*Test.php`):
+
+- **43 dari 47 test lulus.**
+- `PostEndpointsTest` **gagal karena bug fixture**: schema SQLite di test tidak memiliki kolom `posts.slug` yang kini dipakai `PostRepository`.
+- `FederationInboxTest`, `FederatedPostIngestionTest`, dan `MutualFollowTest` **gagal karena environment lokal**: `openssl_pkey_new()` tidak dapat membuat RSA keypair (`error:80000003`, konfigurasi OpenSSL tidak ditemukan pada PHP Windows ini). Hasil di CI Linux perlu dikonfirmasi.
+- Docker build tidak dijalankan di workspace ini; deployment staging dikonfirmasi oleh pemilik project.
 
 ## 9. Referensi
 
@@ -288,9 +248,11 @@ Urutan rekomendasi:
 - [ERD](ERD.id.md)
 - [API Contract](API-CONTRACT.id.md) dan [OpenAPI](openapi.yaml)
 - [Konsep Federasi](FEDERATION-CONCEPT.id.md)
+- [Strategi Monetisasi AI](AI-MONETIZATION-STRATEGY.id.md)
 - [Panduan Dokploy](DOKPLOY-DEPLOYMENT.id.md)
 - [Konfigurasi Payment Gateway](PAYMENT-GATEWAY-CONFIGURATION.id.md)
+- [Panduan Plugin Payment Gateway](PAYMENT-GATEWAY-PLUGIN-GUIDE.id.md)
 - [Panduan Google OAuth](GOOGLE-OAUTH-SETUP.id.md)
 - [Panduan PayPal](PAYPAL-SETUP.id.md)
-- [Panduan Facebook](FACEBOOK-INTEGRATION-SETUP.id.md)
+- [Panduan Theme](THEME-GUIDE.id.md)
 - [Mockup](mockup/README.md)

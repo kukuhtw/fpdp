@@ -2,7 +2,7 @@
 
 ## 1. Product summary
 
-FPDP is a personal digital home that gives users a private domain, profile, social feed, marketplace, and payment endpoint. Independent nodes can connect through federation.
+FPDP is a personal digital home that gives users a private domain, profile, social feed, personal online shop, and payment endpoint. Independent nodes connect through federation, so products from each node's shop spread to the fediverse and can be ordered from other nodes (federated commerce).
 
 ## 2. Problem statement
 
@@ -11,7 +11,7 @@ Individuals currently depend on large platforms for identity, content, transacti
 ## 3. Goals
 
 - Operate as an independent node.
-- Combine a personal website, social feed, portfolio, and marketplace.
+- Combine a personal website, social feed, portfolio, and personal online shop.
 - Integrate external content without losing attribution.
 - Let each node choose payment providers through an abstraction layer.
 
@@ -20,7 +20,7 @@ Individuals currently depend on large platforms for identity, content, transacti
 1. Personal brands
 2. Creators and content producers
 3. Freelancers and professionals
-4. Sellers and merchants
+4. Owners who sell (sellers and merchants) — one seller per node
 5. Node administrators and operators
 
 ## 5. User stories
@@ -118,7 +118,7 @@ Individuals currently depend on large platforms for identity, content, transacti
 ## 9. Out of scope
 
 - Complete public plugin marketplace in the MVP
-- Advanced multi-vendor settlement
+- Multi-seller marketplace and multi-vendor settlement (FPDP is a personal shop owned by the node owner)
 - Complete OAuth social connector coverage in the initial phase
 
 ## 10. Product phases
@@ -126,7 +126,7 @@ Individuals currently depend on large platforms for identity, content, transacti
 1. Personal website and local content (identity, authentication, profiles, local post CRUD, local timeline, post editor, and public profile UI are delivered; node personalization remains planned)
 2. Social feed, timeline, and external aggregation
 3. Federation and remote actors
-4. Marketplace and payment abstraction
+4. Personal online shop, payment abstraction, and federated commerce
 5. Advanced connectors and plugin ecosystem
 
 ## 11. Addendum: AI interaction and monetization (2026-09-19)

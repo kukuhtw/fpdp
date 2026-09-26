@@ -26,7 +26,7 @@ Install node → Create owner account → Complete public profile
 → View the public personal digital home
 ```
 
-Payment, marketplace, and federation should not be placed on the critical path until this ownership-and-content loop is reliable.
+Payment, the personal online shop, and federation should not be placed on the critical path until this ownership-and-content loop is reliable.
 
 ## 3. Development strategy
 
@@ -224,7 +224,7 @@ Exit criteria:
 
 **Milestone:** Personal Digital Home MVP.
 
-### Phase 5 — Marketplace and payments
+### Phase 5 — Personal online shop and payments
 
 **Objective:** support a trustworthy local product-to-payment journey.
 
@@ -288,7 +288,7 @@ Candidate work:
 
 - OAuth social connectors;
 - plugin/adapter registry and compatibility policy;
-- federated commerce experiments;
+- federated commerce (cross-node orders) — a key differentiator: products spread to the fediverse can be ordered and paid for from other nodes;
 - advanced search, media processing, and caching;
 - multi-node operational tooling;
 - accessibility, localization, import/export, and data portability improvements.

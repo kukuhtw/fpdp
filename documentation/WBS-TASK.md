@@ -8,7 +8,7 @@
 - 5.0 Federation Layer
 - 6.0 Payment Layer
 - 7.0 External Content Integration
-- 8.0 Marketplace
+- 8.0 Toko Online Pribadi & Federated Commerce
 - 9.0 Admin Dashboard
 - 10.0 Testing, Security, and Deployment
 
@@ -67,7 +67,7 @@
 7.8 Add external post attribution display
 7.9 Add rate limit and retry handling
 
-### 8.0 Marketplace
+### 8.0 Toko Online Pribadi & Federated Commerce
 8.1 Product data model
 8.2 Product listing and query
 8.3 Local checkout flow
@@ -108,8 +108,8 @@
 
 ### Prioritas 3 (Nice to Have)
 - OAuth connectors
-- Marketplace advanced features
-- Federated commerce
+- Fitur lanjutan toko online pribadi
+- Federated commerce end-to-end (order lintas node) — keunggulan utama
 - Plugin marketplace
 
 ## 4. Estimasi Sumber Daya

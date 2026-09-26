@@ -26,14 +26,15 @@ Create a personal internet node for every individual so that identity, content, 
 - Federated posting and inter-node communication
 - Payment gateway abstraction
 - External content integration
-- Local products and marketplace
+- A personal online shop owned by the node owner (one seller per node) and local products
+- Product distribution to the fediverse as the foundation for federated commerce
 - Administration dashboard
 
 ### Outside the MVP
 
 - Complete implementation of every payment gateway
 - Complete OAuth integration for every social provider
-- End-to-end federated commerce in the initial phase
+- End-to-end federated commerce (cross-node orders) in the initial phase — it remains a key differentiator and a next-phase goal
 - Public plugin marketplace
 
 ## 5. Personas
@@ -50,7 +51,7 @@ Create a personal internet node for every individual so that identity, content, 
 - Manages external connections.
 - Enables or disables features.
 
-### Seller / merchant
+### Seller / merchant (owner who sells)
 
 - Sells local or federated products.
 - Uses a preferred payment gateway supported by the node.
@@ -127,7 +128,7 @@ Create a personal internet node for every individual so that identity, content, 
 
 ## 11. Conclusion
 
-FPDP places the user at the center of digital identity and data ownership. It is not merely another social network; it is a personal internet node connecting websites, social activity, federation, commerce, and payments.
+FPDP places the user at the center of digital identity and data ownership. It is not merely another social network; it is a personal internet node connecting websites, social activity, federation, a personal online shop, federated commerce, and payments.
 
 ## 12. Addendum: AI interaction and monetization (2026-09-19)
 
