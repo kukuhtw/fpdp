@@ -42,6 +42,12 @@ final class PaymentService
         private ?NodeRepository $nodes = null,
         private ?PaymentCredentialVerifier $credentialVerifier = null,
         private ?PaymentGatewayPluginService $pluginService = null,
+        /**
+         * Test seam: handed to every resolved gateway as its `http_requester`
+         * (each adapter's own fake-HTTP hook), so flows that call the
+         * provider — cancel, refund, reconcile — can run without a network.
+         */
+        private readonly ?\Closure $httpRequester = null,
     ) {
     }
 
@@ -590,6 +596,9 @@ final class PaymentService
      */
     private function resolveGateway(string $gatewayCode, array $configuration): PaymentGatewayInterface
     {
+        if ($this->httpRequester !== null && !isset($configuration['http_requester'])) {
+            $configuration['http_requester'] = $this->httpRequester;
+        }
         $normalized = strtoupper(trim($gatewayCode));
         if (in_array($normalized, PaymentGatewayFactory::SUPPORTED_CODES, true)) {
             return PaymentGatewayFactory::create($normalized, $configuration);
