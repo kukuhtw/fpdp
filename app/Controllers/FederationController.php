@@ -19,7 +19,75 @@ final class FederationController
         private readonly AuthService $auth,
         private readonly FederationService $federation,
         private readonly ?AuditService $audit = null,
+        private readonly ?FediverseDiscoveryService $discovery = null,
     ) {
+    }
+
+    // ---- Account discovery ----
+
+    /**
+     * GET /api/v1/me/federation/discover/lookup?q=@user@domain|URL
+     *
+     * Profile preview of one fediverse account before following it.
+     */
+    public function discoverLookup(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->requireDiscovery()->lookup(
+            (int) $context['node']['id'],
+            (int) $context['profile']['id'],
+            (string) ($request->query['q'] ?? ''),
+        ));
+    }
+
+    /**
+     * GET /api/v1/me/federation/discover/suggestions
+     *
+     * Follow-back and previously-seen accounts, from local data only.
+     */
+    public function discoverSuggestions(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->requireDiscovery()->suggestions((int) $context['profile']['id']));
+    }
+
+    /**
+     * GET /api/v1/me/federation/discover/directory?domain=mastodon.social&offset=0
+     */
+    public function discoverDirectory(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->requireDiscovery()->directory(
+            (int) $context['node']['id'],
+            (string) ($request->query['domain'] ?? ''),
+            (int) ($request->query['offset'] ?? 0),
+        ));
+    }
+
+    /**
+     * GET /api/v1/me/federation/discover/hashtag?domain=mastodon.social&tag=php
+     */
+    public function discoverHashtag(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->requireDiscovery()->hashtag(
+            (int) $context['node']['id'],
+            (string) ($request->query['domain'] ?? ''),
+            (string) ($request->query['tag'] ?? ''),
+        ));
+    }
+
+    private function requireDiscovery(): FediverseDiscoveryService
+    {
+        if ($this->discovery === null) {
+            throw new \RuntimeException('Account discovery is not wired up for this controller.');
+        }
+
+        return $this->discovery;
     }
 
     /**

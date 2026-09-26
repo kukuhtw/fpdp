@@ -179,6 +179,40 @@ final class RemoteActorRepository
     /**
      * Count how many remote actors are registered under a given remote node.
      */
+    /**
+     * Remote actors whose posts have reached this node but whom the profile
+     * does not currently follow (e.g. after an unfollow), most active first
+     * — the "you've seen them before" suggestions. Excludes blocked nodes
+     * and actors the profile blocked.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findKnownUnfollowedAuthors(int $profileId, int $limit): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT ra.actor_uri, ra.display_name, ra.avatar_url, ra.canonical_url, ra.federated_address,
+                    rn.domain AS node_domain, COUNT(fp.id) AS post_count, MAX(fp.published_at) AS last_post_at
+             FROM remote_actors ra
+             INNER JOIN remote_nodes rn ON rn.id = ra.remote_node_id
+             INNER JOIN federated_posts fp ON fp.remote_actor_id = ra.id AND fp.deleted_at IS NULL
+             WHERE rn.trust_state <> 'BLOCKED'
+               AND NOT EXISTS (
+                   SELECT 1 FROM follows o
+                   WHERE o.profile_id = :profile_id AND o.direction = 'OUTGOING'
+                     AND o.target_actor_uri = ra.actor_uri
+                     AND o.status IN ('PENDING', 'ACCEPTED', 'BLOCKED')
+               )
+             GROUP BY ra.id, ra.actor_uri, ra.display_name, ra.avatar_url, ra.canonical_url, ra.federated_address, rn.domain
+             ORDER BY post_count DESC, last_post_at DESC
+             LIMIT :limit",
+        );
+        $statement->bindValue('profile_id', $profileId, PDO::PARAM_INT);
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
     public function countByRemoteNodeId(int $remoteNodeId): int
     {
         $statement = $this->connection->prepare(

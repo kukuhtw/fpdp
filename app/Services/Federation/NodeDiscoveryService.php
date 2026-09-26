@@ -207,6 +207,63 @@ final class NodeDiscoveryService
     }
 
     /**
+     * Resolves whatever an owner typed to find an account: `@user@domain`,
+     * `user@domain`, an actor/profile URL, or a Mastodon "viewing" URL
+     * copied from another instance's address bar
+     * (https://<instance-you-were-on>/@user@theiractualdomain), which is
+     * not itself a dereferenceable actor document, so it is resolved
+     * through WebFinger at the account's real home instead.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function resolveActorByAccountOrUrl(string $input): ?array
+    {
+        $input = trim($input);
+        if (preg_match('#^https?://[^/]+/@([^@/\s]+)@([^/\s]+)/?$#', $input, $matches) === 1) {
+            return $this->resolveActorByAccount($matches[1] . '@' . $matches[2]);
+        }
+        if (str_starts_with($input, 'http://') || str_starts_with($input, 'https://')) {
+            return $this->resolveActorByUri($input);
+        }
+
+        return $this->resolveActorByAccount($input);
+    }
+
+    /**
+     * Signed ActivityPub GET of any document (actor, collection, collection
+     * page) for read-only previews. With $expectedHost set, a document —
+     * or a redirect target — on another host is refused, so a remote actor
+     * cannot point this node at arbitrary third-party URLs.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function fetchActivityJson(string $url, ?string $expectedHost = null, int $timeoutSeconds = self::FETCH_TIMEOUT_SECONDS): ?array
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        if ($host === '' || ($expectedHost !== null && $host !== strtolower($expectedHost))) {
+            return null;
+        }
+
+        try {
+            $response = $this->http->get(
+                $url,
+                array_merge(['Accept' => self::ACCEPT_HEADER], $this->signedGetHeaders($url)),
+                $timeoutSeconds,
+            );
+        } catch (Throwable $e) {
+            error_log("[NodeDiscoveryService] ActivityPub fetch threw for {$url}: " . $e->getMessage());
+            return null;
+        }
+        if ($response['status'] < 200 || $response['status'] >= 300) {
+            return null;
+        }
+
+        $document = json_decode($response['body'], true);
+
+        return is_array($document) ? $document : null;
+    }
+
+    /**
      * Registers/refreshes a remote actor the first time an inbound
      * activity references one we haven't seen — thin wrapper so
      * FederationService doesn't need to know discovery is a real HTTP

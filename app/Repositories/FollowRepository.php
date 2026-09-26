@@ -107,6 +107,39 @@ final class FollowRepository
         return $statement->fetchAll();
     }
 
+    /**
+     * Accepted followers this profile has no outgoing follow (pending,
+     * accepted, or blocked) to — the "follow back" suggestions. Actors on
+     * blocked remote nodes are left out.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findFollowBackCandidates(int $profileId, int $limit): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT f.target_actor_uri AS actor_uri, f.created_at AS followed_at,
+                    ra.display_name, ra.avatar_url, ra.canonical_url, ra.federated_address, rn.domain AS node_domain
+             FROM follows f
+             LEFT JOIN remote_actors ra ON ra.id = f.remote_actor_id
+             LEFT JOIN remote_nodes rn ON rn.id = ra.remote_node_id
+             WHERE f.profile_id = :profile_id AND f.direction = 'INCOMING' AND f.status = 'ACCEPTED'
+               AND COALESCE(rn.trust_state, 'UNKNOWN') <> 'BLOCKED'
+               AND NOT EXISTS (
+                   SELECT 1 FROM follows o
+                   WHERE o.profile_id = f.profile_id AND o.direction = 'OUTGOING'
+                     AND o.target_actor_uri = f.target_actor_uri
+                     AND o.status IN ('PENDING', 'ACCEPTED', 'BLOCKED')
+               )
+             ORDER BY f.created_at DESC
+             LIMIT :limit",
+        );
+        $statement->bindValue('profile_id', $profileId, PDO::PARAM_INT);
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
     public function countByDirection(int $profileId, string $direction): int
     {
         $statement = $this->connection->prepare(
