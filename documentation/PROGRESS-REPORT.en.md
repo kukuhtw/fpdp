@@ -28,13 +28,14 @@ flowchart LR
     P3 --> P4["Phase 4<br/>MVP hardening"]
     P4 --> P5["Phase 5<br/>Online shop & payment"]
     P5 --> P6["Phase 6<br/>Federation"]
-    P6 --> P7["Phase 7+<br/>Ecosystem, AI, scale"]
+    P6 --> P7["Phase 7<br/>Federated commerce"]
+    P7 --> P8["Phase 8+<br/>Ecosystem, AI, scale"]
 
     classDef done fill:#e3efe9,stroke:#185f48,color:#17211b;
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
     classDef planned fill:#f1e3e1,stroke:#a13d37,color:#17211b;
     class P0,P1,P2,P3 done;
-    class P4,P5,P6,P7 partial;
+    class P4,P5,P6,P7,P8 partial;
 ```
 
 | Workstream | Status | Summary |
@@ -209,7 +210,8 @@ flowchart LR
     B --> C["3. Sensitive audit<br/>+ RBAC"]
     C --> D["4. Security &<br/>node settings"]
     D --> E["5. Formal federation<br/>interop"]
-    E --> F["6. Ads, post paywall,<br/>social OAuth"]
+    E --> G["6. Federated<br/>commerce"]
+    G --> F["7. Ads, post paywall,<br/>social OAuth"]
 ```
 
 1. Fix the `PostEndpointsTest` fixture (`slug` column) and make RSA-based tests independent of local OpenSSL configuration.
@@ -217,8 +219,9 @@ flowchart LR
 3. Add credential changes, gateway activation, manual confirmation, wallet grants, and remote-node trust to the audit trail; add RBAC middleware.
 4. Implement 2FA/session management, language settings, and an Analytics page.
 5. Document a two-domain federation interop test and add a nonce cache.
-6. Add an analytics retention job and an outbound-click rate limit.
-7. Only then continue with advertising, per-post paywall, additional social OAuth, and ecosystem work.
+6. Start Phase 7 Federated Commerce: ActivityPub product representation, cross-node order requests, payment on the seller node, and order status sent back to the buyer node.
+7. Add an analytics retention job and an outbound-click rate limit.
+8. Only then continue with advertising, per-post paywall, additional social OAuth, and ecosystem work.
 
 ## 7. Risks and operational decisions
 

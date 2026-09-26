@@ -28,13 +28,14 @@ flowchart LR
     P3 --> P4["Phase 4<br/>Hardening MVP"]
     P4 --> P5["Phase 5<br/>Toko online & payment"]
     P5 --> P6["Phase 6<br/>Federasi"]
-    P6 --> P7["Phase 7+<br/>Ekosistem, AI, scale"]
+    P6 --> P7["Phase 7<br/>Federated commerce"]
+    P7 --> P8["Phase 8+<br/>Ekosistem, AI, scale"]
 
     classDef done fill:#e3efe9,stroke:#185f48,color:#17211b;
     classDef partial fill:#f2e8d6,stroke:#93631e,color:#17211b;
     classDef planned fill:#f1e3e1,stroke:#a13d37,color:#17211b;
     class P0,P1,P2,P3 done;
-    class P4,P5,P6,P7 partial;
+    class P4,P5,P6,P7,P8 partial;
 ```
 
 | Workstream | Status | Ringkasan |
@@ -209,7 +210,8 @@ flowchart LR
     B --> C["3. Audit sensitif<br/>+ RBAC"]
     C --> D["4. Security &<br/>node settings"]
     D --> E["5. Federation<br/>interop formal"]
-    E --> F["6. Ads, paywall post,<br/>OAuth sosial"]
+    E --> G["6. Federated<br/>commerce"]
+    G --> F["7. Ads, paywall post,<br/>OAuth sosial"]
 ```
 
 1. Perbaiki fixture `PostEndpointsTest` (kolom `slug`) dan buat test berbasis RSA tidak bergantung pada konfigurasi OpenSSL lokal.
@@ -217,8 +219,9 @@ flowchart LR
 3. Masukkan perubahan credential, aktivasi gateway, konfirmasi manual, grant wallet, dan trust remote node ke audit trail; tambahkan RBAC middleware.
 4. Implementasikan 2FA/session management, language settings, dan halaman Analytics.
 5. Dokumentasikan uji interop federasi dua domain dan tambahkan nonce cache.
-6. Tambahkan retention job analytics dan rate limit outbound-click.
-7. Baru lanjutkan advertising, paywall per post, OAuth sosial tambahan, dan ecosystem work.
+6. Mulai Fase 7 Federated Commerce: representasi produk ActivityPub, order request lintas node, pembayaran di node penjual, dan status order balik ke node pembeli.
+7. Tambahkan retention job analytics dan rate limit outbound-click.
+8. Baru lanjutkan advertising, paywall per post, OAuth sosial tambahan, dan ecosystem work.
 
 ## 7. Risiko dan keputusan operasional
 

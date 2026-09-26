@@ -280,7 +280,34 @@ Exit criteria:
 - graph bersiklus seperti A→B→D→E→A tidak menyebabkan record berulang atau traversal tanpa batas;
 - ownership lokal, eksternal, dan federasi tetap dapat dibedakan.
 
-### Fase 7 — Ekosistem dan scale
+### Fase 7 — Federated Commerce
+
+**Tujuan:** memungkinkan pengunjung dari node FPDP lain maupun fediverse memesan dan membayar produk dari toko online pribadi owner, tanpa mengubah model satu penjual per node. Ini adalah keunggulan utama platform.
+
+Bergantung pada Fase 5 (toko online dan payment) dan Fase 6 (federasi). Estimasi: 4–6 minggu.
+
+Task secara berurutan:
+
+1. Definisikan representasi produk di ActivityPub (object type, harga, currency, ketersediaan, link checkout) dan cara tampilnya di klien fediverse umum.
+2. Stabilkan distribusi produk ke fediverse: Create/Update/Delete produk, termasuk perubahan harga dan stok habis.
+3. Rancang activity order request lintas node; node penjual selalu menjadi sumber kebenaran untuk harga, stok, dan status order.
+4. Proses pembayaran selalu di node penjual melalui gateway aktif penjual; node pembeli hanya mengarahkan ke checkout/konfirmasi penjual.
+5. Kirim perubahan status order (diterima, dibayar, dikirim, dibatalkan, refund) kembali ke node pembeli sebagai activity bertanda tangan.
+6. Tampilkan order lintas node di dashboard penjual dan riwayat pembelian di node pembeli.
+7. Sediakan fallback untuk pengguna fediverse non-FPDP (mis. Mastodon): link checkout web di node penjual.
+8. Lindungi data pribadi pembeli: minimisasi data yang dikirim antarnode, persetujuan pembeli, serta retensi dan penghapusan (ISO/IEC 27001:2022 A.5.34).
+9. Tambahkan anti-abuse: rate limit order request per remote actor/node, verifikasi signature, dan blokir node.
+10. Jalankan test interoperability dua node untuk order, pembayaran, status, refund, duplikasi, dan replay.
+
+Exit criteria:
+
+- pembeli di node lain dapat memesan dan membayar sampai status `PAID` tercatat di node penjual dan node pembeli;
+- harga, stok, dan status order selalu mengikuti node penjual; nilai yang dimanipulasi node pembeli ditolak;
+- activity order duplikat atau replay tidak membuat order ganda;
+- pengguna fediverse non-FPDP dapat membeli melalui link checkout;
+- data pribadi pembeli yang dikirim antarnode minimal dan terdokumentasi.
+
+### Fase 8 — Ekosistem dan scale
 
 **Tujuan:** memperluas integrasi dan kapasitas operasional setelah semantic inti stabil.
 
@@ -288,16 +315,15 @@ Kandidat pekerjaan:
 
 - connector sosial OAuth;
 - registry adapter/plugin dan compatibility policy;
-- federated commerce (order lintas node) — keunggulan utama platform: produk yang tersebar ke fediverse dapat dipesan dan dibayar dari node lain;
 - search lanjutan, media processing, dan caching;
 - operational tooling multi-node;
 - accessibility, localization, import/export, dan data portability.
 
-### Fase 8 — Interaksi AI dan Monetisasi
+### Fase 9 — Interaksi AI dan Monetisasi
 
 **Tujuan:** memungkinkan owner memonetisasi node-nya secara langsung lewat AI chat yang dikonfigurasi owner, konten berbayar, dan inventory iklan, digerbang oleh identity visitor yang wajib.
 
-Bergantung pada Fase 1 (identity) dan Fase 5 (payment); independen dari Fase 6 (federasi) dan Fase 7. Lihat [`AI-MONETIZATION-STRATEGY.id.md`](AI-MONETIZATION-STRATEGY.id.md) untuk desain lengkap, data model, dan rasionalnya — entri ini hanya mengurutkan pekerjaannya.
+Bergantung pada Fase 1 (identity) dan Fase 5 (payment); independen dari Fase 6 (federasi), Fase 7 (federated commerce), dan Fase 8. Lihat [`AI-MONETIZATION-STRATEGY.id.md`](AI-MONETIZATION-STRATEGY.id.md) untuk desain lengkap, data model, dan rasionalnya — entri ini hanya mengurutkan pekerjaannya.
 
 Task secara berurutan (tiap langkah bernomor di bawah cocok dengan Bagian 12 dokumen strategi):
 
@@ -349,6 +375,7 @@ Configuration
           │   └─ Operasi admin
           └─ Produk + order
               └─ Payment + webhook
+                  └─ Federated commerce (juga butuh Federasi)
 ```
 
 Operasional, security test, observability, dan dokumentasi berjalan pada setiap cabang dan tidak hanya dikerjakan pada akhir proyek.

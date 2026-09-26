@@ -105,11 +105,11 @@
 - Admin settings page
 - Integration queue
 - Webhook handling
+- Federated commerce end-to-end (order lintas node) — keunggulan utama
 
 ### Prioritas 3 (Nice to Have)
 - OAuth connectors
 - Fitur lanjutan toko online pribadi
-- Federated commerce end-to-end (order lintas node) — keunggulan utama
 - Plugin marketplace
 
 ## 4. Estimasi Sumber Daya

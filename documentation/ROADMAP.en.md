@@ -280,7 +280,34 @@ Exit criteria:
 - cyclic graphs such as A→B→D→E→A do not cause repeated records or unbounded traversal;
 - local, external, and federated ownership remain distinguishable.
 
-### Phase 7 — Ecosystem and scale
+### Phase 7 — Federated commerce
+
+**Objective:** let visitors on other FPDP nodes and the wider fediverse order and pay for products from the owner's personal online shop, without changing the one-seller-per-node model. This is the platform's key differentiator.
+
+Depends on Phase 5 (online shop and payments) and Phase 6 (federation). Estimate: 4–6 weeks.
+
+Tasks, in order:
+
+1. Define how products are represented in ActivityPub (object type, price, currency, availability, checkout link) and how they render in common fediverse clients.
+2. Stabilize product distribution to the fediverse: product Create/Update/Delete, including price changes and sold-out state.
+3. Design a cross-node order-request activity; the seller node is always the source of truth for price, stock, and order status.
+4. Always process payment on the seller node through the seller's active gateway; the buyer node only redirects to the seller's checkout/confirmation.
+5. Send order status changes (accepted, paid, shipped, cancelled, refunded) back to the buyer node as signed activities.
+6. Show cross-node orders in the seller dashboard and purchase history on the buyer node.
+7. Provide a fallback for non-FPDP fediverse users (e.g. Mastodon): a web checkout link on the seller node.
+8. Protect buyer personal data: minimize data sent between nodes, obtain buyer consent, and define retention and deletion (ISO/IEC 27001:2022 A.5.34).
+9. Add anti-abuse controls: per-remote-actor/node rate limits on order requests, signature verification, and node blocking.
+10. Run two-node interoperability tests for orders, payment, status, refunds, duplicates, and replay.
+
+Exit criteria:
+
+- a buyer on another node can order and pay until `PAID` is recorded on both the seller and buyer nodes;
+- price, stock, and order status always follow the seller node; values manipulated by the buyer node are rejected;
+- duplicate or replayed order activities never create duplicate orders;
+- non-FPDP fediverse users can buy through the checkout link;
+- buyer personal data sent between nodes is minimal and documented.
+
+### Phase 8 — Ecosystem and scale
 
 **Objective:** broaden integrations and operational capacity only after core semantics are stable.
 
@@ -288,16 +315,15 @@ Candidate work:
 
 - OAuth social connectors;
 - plugin/adapter registry and compatibility policy;
-- federated commerce (cross-node orders) — a key differentiator: products spread to the fediverse can be ordered and paid for from other nodes;
 - advanced search, media processing, and caching;
 - multi-node operational tooling;
 - accessibility, localization, import/export, and data portability improvements.
 
-### Phase 8 — AI interaction and monetization
+### Phase 9 — AI interaction and monetization
 
 **Objective:** let an owner monetize their node directly through owner-configured AI chat, paid content, and ad inventory, gated behind mandatory visitor identity.
 
-Depends on Phase 1 (identity) and Phase 5 (payments); independent of Phase 6 (federation) and Phase 7. See [`AI-MONETIZATION-STRATEGY.en.md`](AI-MONETIZATION-STRATEGY.en.md) for the full design, data model, and rationale — this entry only sequences the work.
+Depends on Phase 1 (identity) and Phase 5 (payments); independent of Phase 6 (federation), Phase 7 (federated commerce), and Phase 8. See [`AI-MONETIZATION-STRATEGY.en.md`](AI-MONETIZATION-STRATEGY.en.md) for the full design, data model, and rationale — this entry only sequences the work.
 
 Tasks, in order (each numbered step below matches the strategy document's Section 12):
 
@@ -349,6 +375,7 @@ Configuration
           │   └─ Admin operations
           └─ Products + orders
               └─ Payments + webhooks
+                  └─ Federated commerce (also needs Federation)
 ```
 
 Operations, security tests, observability, and documentation run across every branch rather than appearing only at the end.

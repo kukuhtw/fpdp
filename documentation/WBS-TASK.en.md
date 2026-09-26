@@ -117,12 +117,12 @@
 - Administration settings
 - Integration queue
 - Webhook processing
+- End-to-end federated commerce (cross-node orders) — key differentiator
 
 ### Nice to have
 
 - OAuth connectors
 - Advanced personal-shop features
-- End-to-end federated commerce (cross-node orders) — key differentiator
 - Plugin marketplace
 
 ## 4. Suggested team
