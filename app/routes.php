@@ -26,6 +26,7 @@ use App\Controllers\VisitorAuthController;
 use App\Controllers\WallCommentController;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\Http\HttpClient;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Core\Router;
@@ -38,6 +39,7 @@ use App\Repositories\ChatSessionRepository;
 use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
 use App\Repositories\LlmConfigRepository;
+use App\Repositories\FollowRepository;
 use App\Repositories\NodeKeyRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
@@ -69,6 +71,8 @@ use App\Services\Chatbot\ChatbotService;
 use App\Services\Chatbot\VisitorWalletService;
 use App\Services\Dashboard\DashboardService;
 use App\Services\Federation\FederationService;
+use App\Services\Federation\FediverseDiscoveryService;
+use App\Services\Federation\NodeDiscoveryService;
 use App\Services\Federation\NodeKeyService;
 use App\Services\Theme\ThemeService;
 use App\Services\Cv\CvAccessService;
@@ -323,8 +327,29 @@ $buildFederationService = static function (): FederationService {
     );
 };
 
-$buildFederationController = static function () use ($buildAuthService, $buildFederationService, $buildAuditService): FederationController {
-    return new FederationController($buildAuthService(), $buildFederationService(), $buildAuditService());
+$buildFediverseDiscoveryService = static function () use ($buildRateLimiter): FediverseDiscoveryService {
+    $connection = Database::connection();
+    $actors = new RemoteActorRepository($connection);
+    $http = new HttpClient();
+
+    return new FediverseDiscoveryService(
+        new NodeDiscoveryService(
+            new RemoteNodeRepository($connection),
+            $actors,
+            $http,
+            new NodeKeyService(new NodeKeyRepository($connection)),
+            new NodeRepository($connection),
+            new ProfileRepository($connection),
+        ),
+        new FollowRepository($connection),
+        $actors,
+        $http,
+        $buildRateLimiter(),
+    );
+};
+
+$buildFederationController = static function () use ($buildAuthService, $buildFederationService, $buildAuditService, $buildFediverseDiscoveryService): FederationController {
+    return new FederationController($buildAuthService(), $buildFederationService(), $buildAuditService(), $buildFediverseDiscoveryService());
 };
 
 $buildPostController = static function () use ($buildAuthService, $buildAnalyticsService, $buildFederationService, $buildAuditService): PostController {
@@ -829,6 +854,22 @@ $router->patch('/api/v1/me/federation/remote-nodes/{domain}/trust', function (Re
 
 $router->post('/api/v1/me/federation/discover', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->discoverRemoteNode($request, $params);
+});
+
+$router->get('/api/v1/me/federation/discover/lookup', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->discoverLookup($request);
+});
+
+$router->get('/api/v1/me/federation/discover/suggestions', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->discoverSuggestions($request);
+});
+
+$router->get('/api/v1/me/federation/discover/directory', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->discoverDirectory($request);
+});
+
+$router->get('/api/v1/me/federation/discover/hashtag', function (Request $request, array $params) use ($buildFederationController): Response {
+    return $buildFederationController()->discoverHashtag($request);
 });
 
 $router->get('/api/v1/federation/capability', function (Request $request, array $params) use ($buildFederationController): Response {
