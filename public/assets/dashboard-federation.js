@@ -15,9 +15,6 @@
   const requestsList = document.querySelector('#follow-requests-list');
   const connectionsList = document.querySelector('#connections-list');
 
-  const sendFollowForm = document.querySelector('#send-follow-form');
-  const sendFollowStatus = document.querySelector('#send-follow-status');
-
   const token = () => sessionStorage.getItem(tokenKey);
   const api = async (path, options = {}) => {
     const headers = { ...(options.headers || {}) };
@@ -272,27 +269,10 @@
     }
   };
 
-  // ---- Send follow ----
-
-  sendFollowForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    sendFollowStatus.classList.remove('error', 'success');
-    sendFollowStatus.textContent = 'Mengirim permintaan follow…';
-    try {
-      const result = await api('/api/v1/federation/send-follow', {
-        method: 'POST',
-        body: JSON.stringify({
-          account: sendFollowForm.elements.account.value,
-        }),
-      });
-      sendFollowStatus.classList.add('success');
-      sendFollowStatus.textContent = `Permintaan follow terkirim, status: ${result.data.status}.`;
-      sendFollowForm.reset();
-      loadSummary();
-    } catch (error) {
-      sendFollowStatus.classList.add('error');
-      sendFollowStatus.textContent = error.message;
-    }
+  // Following happens from the discovery panel (dashboard-federation-discovery.js).
+  document.addEventListener('fpdp:federation-changed', () => {
+    loadSummary();
+    loadConnections();
   });
 
   // ---- Auth ----

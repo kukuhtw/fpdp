@@ -36,14 +36,51 @@
       <div id="follow-requests-list" class="stack"><p class="muted">Memuat permintaan follow…</p></div>
     </section>
 
-    <section class="panel">
-      <h2>Ikuti profil lain</h2>
-      <p class="muted">Masukkan alamat Fediverse (mis. <code>@handle@mastodon.social</code>, atau node FPDP lain) atau tempel URL profilnya. Sistem akan mencari (WebFinger) dan memverifikasi profil tersebut secara otomatis. Status permintaan akan &ldquo;Pending&rdquo; sampai mereka approve.</p>
-      <form id="send-follow-form" class="stack">
-        <label>Akun atau URL profil<input name="account" type="text" placeholder="@handle@mastodon.social atau https://contoh.domain/@handle" required></label>
-        <button type="submit">Kirim permintaan follow</button>
-      </form>
-      <p id="send-follow-status" class="status" role="status" aria-live="polite"></p>
+    <section class="panel" id="discover-panel">
+      <h2>Temukan &amp; ikuti akun fediverse</h2>
+      <p class="muted">Fediverse tidak punya mesin pencari pusat. Cari akun lewat alamatnya, lihat saran dari koneksi Anda sendiri, atau jelajahi direktori dan hashtag sebuah server. Permintaan follow berstatus &ldquo;Pending&rdquo; sampai pemilik akun menyetujuinya.</p>
+      <div class="tab-bar" role="tablist" aria-label="Cara menemukan akun">
+        <button type="button" class="tab active" role="tab" data-tab="search" aria-selected="true">Cari akun</button>
+        <button type="button" class="tab" role="tab" data-tab="suggestions" aria-selected="false">Saran</button>
+        <button type="button" class="tab" role="tab" data-tab="directory" aria-selected="false">Direktori server</button>
+        <button type="button" class="tab" role="tab" data-tab="hashtag" aria-selected="false">Hashtag</button>
+      </div>
+
+      <div data-panel="search" class="stack">
+        <form id="discover-search-form" class="stack">
+          <label>Alamat atau URL profil<input name="q" type="text" placeholder="@handle@mastodon.social atau https://contoh.domain/@handle" required></label>
+          <button type="submit">Cari &amp; pratinjau</button>
+        </form>
+        <p class="muted">Alamat node FPDP lain juga bisa, misalnya <code>@owner@domain-mereka.com</code>.</p>
+      </div>
+
+      <div data-panel="suggestions" class="stack hidden">
+        <p class="muted">Dari data node Anda sendiri, tanpa menghubungi server lain: follower yang belum Anda follow balik, dan akun yang pernah mengirim post ke node Anda tetapi sekarang tidak Anda ikuti.</p>
+        <button type="button" id="discover-suggestions-refresh" class="secondary">Muat ulang saran</button>
+      </div>
+
+      <div data-panel="directory" class="stack hidden">
+        <form id="discover-directory-form" class="stack">
+          <label>Domain server<input name="domain" type="text" value="mastodon.social" placeholder="mastodon.social" required></label>
+          <button type="submit">Tampilkan direktori</button>
+        </form>
+        <p class="muted">Menampilkan profil yang memilih tampil di direktori publik server tersebut. Hanya server berbasis Mastodon yang membuka direktorinya.</p>
+      </div>
+
+      <div data-panel="hashtag" class="stack hidden">
+        <form id="discover-hashtag-form" class="stack">
+          <div class="field-row">
+            <label>Hashtag<input name="tag" type="text" placeholder="#indonesia" required></label>
+            <label>Server<input name="domain" type="text" value="mastodon.social" placeholder="mastodon.social" required></label>
+          </div>
+          <button type="submit">Cari penulis</button>
+        </form>
+        <p class="muted">Menampilkan penulis post publik terbaru bertagar tersebut, sebagaimana terlihat dari server yang dipilih. Hanya server berbasis Mastodon yang membuka timeline hashtag publik.</p>
+      </div>
+
+      <p id="discover-status" class="status" role="status" aria-live="polite"></p>
+      <div id="discover-results" class="stack"></div>
+      <button type="button" id="discover-more" class="secondary hidden">Muat lebih banyak</button>
     </section>
 
     <section class="panel">
@@ -53,4 +90,5 @@
   </section>
 </main>
 <script src="/assets/dashboard-federation.js" defer></script>
+<script src="/assets/dashboard-federation-discovery.js" defer></script>
 </body></html>
