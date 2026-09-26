@@ -212,11 +212,13 @@ $connection->exec('
         currency TEXT NOT NULL DEFAULT "IDR",
         amount REAL NOT NULL DEFAULT 0,
         fee REAL NOT NULL DEFAULT 0,
+        refunded_amount REAL NOT NULL DEFAULT 0,
         status TEXT NOT NULL DEFAULT "PENDING",
         payment_url TEXT,
         metadata TEXT,
         expired_at TIMESTAMP,
         paid_at TIMESTAMP,
+        refunded_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )

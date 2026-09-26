@@ -283,9 +283,10 @@ final class PaymentService
      * PENDING (older than $minAgeMinutes, so a checkout in progress is left
      * alone) and applies any terminal status the provider reports — the
      * safety net for a webhook that never arrived. Also re-checks payments
-     * closed locally (CANCELLED/FAILED) in the last $mismatchDays days and
-     * reports, without changing, any the provider says were actually PAID:
-     * money was taken, so the owner must decide whether to fulfill or refund.
+     * closed locally (CANCELLED/FAILED) in the last $mismatchDays days: one
+     * the provider says was actually PAID means money was taken, so it is
+     * moved to PAID (returned in `updated`, so it gets fulfilled) and also
+     * listed in `mismatches` for the owner to refund if the sale is unwanted.
      *
      * DUMMY and MANUAL_TRANSFER always report PENDING and are skipped; a
      * gateway whose status call fails is listed under `errors`.
@@ -323,6 +324,16 @@ final class PaymentService
         foreach ($repository->findRecentlyClosedUnpaid($mismatchDays, $limit) as $payment) {
             $providerStatus = $this->fetchProviderStatus($payment, $report);
             if ($providerStatus === 'PAID') {
+                $repository->markStatus((int) $payment['id'], 'PAID');
+                $repository->recordTransactionEvent(
+                    (int) $payment['id'],
+                    (string) $payment['gateway_code'],
+                    null,
+                    'RECONCILIATION_MISMATCH',
+                    'PAID',
+                    (string) json_encode(['previous_status' => $payment['status']]),
+                );
+                $report['updated'][] = $repository->findByUuid((string) $payment['uuid']) ?? $payment;
                 $report['mismatches'][] = [
                     'uuid' => $payment['uuid'],
                     'order_id' => $payment['order_id'],

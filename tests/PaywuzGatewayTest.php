@@ -105,16 +105,51 @@ paywuz_assert($gateway->handleWebhook([], $cancelledBody)['status'] === 'CANCELL
 $unknownBody = json_encode(['event' => 'something.else', 'data' => ['orderId' => 'ORD-TEST-1']]);
 paywuz_assert($gateway->handleWebhook([], $unknownBody)['status'] === 'UNKNOWN', 'An unrecognized event should normalize to UNKNOWN, not throw');
 
-// ---- Test 6: undocumented operations fail loudly instead of guessing an endpoint ----
-foreach (['getPaymentStatus', 'cancelPayment', 'refundPayment'] as $method) {
-    $threw = false;
-    try {
-        $method === 'refundPayment' ? $gateway->refundPayment('TRX-1', 100.0) : $gateway->{$method}('TRX-1');
-    } catch (RuntimeException) {
-        $threw = true;
-    }
-    paywuz_assert($threw, "{$method}() should throw rather than guess an undocumented Paywuz endpoint");
+$settlementBody = json_encode(['event' => 'transaction.settlement', 'data' => ['orderId' => 'ORD-TEST-1', 'status' => 'settlement']]);
+paywuz_assert($gateway->handleWebhook([], $settlementBody)['status'] === 'PENDING', 'transaction.settlement (funds not yet with the merchant) should stay PENDING');
+
+// ---- Test 6: status and cancel hit the documented orderId-keyed endpoints ----
+$statusRequests = [];
+$statusHttp = function (string $method, string $url, array $headers, ?string $body) use (&$statusRequests): array {
+    $statusRequests[] = ['method' => $method, 'url' => $url, 'headers' => $headers];
+    $status = str_ends_with($url, '/cancel') ? 'cancelled' : 'success';
+
+    return ['status' => 200, 'body' => json_encode(['data' => ['orderId' => 'ORD-TEST-1', 'amount' => 50000, 'status' => $status]])];
+};
+$statusGateway = new PaywuzGateway(['http_requester' => $statusHttp]);
+
+$statusResult = $statusGateway->getPaymentStatus('ORD-TEST-1');
+paywuz_assert($statusRequests[0]['method'] === 'GET' && $statusRequests[0]['url'] === 'https://api.paywuz.id/v1/transactions/ORD-TEST-1', 'getPaymentStatus should GET /transactions/{orderId}');
+paywuz_assert($statusRequests[0]['headers']['Authorization'] === 'Bearer test-secret-key', 'getPaymentStatus should authenticate with the API key');
+paywuz_assert($statusResult['status'] === 'PAID' && $statusResult['amount'] === 50000.0, 'Paywuz status "success" should map to PAID with the amount');
+
+$cancelResult = $statusGateway->cancelPayment('ORD-TEST-1');
+paywuz_assert($statusRequests[1]['method'] === 'POST' && $statusRequests[1]['url'] === 'https://api.paywuz.id/v1/transactions/ORD-TEST-1/cancel', 'cancelPayment should POST /transactions/{orderId}/cancel');
+paywuz_assert($cancelResult['status'] === 'CANCELLED', 'A cancelled response should map to CANCELLED');
+
+$notPendingHttp = fn (string $m, string $u, array $h, ?string $b): array => ['status' => 400, 'body' => json_encode(['error' => 'invalid_request', 'message' => 'Transaction is not pending'])];
+$cancelRejected = false;
+try {
+    (new PaywuzGateway(['http_requester' => $notPendingHttp]))->cancelPayment('ORD-TEST-1');
+} catch (RuntimeException $e) {
+    $cancelRejected = str_contains($e->getMessage(), 'Transaction is not pending');
 }
+paywuz_assert($cancelRejected, 'Cancelling a non-pending transaction should raise the Paywuz error message');
+
+// ---- Test 7: Paywuz has no refund API, so refunds fail loudly without any HTTP call ----
+$refundCalls = 0;
+$countingHttp = function () use (&$refundCalls): array {
+    $refundCalls++;
+
+    return ['status' => 200, 'body' => '{}'];
+};
+$refundThrew = false;
+try {
+    (new PaywuzGateway(['http_requester' => $countingHttp]))->refundPayment('ORD-TEST-1', 100.0);
+} catch (RuntimeException) {
+    $refundThrew = true;
+}
+paywuz_assert($refundThrew && $refundCalls === 0, 'refundPayment() should throw without calling Paywuz');
 
 unlink($envPath);
 fwrite(STDOUT, "Paywuz gateway test passed\n");

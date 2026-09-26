@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Exceptions\ValidationException;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
@@ -11,17 +12,21 @@ use App\Services\Auth\AuthService;
 use App\Services\Chatbot\VisitorWalletService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Marketplace\MarketplaceService;
+use App\Services\Payment\PaymentFulfillmentService;
 use App\Services\Payment\PaymentService;
 
 final class PaymentController
 {
+    private readonly PaymentFulfillmentService $fulfillment;
+
     public function __construct(
         private readonly AuthService $auth,
         private readonly PaymentService $payments,
-        private readonly CvAccessService $cvAccess,
-        private readonly ?MarketplaceService $marketplace = null,
-        private readonly ?VisitorWalletService $wallet = null,
+        CvAccessService $cvAccess,
+        ?MarketplaceService $marketplace = null,
+        ?VisitorWalletService $wallet = null,
     ) {
+        $this->fulfillment = new PaymentFulfillmentService($cvAccess, $marketplace, $wallet);
     }
 
     /**
@@ -67,10 +72,102 @@ final class PaymentController
         $result = $this->payments->confirmPaymentManually((string) ($params['uuid'] ?? ''));
 
         if ($result['status_changed'] && $this->isConfirmedPaid($result['payment'])) {
-            $this->fulfill($result['payment']);
+            $this->fulfillment->fulfill($result['payment']);
         }
 
         return JsonEnvelope::success($result['payment']);
+    }
+
+    /**
+     * POST /api/v1/me/payments/{uuid}/cancel
+     *
+     * Owner-only: cancels a PENDING payment (at the gateway when it has a
+     * cancel API, locally otherwise) and closes its order.
+     *
+     * @param array<string, string> $params
+     */
+    public function cancelPayment(Request $request, array $params): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        $result = $this->payments->cancelPaymentByOwner((string) ($params['uuid'] ?? ''));
+        if ($result['status_changed']) {
+            $this->fulfillment->cancel($result['payment']);
+        }
+
+        return JsonEnvelope::success([
+            'payment' => $result['payment'],
+            'provider_cancelled' => $result['provider_cancelled'],
+            'provider_message' => $result['provider_message'],
+        ]);
+    }
+
+    /**
+     * POST /api/v1/me/payments/{uuid}/refund
+     *
+     * Owner-only: refunds a PAID payment in full (no `amount`) or in part.
+     * `"manual": true` records a refund the owner already made outside the
+     * gateway. A full refund also undoes what the payment bought.
+     *
+     * @param array<string, string> $params
+     */
+    public function refundPayment(Request $request, array $params): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        $uuid = (string) ($params['uuid'] ?? '');
+        $input = $request->json() ?? [];
+        $amount = $input['amount'] ?? null;
+        if ($amount !== null && !is_int($amount) && !is_float($amount)) {
+            throw new ValidationException([['field' => 'amount', 'reason' => 'invalid_value']]);
+        }
+        $manual = ($input['manual'] ?? false) === true;
+
+        $payment = $this->payments->findPaymentOrFail($uuid);
+        $remaining = (float) $payment['amount'] - (float) ($payment['refunded_amount'] ?? 0);
+        if ($amount === null || abs($remaining - (float) $amount) < 0.005) {
+            $this->fulfillment->assertReversible($payment);
+        }
+
+        $result = $this->payments->refundPaymentByOwner($uuid, $amount === null ? null : (float) $amount, $manual);
+        $notes = $result['fully_refunded'] ? $this->fulfillment->reverse($result['payment']) : [];
+
+        return JsonEnvelope::success([
+            'payment' => $result['payment'],
+            'refunded_now' => $result['refunded_now'],
+            'fully_refunded' => $result['fully_refunded'],
+            'notes' => $notes,
+        ]);
+    }
+
+    /**
+     * POST /api/v1/me/payments/reconcile
+     *
+     * Owner-only: runs the same check as scripts/reconcile-payments.php on
+     * demand and fulfills any payment the provider reports as PAID.
+     */
+    public function reconcile(Request $request): Response
+    {
+        $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success($this->reconcileAndFulfill());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function reconcileAndFulfill(int $minAgeMinutes = 15, int $limit = 100): array
+    {
+        $report = $this->payments->reconcile($minAgeMinutes, $limit);
+        foreach ($report['updated'] as $payment) {
+            if ($this->isConfirmedPaid($payment)) {
+                $this->fulfillment->fulfill($payment);
+            } elseif ((string) ($payment['status'] ?? '') === 'CANCELLED') {
+                $this->fulfillment->cancel($payment);
+            }
+        }
+
+        return $report;
     }
 
     /**
@@ -139,8 +236,13 @@ final class PaymentController
         $gatewayCode = strtoupper((string) ($params['gateway'] ?? ''));
         $result = $this->payments->handleWebhook($gatewayCode, $request->headers, $request->body ?? '');
 
-        if (!$result['duplicate'] && $result['status_changed'] && $this->isConfirmedPaid($result['payment'])) {
-            $this->fulfill($result['payment']);
+        if (!$result['duplicate'] && $result['status_changed'] && $result['payment'] !== null) {
+            match ((string) ($result['payment']['status'] ?? '')) {
+                'PAID' => $this->fulfillment->fulfill($result['payment']),
+                'REFUNDED' => $this->fulfillment->reverse($result['payment']),
+                'CANCELLED' => $this->fulfillment->cancel($result['payment']),
+                default => null,
+            };
         }
 
         return JsonEnvelope::success(['received' => true, 'duplicate' => $result['duplicate']]);
@@ -152,42 +254,5 @@ final class PaymentController
     private function isConfirmedPaid(?array $payment): bool
     {
         return $payment !== null && (string) ($payment['status'] ?? '') === 'PAID';
-    }
-
-    /**
-     * Dispatches a confirmed payment to whichever feature it was created
-     * for, based on the `purpose` recorded in its metadata at creation time.
-     *
-     * @param array<string, mixed> $payment
-     */
-    private function fulfill(array $payment): void
-    {
-        $rawMetadata = $payment['metadata'] ?? null;
-        $metadata = is_string($rawMetadata) ? json_decode($rawMetadata, true) : null;
-        if (!is_array($metadata)) {
-            return;
-        }
-
-        if (($metadata['purpose'] ?? null) === 'cv_access') {
-            $documentId = (int) ($metadata['document_id'] ?? 0);
-            $visitorId = (int) ($metadata['visitor_id'] ?? 0);
-            if ($documentId > 0 && $visitorId > 0) {
-                $this->cvAccess->confirmPayment($documentId, $visitorId, (string) $payment['order_id']);
-            }
-        }
-
-        if (($metadata['purpose'] ?? null) === 'marketplace_order') {
-            $orderPublicId = (string) ($metadata['order_public_id'] ?? '');
-            if ($orderPublicId !== '') {
-                $this->marketplace?->confirmPayment($orderPublicId, (string) $payment['order_id']);
-            }
-        }
-
-        if (($metadata['purpose'] ?? null) === 'wallet_topup') {
-            $walletId = (int) ($metadata['wallet_id'] ?? 0);
-            if ($walletId > 0) {
-                $this->wallet?->confirmTopUp($walletId, (string) $payment['amount'], (string) $payment['order_id']);
-            }
-        }
     }
 }

@@ -674,6 +674,18 @@ $router->post('/api/v1/me/payments/{uuid}/confirm', function (Request $request, 
     return $buildPaymentController()->confirmPayment($request, $params);
 });
 
+$router->post('/api/v1/me/payments/{uuid}/cancel', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->cancelPayment($request, $params);
+});
+
+$router->post('/api/v1/me/payments/{uuid}/refund', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->refundPayment($request, $params);
+});
+
+$router->post('/api/v1/me/payments/reconcile', function (Request $request, array $params) use ($buildPaymentController): Response {
+    return $buildPaymentController()->reconcile($request);
+});
+
 $router->get('/api/v1/me/payment-gateways', function (Request $request, array $params) use ($buildPaymentController): Response {
     return $buildPaymentController()->listGateways($request);
 });
