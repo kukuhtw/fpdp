@@ -6,6 +6,7 @@ namespace App\Services\Auth;
 
 use App\Core\Config;
 use App\Core\Exceptions\ConflictException;
+use App\Core\Exceptions\ForbiddenException;
 use App\Core\Exceptions\UnauthorizedException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
@@ -13,6 +14,7 @@ use App\Repositories\AuthTokenRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\UserRepository;
+use App\Services\Security\AccessPolicy;
 use App\Services\Security\AuditService;
 use DateTimeImmutable;
 use PDOException;
@@ -141,7 +143,13 @@ final class AuthService
 
         $user = $this->users->findByEmail($email);
         if ($user === null || !password_verify($password, $user['password_hash'])) {
+            if ($user !== null) {
+                $this->audit?->record(['user' => $user, 'node' => ['id' => $user['node_id']]], 'user.login_failed', 'user', $user['public_id']);
+            }
             throw new UnauthorizedException('Invalid email or password.');
+        }
+        if (!self::isUsable($user)) {
+            throw new ForbiddenException('This account is not active.');
         }
 
         $result = [
@@ -181,12 +189,47 @@ final class AuthService
         if ($user === null) {
             throw new UnauthorizedException();
         }
+        // A suspended account, or one with a role AccessPolicy doesn't know,
+        // loses access immediately — even with a token issued before.
+        if (!self::isUsable($user)) {
+            throw new ForbiddenException('This account is not active.');
+        }
 
         return [
             'user' => $user,
             'node' => $this->nodes->findById((int) $user['node_id']),
             'profile' => $this->profiles->findByUserId((int) $user['id']),
         ];
+    }
+
+    /**
+     * authenticate() plus an AccessPolicy permission check, for endpoints
+     * that touch money, credentials, buyer data, or federation trust. A
+     * denial is written to the audit trail before the 403 is thrown.
+     *
+     * @return array<string, mixed>
+     */
+    public function authorize(?string $rawToken, string $permission): array
+    {
+        $context = $this->authenticate($rawToken);
+        if (!AccessPolicy::allows((string) ($context['user']['role'] ?? 'OWNER'), $permission)) {
+            $this->audit?->record($context, 'access.denied', 'user', (string) $context['user']['public_id'], [
+                'permission' => $permission,
+                'role' => $context['user']['role'] ?? 'OWNER',
+            ]);
+            throw new ForbiddenException();
+        }
+
+        return $context;
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     */
+    private static function isUsable(array $user): bool
+    {
+        return strtoupper((string) ($user['status'] ?? 'ACTIVE')) === 'ACTIVE'
+            && AccessPolicy::isKnownRole((string) ($user['role'] ?? 'OWNER'));
     }
 
     public function logout(string $rawToken): void
