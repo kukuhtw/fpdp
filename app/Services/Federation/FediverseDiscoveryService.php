@@ -319,7 +319,8 @@ final class FediverseDiscoveryService
         if (!is_string($html) || $html === '') {
             return '';
         }
-        $text = (string) preg_replace('#<br\s*/?>|</p>\s*<p[^>]*>#i', "\n", $html);
+        $text = (string) preg_replace('#<(script|style)\b[^>]*>.*?</\1\s*>#is', '', $html);
+        $text = (string) preg_replace('#<br\s*/?>|</p\s*>#i', "\n", $text);
         $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $text = trim((string) preg_replace(["/[ \t]+/", "/\n{3,}/"], [' ', "\n\n"], $text));
 

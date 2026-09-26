@@ -10,7 +10,7 @@ FPDP is past its core MVP. Since the September 21 report, visitor commerce flows
 Repository snapshot:
 
 - **59 MySQL migrations** (`0001`–`0059`);
-- **49 test scripts**, all passing (see Section 8);
+- **51 test scripts**, all passing (see Section 8);
 - REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, personal online shop (including visitor checkout and digital assets), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, themes, and media upload;
 - real UI: home, unified timeline (local + federated + promoted products), profile, post, shop, product page, public CV, "coretan" wall, YouTube page, payment thank-you page, and 12 owner dashboard pages;
 - 3 public themes: `default`, `editorial`, `minimal`;
@@ -61,7 +61,7 @@ flowchart LR
 - Config reads defaults, `.env`, and native container environment variables.
 - Passwords are hashed; bearer tokens are hashed and revocable.
 - Rate limiting for register/login, wall comments, LLM calls, and RAG.
-- The external HTTP client blocks private/internal targets and limits redirects, timeouts, and response size.
+- The external HTTP client blocks private/internal targets and limits redirects, timeouts, and response size. **Fixed September 26, 2026:** redirects used to be followed automatically by PHP without re-validation, so an outside server could bounce a request (including actor fetches triggered by the inbox without any login) to an internal or cloud-metadata address. Every redirect hop is now validated, IPv6 (AAAA) answers are checked too with a legitimate-DNS64 exception, all of 127/8, 0/8, CGNAT 100.64/10, `fc00::/7`, `fe80::/10`, and IPv4-mapped addresses are blocked, and the final URL is reported correctly.
 - Uncaught exceptions are now logged instead of only returning a generic 500.
 - `scripts/rotate-app-key.php` re-encrypts gateway credentials and OAuth tokens transactionally.
 - GitHub Actions runs syntax checks and the test suite.
@@ -138,7 +138,11 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 - Inbound and outbound Create/Update/Delete for federated posts, including image attachments; federated product delivery.
 - A federation worker service that actually delivers queued activities; retry, exponential backoff, dedup, timestamp window.
 - Every inbox activity and unresolved Accept/Reject is logged; actor resolution is retried before an inbound Follow is dropped.
-- Federation dashboard (`/dashboard/federation`) with a follow form accepting an account or profile URL.
+- Federation dashboard (`/dashboard/federation`) with a **Find & follow fediverse accounts** panel (September 26, 2026), four tabs:
+  - **Search**: `@user@domain` or a profile URL → a preview (avatar, bio, follower/following/post counts, 3 recent posts, relationship, blocked-domain warning) before following. Works with any ActivityPub server.
+  - **Suggestions**: followers not followed back and accounts whose posts reached this node, from local data with no outbound request.
+  - **Server directory** (Mastodon `GET /api/v1/directory`) and **Hashtag** (Mastodon `GET /api/v1/timelines/tag/{tag}`), only on Mastodon-compatible servers that expose them.
+  - Remote content is reduced to plain text server-side and rendered with `textContent`; only http(s) URLs pass through; limited to 30 requests/minute per node. Endpoints: `GET /api/v1/me/federation/discover/{lookup,suggestions,directory,hashtag}`.
 
 ### 3.9 Analytics and dashboard
 
@@ -246,7 +250,7 @@ flowchart LR
 
 Run on September 26, 2026 in the development workspace (PHP 8.5.8 CLI, Windows), using the same loop as CI (`php tests/*Test.php`):
 
-- **49 of 49 tests pass**, with no `OPENSSL_CONF` needed. The new `OwnerAccessAuditTest` checks owner-only access (suspended accounts and other roles are refused even with a valid token), auditing of failed logins, gateway and LLM configuration, confirmation, refund, and cancellation, that secrets and buyer personal data never reach the audit trail, and that login still works when the audit table is broken. The new `PaymentRefundCancelReconcileTest` covers cancellation, full/partial/manual refunds, refunding an already-spent top-up, a Midtrans refund webhook after settlement, reconciliation (provider status, minimum age, gateways without a status API, errors, mismatches), and the dashboard summary. `PaywuzGatewayTest` used to silently send real requests to `api.paywuz.id`; it now uses a fake requester.
+- **51 of 51 tests pass**, with no `OPENSSL_CONF` needed. New `HttpClientSsrfTest` (non-public addresses, redirect to cloud metadata, legitimate cross-host redirects, redirect loops, 303) and `FediverseDiscoveryTest` (preview, HTML/`javascript:` sanitized, cross-host outbox paging not fetched, suggestions, directory, hashtag, input validation). Directory and hashtag were also tried live against `mastodon.social`. The new `OwnerAccessAuditTest` checks owner-only access (suspended accounts and other roles are refused even with a valid token), auditing of failed logins, gateway and LLM configuration, confirmation, refund, and cancellation, that secrets and buyer personal data never reach the audit trail, and that login still works when the audit table is broken. The new `PaymentRefundCancelReconcileTest` covers cancellation, full/partial/manual refunds, refunding an already-spent top-up, a Midtrans refund webhook after settlement, reconciliation (provider status, minimum age, gateways without a status API, errors, mismatches), and the dashboard summary. `PaywuzGatewayTest` used to silently send real requests to `api.paywuz.id`; it now uses a fake requester.
 - Fixed in this round:
   - `PostEndpointsTest`: the SQLite fixture now has the `posts.slug` column, and the canonical URL assertion follows the `/posts/{id}-{slug}` format introduced in commit `24ab57b`.
   - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: previously failed because Windows/XAMPP PHP could not find `openssl.cnf`, so `openssl_pkey_new()` failed (`error:80000003`). The same issue would also break node federation key generation on Windows deployments. `NodeKeyService::createRsaKeyPair()` now tries OpenSSL's default config first, then falls back to `app/Services/Federation/openssl-fallback.cnf`; all three tests use the same helper.

@@ -10,7 +10,7 @@ FPDP sudah melewati tahap MVP inti. Sejak laporan 21 September, flow komersial v
 Ringkasan repository saat laporan ini dibuat:
 
 - **59 migration MySQL** (`0001`–`0059`);
-- **49 test script**, semuanya lulus (lihat Bagian 8);
+- **51 test script**, semuanya lulus (lihat Bagian 8);
 - REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, toko online pribadi (termasuk checkout visitor dan aset digital), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, theme, dan upload media;
 - UI nyata: home, timeline terpadu (lokal + federasi + produk promosi), profil, post, shop, halaman produk, CV publik, wall "coretan", halaman YouTube, halaman terima kasih pembayaran, serta 12 halaman dashboard owner;
 - 3 theme publik: `default`, `editorial`, `minimal`;
@@ -61,7 +61,7 @@ flowchart LR
 - Config membaca default, `.env`, dan environment variable container.
 - Password di-hash; bearer token di-hash dan dapat dicabut.
 - Rate limiting untuk register/login, wall comment, panggilan LLM, dan RAG.
-- HTTP client eksternal memblokir target private/internal, membatasi redirect, timeout, dan ukuran response.
+- HTTP client eksternal memblokir target private/internal, membatasi redirect, timeout, dan ukuran response. **Diperbaiki 26 September 2026:** redirect sebelumnya diikuti otomatis oleh PHP tanpa validasi ulang, sehingga server luar bisa membelokkan request (termasuk fetch actor yang dipicu inbox tanpa login) ke alamat internal atau metadata cloud. Kini setiap hop redirect divalidasi, alamat IPv6 (AAAA) ikut diperiksa dengan pengecualian DNS64 yang sah, seluruh rentang 127/8, 0/8, CGNAT 100.64/10, `fc00::/7`, `fe80::/10`, dan IPv4-mapped diblokir, serta URL akhir dilaporkan dengan benar.
 - Exception yang tidak tertangani kini di-log, bukan hanya dikembalikan sebagai 500 generik.
 - `scripts/rotate-app-key.php` melakukan re-encryption credential gateway dan token OAuth secara transaksional.
 - GitHub Actions menjalankan syntax check dan test suite.
@@ -138,7 +138,11 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 - Post federasi Create/Update/Delete masuk dan keluar, termasuk lampiran gambar; delivery produk federasi.
 - Federation worker service yang benar-benar mengirim antrean aktivitas; retry, exponential backoff, dedup, timestamp window.
 - Logging setiap aktivitas inbox dan Accept/Reject yang tidak ter-resolve; retry resolusi actor sebelum Follow dibuang.
-- Dashboard federation (`/dashboard/federation`) dengan form follow yang menerima akun atau URL profil.
+- Dashboard federation (`/dashboard/federation`) dengan panel **Temukan & ikuti akun fediverse** (26 September 2026), empat tab:
+  - **Cari akun**: `@user@domain` atau URL profil → pratinjau (avatar, bio, jumlah followers/following/post, 3 post terbaru, status hubungan, peringatan domain diblokir) sebelum follow. Bekerja untuk semua server ActivityPub.
+  - **Saran**: follower yang belum di-follow balik dan akun yang pernah mengirim post ke node ini, dari data lokal tanpa request keluar.
+  - **Direktori server** (Mastodon `GET /api/v1/directory`) dan **Hashtag** (Mastodon `GET /api/v1/timelines/tag/{tag}`), hanya untuk server kompatibel Mastodon yang membukanya.
+  - Konten dari server lain dijadikan teks polos di server dan dirender dengan `textContent`; hanya URL http(s) yang diteruskan; dibatasi 30 permintaan/menit per node. Endpoint: `GET /api/v1/me/federation/discover/{lookup,suggestions,directory,hashtag}`.
 
 ### 3.9 Analytics dan dashboard
 
@@ -246,7 +250,7 @@ flowchart LR
 
 Dijalankan 26 September 2026 di workspace pengembangan (PHP 8.5.8 CLI, Windows), dengan loop yang sama seperti CI (`php tests/*Test.php`):
 
-- **49 dari 49 test lulus**, tanpa perlu mengatur `OPENSSL_CONF`. Test baru `OwnerAccessAuditTest` memeriksa akses owner-only (akun suspended dan role lain ditolak walau tokennya valid), audit untuk login gagal, konfigurasi gateway dan LLM, konfirmasi, refund, dan pembatalan, bahwa secret dan data pribadi pembeli tidak masuk ke audit, serta bahwa login tetap jalan saat tabel audit rusak. Test baru `PaymentRefundCancelReconcileTest` mencakup pembatalan, refund penuh/sebagian/manual, refund top-up yang sudah terpakai, webhook refund Midtrans setelah settlement, rekonsiliasi (status provider, batas umur, gateway tanpa API status, error, mismatch), dan ringkasan dashboard. `PaywuzGatewayTest` sebelumnya diam-diam mengirim request sungguhan ke `api.paywuz.id`; kini memakai fake requester.
+- **51 dari 51 test lulus**, tanpa perlu mengatur `OPENSSL_CONF`. Test baru `HttpClientSsrfTest` (alamat non-publik, redirect ke metadata cloud, redirect sah lintas host, loop redirect, 303) dan `FediverseDiscoveryTest` (pratinjau, HTML/`javascript:` dibersihkan, outbox lintas host tidak di-fetch, saran, direktori, hashtag, validasi input). Direktori dan hashtag juga dicoba live terhadap `mastodon.social`. Test baru `OwnerAccessAuditTest` memeriksa akses owner-only (akun suspended dan role lain ditolak walau tokennya valid), audit untuk login gagal, konfigurasi gateway dan LLM, konfirmasi, refund, dan pembatalan, bahwa secret dan data pribadi pembeli tidak masuk ke audit, serta bahwa login tetap jalan saat tabel audit rusak. Test baru `PaymentRefundCancelReconcileTest` mencakup pembatalan, refund penuh/sebagian/manual, refund top-up yang sudah terpakai, webhook refund Midtrans setelah settlement, rekonsiliasi (status provider, batas umur, gateway tanpa API status, error, mismatch), dan ringkasan dashboard. `PaywuzGatewayTest` sebelumnya diam-diam mengirim request sungguhan ke `api.paywuz.id`; kini memakai fake requester.
 - Diperbaiki pada putaran ini:
   - `PostEndpointsTest`: fixture SQLite kini memiliki kolom `posts.slug`, dan assertion canonical URL mengikuti format `/posts/{id}-{slug}` yang diperkenalkan commit `24ab57b`.
   - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: sebelumnya gagal karena PHP Windows/XAMPP tidak menemukan `openssl.cnf` sehingga `openssl_pkey_new()` gagal (`error:80000003`). Masalah yang sama juga akan menggagalkan pembuatan key federasi node di deployment Windows. `NodeKeyService::createRsaKeyPair()` kini mencoba konfigurasi default OpenSSL dulu, lalu fallback ke `app/Services/Federation/openssl-fallback.cnf`; ketiga test memakai helper yang sama.
