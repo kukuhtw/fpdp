@@ -27,7 +27,7 @@ final class PaymentCredentialVerifier
         $response = match ($code) {
             'PAYPAL' => $this->verifyPayPal($live, $config),
             'MIDTRANS' => $this->verifyMidtrans($live, $config),
-            'PAYWUZ' => $this->verifyPaywuz($config),
+            'PAYWUZ' => $this->verifyPaywuz($live, $config),
             default => throw new RuntimeException('Credential verification is not supported for this gateway.'),
         };
 
@@ -41,7 +41,7 @@ final class PaymentCredentialVerifier
         return match ($code) {
             'PAYPAL' => 'VERIFIED',
             'MIDTRANS' => 'AUTHENTICATED',
-            'PAYWUZ' => 'REACHABLE',
+            'PAYWUZ' => 'VERIFIED',
         };
     }
 
@@ -74,11 +74,24 @@ final class PaymentCredentialVerifier
         ]);
     }
 
-    /** @param array<string, string> $config */
-    private function verifyPaywuz(array $config): array
+    /**
+     * GET /payment-methods is Paywuz's only authenticated call that creates
+     * nothing. The key prefix also has to match the environment it is saved
+     * under, since Paywuz uses one base URL and lets the key pick sandbox or
+     * production.
+     *
+     * @param array<string, string> $config
+     */
+    private function verifyPaywuz(bool $live, array $config): array
     {
-        return $this->client()->get(rtrim($config['api_url'], '/') . '/', [
-            'Authorization' => 'Bearer ' . $config['api_key'],
+        $expectedPrefix = $live ? 'pk_live_' : 'pk_sand_';
+        $key = $config['api_key'];
+        if ((str_starts_with($key, 'pk_live_') || str_starts_with($key, 'pk_sand_')) && !str_starts_with($key, $expectedPrefix)) {
+            throw new RuntimeException('This Paywuz API key belongs to the other environment; ' . ($live ? 'LIVE' : 'SANDBOX') . " needs a {$expectedPrefix} key.");
+        }
+
+        return $this->client()->get(rtrim($config['api_url'], '/') . '/payment-methods', [
+            'Authorization' => 'Bearer ' . $key,
             'Accept' => 'application/json',
         ]);
     }

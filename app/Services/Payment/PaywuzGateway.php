@@ -13,24 +13,30 @@ use RuntimeException;
 /**
  * Paywuz Merchant API v1 adapter.
  *
- * Contract verified against a working reference implementation (Paywuz
- * project documentation + `paywuz_request()`/`create_paywuz_subscription()`/
- * `verify_paywuz_signature()` in a sibling codebase), not guessed:
+ * Contract per the Paywuz Merchant API v1 reference (paywuz.id docs):
  *
- * - createPayment: POST {base}/transactions, Bearer API key, JSON body
- *   {orderId, amount, paymentMethod, expiryMinutes, redirectUrl,
- *   feeByMerchant, metadata?}. Response envelope is {"data": {...}}; the
- *   only documented response field is `paymentUrl`.
+ * - Auth: `Authorization: Bearer <api key>`; the key prefix picks the
+ *   environment (`pk_sand_` sandbox, `pk_live_` production), same base URL.
+ * - Envelope: success {"data": {...}}, error {"error": code, "message": text}.
+ * - createPayment: POST {base}/transactions with {orderId, amount,
+ *   paymentMethod, expiryMinutes, redirectUrl, feeByMerchant, metadata?}.
+ *   A repeated orderId returns the existing transaction (HTTP 200).
+ * - getPaymentStatus: GET {base}/transactions/{orderId}; status is pending |
+ *   success | failed | cancelled (webhooks also report `settlement`, which is
+ *   confirmed but not yet in the merchant balance, so it stays PENDING).
+ * - cancelPayment: POST {base}/transactions/{orderId}/cancel, pending only.
+ * - Every endpoint is keyed by orderId, so external_transaction_id is the
+ *   orderId rather than Paywuz's own transaction UUID.
  * - Webhook signature: header `X-Paywuz-Signature: sha256=<hex>`, computed
  *   as HMAC-SHA256 of the raw request body using the API key as the secret.
- * - Webhook payload: {"event": "transaction.paid"|"transaction.failed"|
- *   "transaction.cancelled", "data": {"orderId": "...", "status": "success"}}.
+ * - Webhook events: transaction.settlement, transaction.paid (status
+ *   success, the one that means paid), transaction.failed,
+ *   transaction.cancelled; payload {"event": ..., "data": {"orderId": ...}}.
  * - Idempotency: header `X-Paywuz-Delivery` identifies a delivery attempt;
  *   when absent, a hash of the raw body is used instead.
  *
- * Paywuz does not document a transaction-status, cancel, or refund endpoint
- * anywhere in that reference material, so those three interface methods
- * intentionally throw rather than guess at a URL that may not exist.
+ * Paywuz has no refund API; refundPayment() throws so the owner records a
+ * refund made outside Paywuz as a manual refund instead.
  */
 final class PaywuzGateway implements PaymentGatewayInterface
 {
@@ -104,32 +110,43 @@ final class PaywuzGateway implements PaymentGatewayInterface
             'gateway' => 'PAYWUZ',
             'status' => 'PENDING',
             'payment_id' => $orderId,
-            'external_transaction_id' => isset($data['transactionId']) ? (string) $data['transactionId'] : $orderId,
+            'external_transaction_id' => $orderId,
             'order_id' => $orderId,
             'amount' => (float) $amount,
             'currency' => 'IDR',
             'payment_url' => (string) ($data['paymentUrl'] ?? ''),
             'payment_method' => $paymentMethod,
-            'expired_at' => gmdate('c', time() + $expiryMinutes * 60),
+            'expired_at' => isset($data['expiresAt']) ? (string) $data['expiresAt'] : gmdate('c', time() + $expiryMinutes * 60),
         ];
     }
 
     public function getPaymentStatus(string $externalTransactionId): array
     {
-        throw new RuntimeException(
-            'Paywuz does not document a transaction-status endpoint; rely on the transaction.paid/'
-            . 'transaction.failed/transaction.cancelled webhook instead of polling.',
-        );
+        $data = $this->request('GET', '/transactions/' . rawurlencode($externalTransactionId), 'get-status');
+
+        return [
+            'gateway' => 'PAYWUZ',
+            'external_transaction_id' => $externalTransactionId,
+            'status' => self::mapStatus((string) ($data['status'] ?? '')),
+            'amount' => (float) ($data['amount'] ?? 0),
+            'currency' => 'IDR',
+        ];
     }
 
     public function cancelPayment(string $externalTransactionId): array
     {
-        throw new RuntimeException('Paywuz does not document a cancel-transaction endpoint.');
+        $data = $this->request('POST', '/transactions/' . rawurlencode($externalTransactionId) . '/cancel', 'cancel');
+
+        return [
+            'gateway' => 'PAYWUZ',
+            'external_transaction_id' => $externalTransactionId,
+            'status' => self::mapStatus((string) ($data['status'] ?? 'cancelled')),
+        ];
     }
 
     public function refundPayment(string $externalTransactionId, float $amount): array
     {
-        throw new RuntimeException('Paywuz does not document a refund endpoint.');
+        throw new RuntimeException('Paywuz has no refund API; return the money yourself and record it as a manual refund.');
     }
 
     public function verifyWebhook(array $headers, string $payload): bool
@@ -153,6 +170,7 @@ final class PaywuzGateway implements PaymentGatewayInterface
 
         $status = match (true) {
             $event === 'transaction.paid' && ($data['status'] ?? '') === 'success' => 'PAID',
+            $event === 'transaction.settlement' => 'PENDING',
             $event === 'transaction.failed' => 'FAILED',
             $event === 'transaction.cancelled' => 'CANCELLED',
             default => 'UNKNOWN',
@@ -170,6 +188,37 @@ final class PaywuzGateway implements PaymentGatewayInterface
             'event_type' => $event,
             'occurred_at' => gmdate('c'),
         ];
+    }
+
+    /**
+     * @return array<string, mixed> the response's `data` object
+     */
+    private function request(string $method, string $path, string $operation): array
+    {
+        $response = ($this->httpRequester)($method, $this->baseUrl() . $path, [
+            'Authorization' => 'Bearer ' . $this->apiKey(),
+            'Accept' => 'application/json',
+        ], null);
+
+        $status = (int) ($response['status'] ?? 0);
+        $decoded = json_decode((string) ($response['body'] ?? ''), true);
+        if ($status < 200 || $status >= 300 || !is_array($decoded)) {
+            $message = is_array($decoded) ? ($decoded['message'] ?? $decoded['error'] ?? null) : null;
+            throw new RuntimeException("Paywuz {$operation} failed: " . ($message ?? "HTTP {$status}"));
+        }
+
+        return is_array($decoded['data'] ?? null) ? $decoded['data'] : [];
+    }
+
+    private static function mapStatus(string $status): string
+    {
+        return match (strtolower($status)) {
+            'success' => 'PAID',
+            'pending', 'settlement' => 'PENDING',
+            'failed' => 'FAILED',
+            'cancelled' => 'CANCELLED',
+            default => 'UNKNOWN',
+        };
     }
 
     private function apiKey(): string

@@ -21,8 +21,6 @@ final class PaymentService
     private const REFUNDABLE_STATUSES = ['PAID', 'PARTIALLY_REFUNDED'];
     /** Gateways whose getPaymentStatus() always answers PENDING — nothing to reconcile. */
     private const NO_STATUS_API_GATEWAYS = ['DUMMY', 'MANUAL_TRANSFER'];
-    /** Gateways with no status API at all; their getPaymentStatus() throws. */
-    private const STATUS_UNSUPPORTED_GATEWAYS = ['PAYWUZ'];
     private const ALLOWED_ENVIRONMENTS = ['SANDBOX', 'LIVE'];
 
     /**
@@ -157,7 +155,7 @@ final class PaymentService
 
     /**
      * Owner-initiated cancellation of a PENDING payment. Asks the gateway to
-     * cancel it first; gateways with no cancel API (PayPal, Paywuz, iPaymu)
+     * cancel it first; gateways with no cancel API (PayPal, iPaymu)
      * throw, and the payment is then cancelled locally only —
      * `provider_cancelled: false` tells the owner the provider-side checkout
      * may still be open until it expires. reconcile() catches the case where
@@ -289,15 +287,15 @@ final class PaymentService
      * reports, without changing, any the provider says were actually PAID:
      * money was taken, so the owner must decide whether to fulfill or refund.
      *
-     * Gateways without a status API (Paywuz) are counted as `unsupported`.
-     * DUMMY and MANUAL_TRANSFER always report PENDING and are skipped.
+     * DUMMY and MANUAL_TRANSFER always report PENDING and are skipped; a
+     * gateway whose status call fails is listed under `errors`.
      *
-     * @return array{checked: int, updated: array<int, array<string, mixed>>, unchanged: int, unsupported: int, errors: array<int, array<string, string>>, mismatches: array<int, array<string, mixed>>}
+     * @return array{checked: int, updated: array<int, array<string, mixed>>, unchanged: int, errors: array<int, array<string, string>>, mismatches: array<int, array<string, mixed>>}
      */
     public function reconcile(int $minAgeMinutes = 15, int $limit = 100, int $mismatchDays = 7): array
     {
         $repository = $this->getRepository();
-        $report = ['checked' => 0, 'updated' => [], 'unchanged' => 0, 'unsupported' => 0, 'errors' => [], 'mismatches' => []];
+        $report = ['checked' => 0, 'updated' => [], 'unchanged' => 0, 'errors' => [], 'mismatches' => []];
 
         $olderThan = gmdate('Y-m-d H:i:s', time() - $minAgeMinutes * 60);
         foreach ($repository->findPendingOlderThan($olderThan, $limit) as $payment) {
@@ -348,11 +346,6 @@ final class PaymentService
     {
         $gatewayCode = strtoupper((string) $payment['gateway_code']);
         if (in_array($gatewayCode, self::NO_STATUS_API_GATEWAYS, true)) {
-            return null;
-        }
-        if (in_array($gatewayCode, self::STATUS_UNSUPPORTED_GATEWAYS, true)) {
-            $report['unsupported']++;
-
             return null;
         }
 
