@@ -28,14 +28,21 @@ final class AuditService
         ?string $subjectPublicId = null,
         ?array $metadata = null,
     ): void {
-        $this->audit->create(
-            (int) ($context['node']['id'] ?? 0),
-            isset($context['user']['id']) ? (int) $context['user']['id'] : null,
-            $action,
-            $subjectType,
-            $subjectPublicId,
-            $this->sanitizeMetadata($metadata ?? []),
-        );
+        // A failed audit write must not undo or block the action it
+        // describes (a refund already sent to the gateway, a login), so it
+        // is logged loudly instead of thrown.
+        try {
+            $this->audit->create(
+                (int) ($context['node']['id'] ?? 0),
+                isset($context['user']['id']) ? (int) $context['user']['id'] : null,
+                $action,
+                $subjectType,
+                $subjectPublicId,
+                $this->sanitizeMetadata($metadata ?? []),
+            );
+        } catch (\Throwable $exception) {
+            error_log("[audit] failed to record {$action}: " . $exception->getMessage());
+        }
     }
 
     /**

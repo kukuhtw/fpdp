@@ -29,6 +29,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use App\Controllers\PaymentController;
 use App\Core\Config;
 use App\Core\Database;
+use App\Repositories\AuditEventRepository;
 use App\Repositories\AuthTokenRepository;
 use App\Repositories\CvAccessGrantRepository;
 use App\Repositories\CvDocumentRepository;
@@ -47,6 +48,7 @@ use App\Services\Chatbot\VisitorWalletService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Payment\PaymentService;
+use App\Services\Security\AuditService;
 
 $options = getopt('', ['min-age::', 'max::']);
 $minAgeMinutes = isset($options['min-age']) ? max(0, (int) $options['min-age']) : 15;
@@ -56,13 +58,14 @@ Config::load(dirname(__DIR__) . '/.env');
 $connection = Database::connection();
 
 $nodes = new NodeRepository($connection);
+$audit = new AuditService(new AuditEventRepository($connection));
 $payments = new PaymentService(
     payments: new PaymentRepository($connection),
     gatewayConfigs: new PaymentGatewayConfigRepository($connection),
     nodes: $nodes,
 );
 $controller = new PaymentController(
-    new AuthService($nodes, new UserRepository($connection), new ProfileRepository($connection), new AuthTokenRepository($connection)),
+    new AuthService($nodes, new UserRepository($connection), new ProfileRepository($connection), new AuthTokenRepository($connection), $audit),
     $payments,
     new CvAccessService(
         new CvDocumentRepository($connection),
@@ -79,9 +82,12 @@ $controller = new PaymentController(
         $nodes,
     ),
     new VisitorWalletService(new VisitorWalletRepository($connection), new VisitorRepository($connection), $payments, $nodes),
+    $audit,
 );
 
-$report = $controller->reconcileAndFulfill($minAgeMinutes, $maxPayments);
+// No acting user: the audit entry is attributed to the node (actor null).
+$node = $nodes->findFirst();
+$report = $controller->reconcileAndFulfill($minAgeMinutes, $maxPayments, $node !== null ? ['node' => $node] : null);
 $timestamp = gmdate('Y-m-d H:i:s');
 
 fwrite(STDOUT, sprintf(

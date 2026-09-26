@@ -84,6 +84,7 @@ use App\Services\External\LinkedInIntegrationService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Marketplace\ProductDigitalAssetService;
 use App\Services\Rag\RagService;
+use App\Services\Security\AuditService;
 use App\Services\Security\RateLimiter;
 use App\Services\Visitor\GoogleOAuthClient;
 use App\Services\Visitor\OAuthStateSigner;
@@ -93,7 +94,11 @@ $router = new Router();
 
 // Database connections are created lazily inside each closure so that
 // routes with no persistence needs (/api/v1/health) never touch the DB.
-$buildAuthService = static function (): AuthService {
+$buildAuditService = static function (): AuditService {
+    return new AuditService(new AuditEventRepository(Database::connection()));
+};
+
+$buildAuthService = static function () use ($buildAuditService): AuthService {
     $connection = Database::connection();
 
     return new AuthService(
@@ -101,11 +106,12 @@ $buildAuthService = static function (): AuthService {
         new UserRepository($connection),
         new ProfileRepository($connection),
         new AuthTokenRepository($connection),
+        $buildAuditService(),
     );
 };
 
-$buildProfileService = static function (): ProfileService {
-    return new ProfileService(new ProfileRepository(Database::connection()));
+$buildProfileService = static function () use ($buildAuditService): ProfileService {
+    return new ProfileService(new ProfileRepository(Database::connection()), $buildAuditService());
 };
 
 $buildAnalyticsService = static function (): AnalyticsService {
@@ -120,7 +126,7 @@ $buildThemeService = static function (): ThemeService {
     return new ThemeService(new NodeRepository(Database::connection()), __DIR__ . '/../themes');
 };
 
-$buildContentPageController = static function () use ($buildThemeService): ContentPageController {
+$buildContentPageController = static function () use ($buildThemeService, $buildAuditService): ContentPageController {
     $connection = Database::connection();
 
     return new ContentPageController(
@@ -133,7 +139,7 @@ $buildContentPageController = static function () use ($buildThemeService): Conte
             new ProfileRepository($connection),
             new ProductRepository($connection),
         ),
-        new ProfileService(new ProfileRepository($connection)),
+        new ProfileService(new ProfileRepository($connection), $buildAuditService()),
         new ExternalPostRepository($connection),
         $buildThemeService(),
     );
@@ -154,25 +160,25 @@ $buildVisitorAuthService = static function (): VisitorAuthService {
     );
 };
 
-$buildVisitorAuthController = static function () use ($buildVisitorAuthService): VisitorAuthController {
+$buildVisitorAuthController = static function () use ($buildVisitorAuthService, $buildAuditService): VisitorAuthController {
     $connection = Database::connection();
     $stateSigner = new OAuthStateSigner(Config::get('APP_KEY', ''));
 
     return new VisitorAuthController(
-        new ProfileService(new ProfileRepository($connection)),
+        new ProfileService(new ProfileRepository($connection), $buildAuditService()),
         $buildVisitorAuthService(),
         $stateSigner,
     );
 };
 
-$buildWallCommentController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildRateLimiter): WallCommentController {
+$buildWallCommentController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildRateLimiter, $buildAuditService): WallCommentController {
     $connection = Database::connection();
 
     return new WallCommentController(
         $buildAuthService(),
         $buildVisitorAuthService(),
-        new ProfileService(new ProfileRepository($connection)),
-        new WallCommentService(new WallCommentRepository($connection)),
+        new ProfileService(new ProfileRepository($connection), $buildAuditService()),
+        new WallCommentService(new WallCommentRepository($connection), $buildAuditService()),
         $buildRateLimiter(),
     );
 };
@@ -185,7 +191,7 @@ $buildMediaController = static function () use ($buildAuthService, $mediaStorage
     return new MediaController($buildAuthService(), new MediaUploadService($mediaStorageDirectory));
 };
 
-$buildLlmController = static function () use ($buildAuthService, $mediaStorageDirectory, $buildRateLimiter): LlmController {
+$buildLlmController = static function () use ($buildAuthService, $mediaStorageDirectory, $buildRateLimiter, $buildAuditService): LlmController {
     $connection = Database::connection();
 
     return new LlmController(
@@ -195,6 +201,7 @@ $buildLlmController = static function () use ($buildAuthService, $mediaStorageDi
             new MediaUploadService($mediaStorageDirectory),
             $buildRateLimiter(),
         ),
+        $buildAuditService(),
     );
 };
 
@@ -245,12 +252,12 @@ $buildCvAccessService = static function () use ($cvStorageDirectory, $buildPayme
     );
 };
 
-$buildCvController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildCvAccessService, $cvStorageDirectory): CvController {
+$buildCvController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildCvAccessService, $cvStorageDirectory, $buildAuditService): CvController {
     $connection = Database::connection();
 
     return new CvController(
         $buildAuthService(),
-        new ProfileService(new ProfileRepository($connection)),
+        new ProfileService(new ProfileRepository($connection), $buildAuditService()),
         $buildVisitorAuthService(),
         new CvDocumentService(new CvDocumentRepository($connection), new CvAccessGrantRepository($connection), $cvStorageDirectory),
         $buildCvAccessService(),
@@ -281,25 +288,27 @@ $buildChatbotService = static function (): ChatbotService {
     );
 };
 
-$buildChatbotController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildChatbotService, $buildVisitorWalletService): ChatbotController {
+$buildChatbotController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildChatbotService, $buildVisitorWalletService, $buildAuditService): ChatbotController {
     $connection = Database::connection();
 
     return new ChatbotController(
         $buildAuthService(),
-        new ProfileService(new ProfileRepository($connection)),
+        new ProfileService(new ProfileRepository($connection), $buildAuditService()),
         $buildVisitorAuthService(),
         $buildChatbotService(),
         $buildVisitorWalletService(),
+        $buildAuditService(),
     );
 };
 
-$buildPaymentController = static function () use ($buildAuthService, $buildCvAccessService, $buildPaymentService, $buildMarketplaceService, $buildVisitorWalletService): PaymentController {
+$buildPaymentController = static function () use ($buildAuthService, $buildCvAccessService, $buildPaymentService, $buildMarketplaceService, $buildVisitorWalletService, $buildAuditService): PaymentController {
     return new PaymentController(
         $buildAuthService(),
         $buildPaymentService(),
         $buildCvAccessService(),
         $buildMarketplaceService(),
         $buildVisitorWalletService(),
+        $buildAuditService(),
     );
 };
 $buildFederationService = static function (): FederationService {
@@ -314,18 +323,18 @@ $buildFederationService = static function (): FederationService {
     );
 };
 
-$buildFederationController = static function () use ($buildAuthService, $buildFederationService): FederationController {
-    return new FederationController($buildAuthService(), $buildFederationService());
+$buildFederationController = static function () use ($buildAuthService, $buildFederationService, $buildAuditService): FederationController {
+    return new FederationController($buildAuthService(), $buildFederationService(), $buildAuditService());
 };
 
-$buildPostController = static function () use ($buildAuthService, $buildAnalyticsService, $buildFederationService): PostController {
+$buildPostController = static function () use ($buildAuthService, $buildAnalyticsService, $buildFederationService, $buildAuditService): PostController {
     $connection = Database::connection();
     return new PostController(
         $buildAuthService(),
         new PostService(
             new PostRepository($connection),
             null,
-            null,
+            $buildAuditService(),
             new FederatedPostRepository($connection),
             new NodeRepository($connection),
             new ProfileRepository($connection),
@@ -336,11 +345,11 @@ $buildPostController = static function () use ($buildAuthService, $buildAnalytic
     );
 };
 
-$buildActivityPubController = static function () use ($buildFederationService): ActivityPubController {
+$buildActivityPubController = static function () use ($buildFederationService, $buildAuditService): ActivityPubController {
     $connection = Database::connection();
 
     return new ActivityPubController(
-        new ProfileService(new ProfileRepository($connection)),
+        new ProfileService(new ProfileRepository($connection), $buildAuditService()),
         new NodeKeyService(new NodeKeyRepository($connection)),
         $buildFederationService(),
         new PostRepository($connection),
@@ -374,13 +383,13 @@ $buildDashboardController = static function () use ($buildAuthService, $buildFed
 $buildAnalyticsController = static function () use ($buildAuthService, $buildProfileService, $buildAnalyticsService): AnalyticsController {
     return new AnalyticsController($buildAuthService(), $buildProfileService(), $buildAnalyticsService());
 };
-$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService, $buildMarketplaceService, $buildVisitorAuthService, $productAssetStorageDirectory, $buildFederationService): MarketplaceController {
+$buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService, $buildMarketplaceService, $buildVisitorAuthService, $productAssetStorageDirectory, $buildFederationService, $buildAuditService): MarketplaceController {
     $connection = Database::connection();
     return new MarketplaceController(
         $buildAuthService(),
         $buildMarketplaceService(),
         $buildAnalyticsService(),
-        new ProfileService(new ProfileRepository($connection)),
+        new ProfileService(new ProfileRepository($connection), $buildAuditService()),
         $buildVisitorAuthService(),
         new ProductDigitalAssetService(
             new ProductRepository($connection),
