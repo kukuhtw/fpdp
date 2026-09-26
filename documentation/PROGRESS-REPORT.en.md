@@ -208,7 +208,7 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 - Production plugin/adapter marketplace (a local gateway plugin system exists).
 - **End-to-end federated commerce (cross-node orders)** — a key differentiator: visitors on other nodes/the fediverse can order products distributed through federation. Product distribution to the fediverse already works; the cross-node order, payment, and confirmation flow does not yet.
 - Multi-node administration, shared/object storage, horizontal scaling.
-- License file and formal contribution policy.
+- Formal contribution policy (`CONTRIBUTING.md`). The license is set: Apache-2.0 (`LICENSE`, `NOTICE`).
 
 ## 6. Next priorities
 

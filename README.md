@@ -1,6 +1,6 @@
 # Federated Personal Digital Platform (FPDP)
 
-[English](#english) · [Bahasa Indonesia](#bahasa-indonesia) · [Documentation](documentation/README.md) · [OpenAPI](documentation/openapi.yaml)
+[English](#english) · [Bahasa Indonesia](#bahasa-indonesia) · [Documentation](documentation/README.md) · [OpenAPI](documentation/openapi.yaml) · [License: Apache-2.0](LICENSE)
 
 FPDP is an early-stage, provider-agnostic **personal digital home**. It is designed to let individuals operate their identity, content, external feeds, products, and payment channels from an independent node on a domain they control.
 
@@ -1430,7 +1430,13 @@ Mulai dari [indeks dokumentasi](documentation/README.md). Product requirements, 
 
 ## License / Lisensi
 
-No license file is currently included. Add an explicit license before distributing or accepting external contributions.
+FPDP is licensed under the [Apache License, Version 2.0](LICENSE). Copyright 2026 Kukuh TW — see [NOTICE](NOTICE).
+
+You may use, modify, and distribute FPDP, including commercially and as a hosted service, as long as you keep the license and NOTICE, mark files you changed, and do not use the author's name or marks to endorse your version. Contributions submitted to this repository are accepted under the same license (section 5 of the license).
+
+FPDP berlisensi [Apache License, Version 2.0](LICENSE). Copyright 2026 Kukuh TW — lihat [NOTICE](NOTICE).
+
+Anda boleh memakai, mengubah, dan mendistribusikan FPDP, termasuk untuk keperluan komersial dan sebagai layanan hosting, selama menyertakan lisensi dan NOTICE, menandai file yang Anda ubah, dan tidak memakai nama atau merek penulis untuk mendukung versi Anda. Kontribusi yang dikirim ke repository ini diterima di bawah lisensi yang sama (bagian 5 lisensi).
 
 ---
 
@@ -1438,7 +1444,5 @@ No license file is currently included. Add an explicit license before distributi
 
 - **Kukuh TW**
 - Email: [kukuhtw@gmail.com](mailto:kukuhtw@gmail.com)
-- Phone / WhatsApp: +62 812-9893-706
 - LinkedIn: [linkedin.com/in/kukuhtw](https://linkedin.com/in/kukuhtw)
 
-Belum ada file lisensi dalam repository ini. Tambahkan lisensi eksplisit sebelum melakukan distribusi atau menerima kontribusi eksternal.

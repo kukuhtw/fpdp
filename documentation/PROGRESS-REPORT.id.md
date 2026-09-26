@@ -208,7 +208,7 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 - Production plugin/adapter marketplace (sistem plugin gateway lokal sudah ada).
 - **Federated commerce end-to-end (order lintas node)** — keunggulan utama: pengunjung dari node/fediverse lain dapat memesan produk yang tersebar lewat federasi. Distribusi produk ke fediverse sudah berjalan; alur order, pembayaran, dan konfirmasi lintas node belum.
 - Multi-node administration, shared/object storage, horizontal scaling.
-- License file dan formal contribution policy.
+- Formal contribution policy (`CONTRIBUTING.md`). Lisensi sudah ditetapkan: Apache-2.0 (`LICENSE`, `NOTICE`).
 
 ## 6. Prioritas berikutnya
 

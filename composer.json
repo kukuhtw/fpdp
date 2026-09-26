@@ -2,6 +2,7 @@
   "name": "fpdp/federated-personal-digital-platform",
   "description": "Federated Personal Digital Platform MVP",
   "type": "project",
+  "license": "Apache-2.0",
   "require": {
     "php": ">=8.2"
   },
