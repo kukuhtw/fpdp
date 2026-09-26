@@ -136,7 +136,7 @@ midtrans_assert($gateway->handleWebhook([], json_encode($capturePending))['statu
 
 midtrans_assert($gateway->handleWebhook([], $validBody)['status'] === 'PAID', 'settlement should normalize to PAID');
 
-foreach ([['pending', 'PENDING'], ['deny', 'FAILED'], ['cancel', 'CANCELLED'], ['expire', 'FAILED'], ['refund', 'REFUNDED'], ['partial_refund', 'REFUNDED'], ['something_else', 'UNKNOWN']] as [$raw, $expected]) {
+foreach ([['pending', 'PENDING'], ['deny', 'FAILED'], ['cancel', 'CANCELLED'], ['expire', 'FAILED'], ['refund', 'REFUNDED'], ['partial_refund', 'PARTIALLY_REFUNDED'], ['something_else', 'UNKNOWN']] as [$raw, $expected]) {
     $n = $validNotification;
     $n['transaction_status'] = $raw;
     $event = $gateway->handleWebhook([], json_encode($n));

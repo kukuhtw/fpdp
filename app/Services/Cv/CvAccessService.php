@@ -138,6 +138,15 @@ final class CvAccessService
     }
 
     /**
+     * Undoes confirmPayment() after a full refund: the visitor no longer
+     * paid for the document, so they lose the download.
+     */
+    public function revokeAccess(int $documentId, int $visitorId): void
+    {
+        $this->grants->revoke($documentId, $visitorId);
+    }
+
+    /**
      * The gateway to charge for this node's priced CV: whichever one the
      * owner has activated (PaymentService::setActiveGateway(), the same
      * selection orders use). Refuses to fall back to a default — without an

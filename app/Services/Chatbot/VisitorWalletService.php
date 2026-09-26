@@ -90,6 +90,26 @@ final class VisitorWalletService
     }
 
     /**
+     * Whether a refunded top-up can still be taken back out of the wallet —
+     * false once the visitor has spent part of it on chat.
+     */
+    public function canReverseTopUp(int $walletId, string $amount): bool
+    {
+        $wallet = $this->wallets->findById($walletId);
+
+        return $wallet !== null && (float) $wallet['balance_amount'] >= (float) $amount;
+    }
+
+    /**
+     * Undoes confirmTopUp() after a full refund. Returns false (nothing
+     * debited) if the balance no longer covers the refunded amount.
+     */
+    public function reverseTopUp(int $walletId, string $amount, ?string $paymentReference): bool
+    {
+        return $this->wallets->debit($walletId, $amount, 'TOPUP_REFUND', $paymentReference);
+    }
+
+    /**
      * Owner-only, free: credits a specific visitor's wallet directly, no
      * payment involved (e.g. a goodwill credit, a refund made by hand).
      *

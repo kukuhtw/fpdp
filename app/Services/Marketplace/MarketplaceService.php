@@ -166,6 +166,25 @@ public function listProducts(int $nodeId, array $query = []): array
     }
 
     /**
+     * Called by PaymentFulfillmentService when an order's payment is fully
+     * refunded (REFUNDED) or cancelled before payment (CANCELLED). A
+     * cancellation never overrides an order the owner already moved past
+     * PENDING by hand.
+     */
+    public function closeOrderForPayment(string $orderPublicId, string $status): void
+    {
+        $order = $this->orders->findByPublicId($orderPublicId);
+        if ($order === null || (string) $order['status'] === $status) {
+            return;
+        }
+        if ($status === 'CANCELLED' && (string) $order['status'] !== 'PENDING') {
+            return;
+        }
+
+        $this->orders->updateStatus($orderPublicId, $status);
+    }
+
+    /**
      * The gateway to charge for this node's checkout: whichever one the
      * owner activated under Settings > Payments. Mirrors
      * CvAccessService::resolveGatewayCode() — no silent default, since

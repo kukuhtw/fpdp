@@ -93,36 +93,98 @@ final class PaymentRepository
     }
 
     /**
+     * Adds $amount to the payment's refunded total and moves it to
+     * $newStatus (PARTIALLY_REFUNDED or REFUNDED). The caller has already
+     * validated that $amount does not exceed what is left to refund.
+     */
+    public function addRefund(int $id, float $amount, string $newStatus): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE payments SET refunded_amount = refunded_amount + :amount, status = :status,
+                    refunded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id',
+        );
+        $statement->execute(['amount' => $amount, 'status' => $newStatus, 'id' => $id]);
+    }
+
+    /**
+     * Local CANCELLED/FAILED payments created in the last $days days, for
+     * reconciliation to double-check against the provider (a visitor can
+     * still complete a payment the owner already cancelled locally).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findRecentlyClosedUnpaid(int $days, int $limit): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT * FROM payments WHERE status IN ('CANCELLED', 'FAILED') AND created_at >= :since
+             ORDER BY id DESC LIMIT :limit",
+        );
+        $statement->bindValue('since', gmdate('Y-m-d H:i:s', time() - $days * 86400));
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
+    /**
+     * PENDING payments created before $olderThan (UTC 'Y-m-d H:i:s'), oldest
+     * first, for reconciliation against the provider's status API.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findPendingOlderThan(string $olderThan, int $limit): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT * FROM payments WHERE status = 'PENDING' AND created_at <= :older_than ORDER BY id ASC LIMIT :limit",
+        );
+        $statement->bindValue('older_than', $olderThan);
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
+    /**
      * Dashboard summary. `payments` has no node/profile scope (FPDP is
      * single-owner-per-deployment today, see the progress report), so this
      * is a global aggregate across the whole install, not per-tenant.
-     * `available_balance` is the running sum of PAID amounts, not a real
-     * settlement ledger — no fees, payouts, or withdrawals are tracked.
+     * `available_balance` is PAID plus PARTIALLY_REFUNDED amounts minus what
+     * was refunded from them, not a real settlement ledger — no fees,
+     * payouts, or withdrawals are tracked.
      *
-     * @return array{available_balance: float, pending_settlement: float, paid_count: int, failed_count: int, cancelled_count: int, success_rate: float, revenue_this_month: float, currency: string}
+     * @return array{available_balance: float, pending_settlement: float, paid_count: int, failed_count: int, cancelled_count: int, refunded_count: int, refunded_amount: float, success_rate: float, revenue_this_month: float, currency: string}
      */
     public function getSummary(): array
     {
         $paid = $this->sumAndCountByStatus('PAID');
+        $partiallyRefunded = $this->sumAndCountByStatus('PARTIALLY_REFUNDED');
+        $refunded = $this->sumAndCountByStatus('REFUNDED');
         $pending = $this->sumAndCountByStatus('PENDING');
         $failed = $this->sumAndCountByStatus('FAILED');
         $cancelled = $this->sumAndCountByStatus('CANCELLED');
 
-        $terminalCount = $paid['count'] + $failed['count'] + $cancelled['count'];
-        $successRate = $terminalCount > 0 ? round($paid['count'] / $terminalCount * 100, 2) : 0.0;
+        // A refunded payment still succeeded as a payment, so it counts
+        // toward the success rate; the refund shows up in the balance instead.
+        $succeededCount = $paid['count'] + $partiallyRefunded['count'] + $refunded['count'];
+        $terminalCount = $succeededCount + $failed['count'] + $cancelled['count'];
+        $successRate = $terminalCount > 0 ? round($succeededCount / $terminalCount * 100, 2) : 0.0;
 
         $statement = $this->connection->prepare(
-            "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'PAID' AND paid_at >= :month_start",
+            "SELECT COALESCE(SUM(amount - refunded_amount), 0) FROM payments
+             WHERE status IN ('PAID', 'PARTIALLY_REFUNDED') AND paid_at >= :month_start",
         );
         $statement->execute(['month_start' => gmdate('Y-m-01 00:00:00')]);
         $revenueThisMonth = (float) $statement->fetchColumn();
 
         return [
-            'available_balance' => $paid['amount'],
+            'available_balance' => $paid['amount'] + $partiallyRefunded['amount'] - $partiallyRefunded['refunded'],
             'pending_settlement' => $pending['amount'],
-            'paid_count' => $paid['count'],
+            'paid_count' => $paid['count'] + $partiallyRefunded['count'],
             'failed_count' => $failed['count'],
             'cancelled_count' => $cancelled['count'],
+            'refunded_count' => $refunded['count'] + $partiallyRefunded['count'],
+            'refunded_amount' => $refunded['refunded'] + $partiallyRefunded['refunded'],
             'success_rate' => $successRate,
             'revenue_this_month' => $revenueThisMonth,
             'currency' => 'IDR',
@@ -155,17 +217,18 @@ final class PaymentRepository
     }
 
     /**
-     * @return array{count: int, amount: float}
+     * @return array{count: int, amount: float, refunded: float}
      */
     private function sumAndCountByStatus(string $status): array
     {
         $statement = $this->connection->prepare(
-            'SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS total FROM payments WHERE status = :status',
+            'SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS total, COALESCE(SUM(refunded_amount), 0) AS refunded
+             FROM payments WHERE status = :status',
         );
         $statement->execute(['status' => $status]);
         $row = $statement->fetch();
 
-        return ['count' => (int) $row['c'], 'amount' => (float) $row['total']];
+        return ['count' => (int) $row['c'], 'amount' => (float) $row['total'], 'refunded' => (float) $row['refunded']];
     }
 
     /**

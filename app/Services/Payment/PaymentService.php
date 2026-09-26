@@ -18,6 +18,11 @@ use App\Repositories\PaymentRepository;
 final class PaymentService
 {
     private const TERMINAL_STATUSES = ['PAID', 'FAILED', 'CANCELLED'];
+    private const REFUNDABLE_STATUSES = ['PAID', 'PARTIALLY_REFUNDED'];
+    /** Gateways whose getPaymentStatus() always answers PENDING — nothing to reconcile. */
+    private const NO_STATUS_API_GATEWAYS = ['DUMMY', 'MANUAL_TRANSFER'];
+    /** Gateways with no status API at all; their getPaymentStatus() throws. */
+    private const STATUS_UNSUPPORTED_GATEWAYS = ['PAYWUZ'];
     private const ALLOWED_ENVIRONMENTS = ['SANDBOX', 'LIVE'];
 
     /**
@@ -127,13 +132,254 @@ final class PaymentService
 
         $statusChanged = false;
         $eventStatus = (string) ($event['status'] ?? '');
-        if ((string) $payment['status'] === 'PENDING' && in_array($eventStatus, self::TERMINAL_STATUSES, true)) {
+        $localStatus = (string) $payment['status'];
+        if ($localStatus === 'PENDING' && in_array($eventStatus, self::TERMINAL_STATUSES, true)) {
             $repository->markStatus((int) $payment['id'], $eventStatus);
-            $payment = $repository->findByOrderId($orderId);
             $statusChanged = true;
+        } elseif (in_array($localStatus, self::REFUNDABLE_STATUSES, true) && $eventStatus === 'REFUNDED') {
+            // A full refund issued from the provider's own dashboard: book
+            // whatever was still unrefunded, so the balance reflects it.
+            $remaining = (float) $payment['amount'] - (float) ($payment['refunded_amount'] ?? 0);
+            $repository->addRefund((int) $payment['id'], max($remaining, 0.0), 'REFUNDED');
+            $statusChanged = true;
+        } elseif ($localStatus === 'PAID' && $eventStatus === 'PARTIALLY_REFUNDED') {
+            // The provider's notification doesn't reliably carry the refunded
+            // amount, so only the status moves; the owner sees it on the dashboard.
+            $repository->markStatus((int) $payment['id'], 'PARTIALLY_REFUNDED');
+            $statusChanged = true;
+        }
+        if ($statusChanged) {
+            $payment = $repository->findByOrderId($orderId);
         }
 
         return ['duplicate' => false, 'status_changed' => $statusChanged, 'payment' => $payment];
+    }
+
+    /**
+     * Owner-initiated cancellation of a PENDING payment. Asks the gateway to
+     * cancel it first; gateways with no cancel API (PayPal, Paywuz, iPaymu)
+     * throw, and the payment is then cancelled locally only —
+     * `provider_cancelled: false` tells the owner the provider-side checkout
+     * may still be open until it expires. reconcile() catches the case where
+     * the visitor pays it anyway.
+     *
+     * @return array{status_changed: bool, provider_cancelled: bool, provider_message: string|null, payment: array<string, mixed>}
+     */
+    public function cancelPaymentByOwner(string $uuid): array
+    {
+        $repository = $this->getRepository();
+        $payment = $this->findPaymentOrFail($uuid);
+
+        $status = (string) $payment['status'];
+        if ($status === 'CANCELLED') {
+            return ['status_changed' => false, 'provider_cancelled' => false, 'provider_message' => null, 'payment' => $payment];
+        }
+        if ($status !== 'PENDING') {
+            throw new ConflictException("This payment is already {$status} and cannot be cancelled.");
+        }
+
+        $providerCancelled = false;
+        $providerMessage = null;
+        try {
+            $this->getGateway((string) $payment['gateway_code'])->cancelPayment(self::providerReference($payment));
+            $providerCancelled = true;
+        } catch (\RuntimeException | UnsupportedProviderException $exception) {
+            $providerMessage = $exception->getMessage();
+        }
+
+        $repository->markStatus((int) $payment['id'], 'CANCELLED');
+        $repository->recordTransactionEvent(
+            (int) $payment['id'],
+            (string) $payment['gateway_code'],
+            null,
+            'OWNER_CANCEL',
+            'CANCELLED',
+            (string) json_encode(['provider_cancelled' => $providerCancelled, 'provider_message' => $providerMessage]),
+        );
+
+        return [
+            'status_changed' => true,
+            'provider_cancelled' => $providerCancelled,
+            'provider_message' => $providerMessage,
+            'payment' => $repository->findByUuid($uuid) ?? $payment,
+        ];
+    }
+
+    /**
+     * Owner-initiated full or partial refund of a PAID payment. $amount null
+     * means "everything not yet refunded". With $manual true the gateway is
+     * not called: the owner already returned the money outside FPDP (bank
+     * transfer, or the provider's own dashboard for gateways with no refund
+     * API) and is only recording it. Without $manual, a gateway that cannot
+     * refund through its API is a validation error that says to use $manual.
+     *
+     * @return array{fully_refunded: bool, refunded_now: float, payment: array<string, mixed>}
+     */
+    public function refundPaymentByOwner(string $uuid, ?float $amount, bool $manual): array
+    {
+        $repository = $this->getRepository();
+        $payment = $this->findPaymentOrFail($uuid);
+
+        $status = (string) $payment['status'];
+        if (!in_array($status, self::REFUNDABLE_STATUSES, true)) {
+            throw new ConflictException("Only a paid payment can be refunded; this one is {$status}.");
+        }
+
+        $remaining = round((float) $payment['amount'] - (float) ($payment['refunded_amount'] ?? 0), 2);
+        $refundAmount = $amount === null ? $remaining : round($amount, 2);
+        if ($refundAmount <= 0 || $refundAmount > $remaining) {
+            throw new ValidationException([[
+                'field' => 'amount',
+                'reason' => 'out_of_range',
+                'message' => "Refund amount must be greater than 0 and at most {$remaining}.",
+            ]]);
+        }
+
+        if (!$manual) {
+            try {
+                $this->getGateway((string) $payment['gateway_code'])->refundPayment(self::providerReference($payment), $refundAmount);
+            } catch (\RuntimeException | UnsupportedProviderException $exception) {
+                throw new ValidationException([[
+                    'field' => 'manual',
+                    'reason' => 'gateway_refund_failed',
+                    'message' => $exception->getMessage(),
+                ]], 'The gateway could not refund this payment: ' . $exception->getMessage()
+                    . ' If you returned the money yourself, record it with "manual": true.');
+            }
+        }
+
+        $fullyRefunded = abs($remaining - $refundAmount) < 0.005;
+        $newStatus = $fullyRefunded ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
+        $repository->addRefund((int) $payment['id'], $refundAmount, $newStatus);
+        $repository->recordTransactionEvent(
+            (int) $payment['id'],
+            (string) $payment['gateway_code'],
+            null,
+            $manual ? 'OWNER_REFUND_MANUAL' : 'OWNER_REFUND',
+            $newStatus,
+            (string) json_encode(['amount' => $refundAmount]),
+        );
+
+        return [
+            'fully_refunded' => $fullyRefunded,
+            'refunded_now' => $refundAmount,
+            'payment' => $repository->findByUuid($uuid) ?? $payment,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function findPaymentOrFail(string $uuid): array
+    {
+        $payment = $this->getRepository()->findByUuid($uuid);
+        if ($payment === null) {
+            throw new NotFoundException('Payment not found.');
+        }
+
+        return $payment;
+    }
+
+    /**
+     * Asks each gateway for the real status of payments FPDP still has as
+     * PENDING (older than $minAgeMinutes, so a checkout in progress is left
+     * alone) and applies any terminal status the provider reports — the
+     * safety net for a webhook that never arrived. Also re-checks payments
+     * closed locally (CANCELLED/FAILED) in the last $mismatchDays days and
+     * reports, without changing, any the provider says were actually PAID:
+     * money was taken, so the owner must decide whether to fulfill or refund.
+     *
+     * Gateways without a status API (Paywuz) are counted as `unsupported`.
+     * DUMMY and MANUAL_TRANSFER always report PENDING and are skipped.
+     *
+     * @return array{checked: int, updated: array<int, array<string, mixed>>, unchanged: int, unsupported: int, errors: array<int, array<string, string>>, mismatches: array<int, array<string, mixed>>}
+     */
+    public function reconcile(int $minAgeMinutes = 15, int $limit = 100, int $mismatchDays = 7): array
+    {
+        $repository = $this->getRepository();
+        $report = ['checked' => 0, 'updated' => [], 'unchanged' => 0, 'unsupported' => 0, 'errors' => [], 'mismatches' => []];
+
+        $olderThan = gmdate('Y-m-d H:i:s', time() - $minAgeMinutes * 60);
+        foreach ($repository->findPendingOlderThan($olderThan, $limit) as $payment) {
+            $providerStatus = $this->fetchProviderStatus($payment, $report);
+            if ($providerStatus === null) {
+                continue;
+            }
+            if (!in_array($providerStatus, self::TERMINAL_STATUSES, true)) {
+                $report['unchanged']++;
+                continue;
+            }
+
+            $repository->markStatus((int) $payment['id'], $providerStatus);
+            $repository->recordTransactionEvent(
+                (int) $payment['id'],
+                (string) $payment['gateway_code'],
+                null,
+                'RECONCILIATION',
+                $providerStatus,
+                (string) json_encode(['previous_status' => 'PENDING']),
+            );
+            $report['updated'][] = $repository->findByUuid((string) $payment['uuid']) ?? $payment;
+        }
+
+        foreach ($repository->findRecentlyClosedUnpaid($mismatchDays, $limit) as $payment) {
+            $providerStatus = $this->fetchProviderStatus($payment, $report);
+            if ($providerStatus === 'PAID') {
+                $report['mismatches'][] = [
+                    'uuid' => $payment['uuid'],
+                    'order_id' => $payment['order_id'],
+                    'gateway_code' => $payment['gateway_code'],
+                    'local_status' => $payment['status'],
+                    'provider_status' => $providerStatus,
+                    'amount' => (float) $payment['amount'],
+                    'currency' => $payment['currency'],
+                ];
+            }
+        }
+
+        return $report;
+    }
+
+    /**
+     * @param array<string, mixed> $payment
+     * @param array<string, mixed> $report
+     */
+    private function fetchProviderStatus(array $payment, array &$report): ?string
+    {
+        $gatewayCode = strtoupper((string) $payment['gateway_code']);
+        if (in_array($gatewayCode, self::NO_STATUS_API_GATEWAYS, true)) {
+            return null;
+        }
+        if (in_array($gatewayCode, self::STATUS_UNSUPPORTED_GATEWAYS, true)) {
+            $report['unsupported']++;
+
+            return null;
+        }
+
+        $report['checked']++;
+        try {
+            $result = $this->getGateway($gatewayCode)->getPaymentStatus(self::providerReference($payment));
+        } catch (\RuntimeException | UnsupportedProviderException $exception) {
+            $report['errors'][] = ['uuid' => (string) $payment['uuid'], 'message' => $exception->getMessage()];
+
+            return null;
+        }
+
+        return strtoupper((string) ($result['status'] ?? ''));
+    }
+
+    /**
+     * The id the gateway knows this payment by: its own transaction id when
+     * it returned one, otherwise the order id FPDP sent it (Midtrans keys
+     * everything by order id).
+     *
+     * @param array<string, mixed> $payment
+     */
+    private static function providerReference(array $payment): string
+    {
+        $external = (string) ($payment['external_transaction_id'] ?? '');
+
+        return $external !== '' ? $external : (string) $payment['order_id'];
     }
 
     /**

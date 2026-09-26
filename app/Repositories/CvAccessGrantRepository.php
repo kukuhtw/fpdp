@@ -39,6 +39,14 @@ final class CvAccessGrantRepository
         $statement->execute(['cv_document_id' => $cvDocumentId]);
     }
 
+    public function revoke(int $cvDocumentId, int $visitorId): void
+    {
+        $statement = $this->connection->prepare(
+            'DELETE FROM cv_access_grants WHERE cv_document_id = :cv_document_id AND visitor_id = :visitor_id',
+        );
+        $statement->execute(['cv_document_id' => $cvDocumentId, 'visitor_id' => $visitorId]);
+    }
+
     /**
      * Idempotent: if a grant already exists for this (document, visitor) pair
      * (e.g. a concurrent request raced this one), the existing grant is kept.

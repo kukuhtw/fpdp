@@ -26,9 +26,9 @@ use RuntimeException;
  *   and comparing it to the signature_key field carried in that same body.
  * - transaction_status values map to our normalized status as: capture
  *   (+fraud_status=accept) / settlement -> PAID; pending -> PENDING; deny /
- *   expire -> FAILED; cancel -> CANCELLED; refund / partial_refund ->
- *   REFUNDED (recorded, but see PaymentService: a refund arriving after the
- *   payment is already PAID does not currently transition payments.status).
+ *   expire -> FAILED; cancel -> CANCELLED; refund -> REFUNDED;
+ *   partial_refund -> PARTIALLY_REFUNDED (PaymentService::handleWebhook()
+ *   moves an already-PAID payment to either).
  */
 final class MidtransGateway implements PaymentGatewayInterface
 {
@@ -190,7 +190,16 @@ final class MidtransGateway implements PaymentGatewayInterface
         $fraudStatus = (string) ($data['fraud_status'] ?? '');
 
         return [
-            'event_id' => isset($data['transaction_id']) ? (string) $data['transaction_id'] : hash('sha256', $payload),
+            // Midtrans reuses transaction_id for every notification about the
+            // same transaction (pending, settlement, refund, ...), so it alone
+            // would dedupe a later refund as a repeat of the settlement. Keying
+            // on id + status keeps real retries deduplicated; refunds also mix
+            // in the payload, since one transaction can be partially refunded
+            // several times.
+            'event_id' => isset($data['transaction_id'])
+                ? (string) $data['transaction_id'] . ':' . $transactionStatus
+                    . (str_contains($transactionStatus, 'refund') ? ':' . substr(hash('sha256', $payload), 0, 16) : '')
+                : hash('sha256', $payload),
             'gateway' => 'MIDTRANS',
             'order_id' => $orderId,
             'external_transaction_id' => $orderId,
@@ -210,7 +219,8 @@ final class MidtransGateway implements PaymentGatewayInterface
             $transactionStatus === 'deny' => 'FAILED',
             $transactionStatus === 'cancel' => 'CANCELLED',
             $transactionStatus === 'expire' => 'FAILED',
-            $transactionStatus === 'refund' || $transactionStatus === 'partial_refund' => 'REFUNDED',
+            $transactionStatus === 'refund' => 'REFUNDED',
+            $transactionStatus === 'partial_refund' => 'PARTIALLY_REFUNDED',
             default => 'UNKNOWN',
         };
     }
