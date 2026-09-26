@@ -5,12 +5,12 @@
 **Verification date:** September 26, 2026
 **Evidence:** repository routes, controllers, services, repositories, migrations, views, gateway plugins, tests, and deployment configuration—not planning documents alone. The test suite was re-run on the same date (see Section 8).
 
-FPDP is past its core MVP. Since the September 21 report, visitor commerce flows are connected (public product checkout, paid CV access, wallet top-up, manual payment confirmation), a paid LLM + RAG visitor chatbot is live, the owner dashboard has panels for nearly every domain, and federation speaks ActivityPub (WebFinger, actor, inbox/outbox, inbound and outbound federated posts). The next focus is validation against real sandboxes/servers, refunds and reconciliation, security settings, and operational hardening.
+FPDP is past its core MVP. Since the September 21 report, visitor commerce flows are connected (public product checkout, paid CV access, wallet top-up, manual payment confirmation), a paid LLM + RAG visitor chatbot is live, the owner dashboard has panels for nearly every domain, and federation speaks ActivityPub (WebFinger, actor, inbox/outbox, inbound and outbound federated posts). Payment refunds, cancellation, and reconciliation are now available too. The next focus is validation against real sandboxes/servers, auditing sensitive actions, security settings, and operational hardening.
 
 Repository snapshot:
 
-- **58 MySQL migrations** (`0001`–`0058`);
-- **47 test scripts**, all passing (see Section 8);
+- **59 MySQL migrations** (`0001`–`0059`);
+- **48 test scripts**, all passing (see Section 8);
 - REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, personal online shop (including visitor checkout and digital assets), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, themes, and media upload;
 - real UI: home, unified timeline (local + federated + promoted products), profile, post, shop, product page, public CV, "coretan" wall, YouTube page, payment thank-you page, and 12 owner dashboard pages;
 - 3 public themes: `default`, `editorial`, `minimal`;
@@ -46,7 +46,7 @@ flowchart LR
 | External aggregation | **Done for MVP** | RSS/Atom/Custom API, YouTube feeds, LinkedIn Organizations, anti-SSRF HTTP client, sync worker, dedup |
 | Operations & hardening | **Partial** | CI, basic audit, validated Dokploy staging; backup/restore exercise, RBAC, and retention not done |
 | Personal online shop | **Done for MVP** | The node owner's own shop: products, orders, public visitor checkout, shipping address, digital assets + download, promoted products |
-| Payment | **Mostly done** | 6 gateways, gateway plugin system, active-gateway selection, per-environment sandbox/live, manual confirmation; real sandboxes, refund UI, and reconciliation not done |
+| Payment | **Mostly done** | 6 gateways, gateway plugin system, active-gateway selection, per-environment sandbox/live, manual confirmation, owner cancel and refund, reconciliation; real sandbox testing and settlement ledger not done |
 | Federation | **Mostly done** | ActivityPub (WebFinger, actor, inbox/outbox, followers/following), federated posts and products, federation worker, federation dashboard; cross-server interop testing not formally documented |
 | Dashboard | **Mostly done** | 12 live owner pages; standalone Analytics panel and security settings missing |
 | AI | **Mostly done** | LLM providers (OpenAI, Anthropic, OpenRouter), describe-image, RAG + FAQ, paid visitor chatbot via wallet, conversation history |
@@ -113,7 +113,12 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 - Webhook verification and duplicate-event handling.
 - **Payment confirmation page** for product/CV/wallet, confirmation links across all themes, and a thank-you page (`/payment/thank-you`).
 - **Manual confirmation of pending payments** by the owner (`/api/v1/me/payments/pending`, `.../{uuid}/confirm`).
-- Payments dashboard: balance/approximate settlement, success rate, recent transactions, and buyer details.
+- Payments dashboard: balance/approximate settlement, success rate, total refunded, recent transactions, and buyer details.
+- **Owner cancellation** (`POST /api/v1/me/payments/{uuid}/cancel`): cancels at the gateway when it has an API (Midtrans, Paywuz, Dummy, Manual Transfer) and still cancels locally when the gateway refuses or has none (PayPal, iPaymu), showing the provider message to the owner. The related order is closed too.
+- **Owner refund** (`POST /api/v1/me/payments/{uuid}/refund`): full or partial (`refunded_amount`, `PARTIALLY_REFUNDED`/`REFUNDED` status, migration `0059`). Gateways with no refund API (Paywuz, iPaymu) use the manual-refund option. A full refund undoes fulfillment through `PaymentFulfillmentService`: CV grant revoked, order set to `REFUNDED`, top-up taken back out of the wallet. Refunding a top-up already partly spent on chat is refused.
+- **Refunds made in the provider's dashboard are now applied**: Midtrans `refund`/`partial_refund` webhooks move a `PAID` payment to `REFUNDED`/`PARTIALLY_REFUNDED`. Previously the refund notification was dropped as a duplicate, because Midtrans reuses the same `transaction_id` for every notification about one transaction.
+- **Reconciliation** (`scripts/reconcile-payments.php` for cron, plus the "Cek status ke gateway" button / `POST /api/v1/me/payments/reconcile`): asks the provider for the status of `PENDING` payments older than 15 minutes, applies terminal statuses, and runs fulfillment. Payments cancelled/failed locally in the last 7 days but `PAID` at the provider are moved to `PAID`, fulfilled, and reported as mismatches. Exit code 1 on any error or mismatch.
+- **Paywuz adapter aligned with the official Merchant API v1 docs**: `getPaymentStatus()` uses `GET /transactions/{orderId}` and `cancelPayment()` uses `POST /transactions/{orderId}/cancel` (previously both threw, as if the endpoints did not exist). `transaction.settlement` stays `PENDING`. Credential verification now uses `GET /payment-methods` and rejects a `pk_live_` key saved under Sandbox, or the reverse.
 
 ### 3.7 AI, RAG, and chatbot
 
@@ -159,11 +164,12 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 
 ### 4.2 Payment production
 
-- Paywuz, Midtrans, PayPal, and iPaymu are tested with a fake HTTP requester, not against real provider sandboxes. Paywuz has no non-transactional verification endpoint.
-- A Midtrans refund after `PAID` is recorded as a transaction event but does not always reconcile the payment to `REFUNDED`.
-- No owner UI/API for refunds or payment cancellation; `POST /payments/{id}/cancel` from the API contract is not implemented.
-- The Payments dashboard balance is an approximation from the `payments` table; there is no settlement/payout ledger, gateway-fee accounting, or reconciliation job.
-- Manual Transfer does not support refunds (per its plugin capabilities).
+- Paywuz, Midtrans, PayPal, and iPaymu are tested with a fake HTTP requester, not against real provider sandboxes. Sandbox testing needs the owner's sandbox credentials and has to be run by the owner.
+- `scripts/reconcile-payments.php` is not scheduled in the Dokploy Compose yet; it needs a cron (e.g. every 15 minutes) or a worker service like the federation worker.
+- The Payments dashboard balance is still an approximation from the `payments` table (net of refunds); there is no settlement/payout ledger or gateway-fee accounting (the `fee` column is never filled).
+- A partial refund made in the Midtrans dashboard only moves the status to `PARTIALLY_REFUNDED`; the amount is not recorded, since the notification does not reliably carry it.
+- PayPal and iPaymu have no cancel API; cancellation is local only and the provider's payment page stays open until it expires (reconciliation catches it if it is paid anyway).
+- Cancellation, refunds, and reconciliation are not recorded in the audit trail yet (part of priority #3).
 
 ### 4.3 Dashboard and settings
 
@@ -215,7 +221,7 @@ flowchart LR
 ```
 
 1. ~~Fix the `PostEndpointsTest` fixture (`slug` column) and make RSA-based tests independent of local OpenSSL configuration.~~ **Done** (September 26, 2026) — 47/47 tests pass.
-2. Test Paywuz, Midtrans, PayPal, and iPaymu against real sandboxes; add owner refund/cancel and a reconciliation job.
+2. **Partly done** (September 26, 2026): owner refund/cancel, applying refunds from webhooks, a reconciliation job, and aligning the Paywuz adapter with its official docs are in place. Remaining: testing Paywuz, Midtrans, PayPal, and iPaymu against real sandboxes (needs the owner's credentials) and scheduling the reconciliation cron in Dokploy.
 3. Add credential changes, gateway activation, manual confirmation, wallet grants, and remote-node trust to the audit trail; add RBAC middleware.
 4. Implement 2FA/session management, language settings, and an Analytics page.
 5. Document a two-domain federation interop test and add a nonce cache.
@@ -238,7 +244,7 @@ flowchart LR
 
 Run on September 26, 2026 in the development workspace (PHP 8.5.8 CLI, Windows), using the same loop as CI (`php tests/*Test.php`):
 
-- **47 of 47 tests pass**, with no `OPENSSL_CONF` needed.
+- **48 of 48 tests pass**, with no `OPENSSL_CONF` needed. The new `PaymentRefundCancelReconcileTest` covers cancellation, full/partial/manual refunds, refunding an already-spent top-up, a Midtrans refund webhook after settlement, reconciliation (provider status, minimum age, gateways without a status API, errors, mismatches), and the dashboard summary. `PaywuzGatewayTest` used to silently send real requests to `api.paywuz.id`; it now uses a fake requester.
 - Fixed in this round:
   - `PostEndpointsTest`: the SQLite fixture now has the `posts.slug` column, and the canonical URL assertion follows the `/posts/{id}-{slug}` format introduced in commit `24ab57b`.
   - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: previously failed because Windows/XAMPP PHP could not find `openssl.cnf`, so `openssl_pkey_new()` failed (`error:80000003`). The same issue would also break node federation key generation on Windows deployments. `NodeKeyService::createRsaKeyPair()` now tries OpenSSL's default config first, then falls back to `app/Services/Federation/openssl-fallback.cnf`; all three tests use the same helper.

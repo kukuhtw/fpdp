@@ -24,6 +24,8 @@
 
     <section class="panel">
       <h2>Transaksi terbaru</h2>
+      <p class="muted">Refund mengembalikan dana lewat gateway. Untuk gateway tanpa API refund (misalnya Paywuz, iPaymu, transfer manual), kembalikan dananya sendiri lalu catat sebagai refund manual. Refund penuh juga mencabut akses CV, menandai pesanan REFUNDED, atau menarik kembali saldo top-up.</p>
+      <p><button type="button" id="reconcile-button">Cek status ke gateway</button> <span id="reconcile-result" class="muted"></span></p>
       <div id="recent-list" class="stack"><p class="muted">Memuat…</p></div>
     </section>
   </section>

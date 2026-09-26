@@ -5,12 +5,12 @@
 **Tanggal verifikasi:** 26 September 2026
 **Dasar verifikasi:** route, controller, service, repository, migration, view, gateway plugin, test, dan konfigurasi deployment pada repository—bukan hanya dokumen rencana. Test suite dijalankan ulang pada tanggal yang sama (lihat Bagian 8).
 
-FPDP sudah melewati tahap MVP inti. Sejak laporan 21 September, flow komersial visitor sudah tersambung (checkout produk publik, pembayaran akses CV, top-up wallet, konfirmasi pembayaran manual), chatbot visitor berbayar berbasis LLM + RAG sudah live, dashboard owner sudah punya panel untuk hampir semua domain, dan federasi sudah berbicara ActivityPub (WebFinger, actor, inbox/outbox, post federasi masuk/keluar). Fokus berikutnya adalah validasi terhadap sandbox/server nyata, refund & rekonsiliasi, security settings, serta hardening operasional.
+FPDP sudah melewati tahap MVP inti. Sejak laporan 21 September, flow komersial visitor sudah tersambung (checkout produk publik, pembayaran akses CV, top-up wallet, konfirmasi pembayaran manual), chatbot visitor berbayar berbasis LLM + RAG sudah live, dashboard owner sudah punya panel untuk hampir semua domain, dan federasi sudah berbicara ActivityPub (WebFinger, actor, inbox/outbox, post federasi masuk/keluar). Refund, pembatalan, dan rekonsiliasi pembayaran kini juga tersedia. Fokus berikutnya adalah validasi terhadap sandbox/server nyata, audit aksi sensitif, security settings, serta hardening operasional.
 
 Ringkasan repository saat laporan ini dibuat:
 
-- **58 migration MySQL** (`0001`–`0058`);
-- **47 test script**, semuanya lulus (lihat Bagian 8);
+- **59 migration MySQL** (`0001`–`0059`);
+- **48 test script**, semuanya lulus (lihat Bagian 8);
 - REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, toko online pribadi (termasuk checkout visitor dan aset digital), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, theme, dan upload media;
 - UI nyata: home, timeline terpadu (lokal + federasi + produk promosi), profil, post, shop, halaman produk, CV publik, wall "coretan", halaman YouTube, halaman terima kasih pembayaran, serta 12 halaman dashboard owner;
 - 3 theme publik: `default`, `editorial`, `minimal`;
@@ -46,7 +46,7 @@ flowchart LR
 | External aggregation | **Selesai untuk MVP** | RSS/Atom/Custom API, YouTube feed, LinkedIn Organizations, anti-SSRF HTTP client, sync worker, dedup |
 | Operasional & hardening | **Sebagian** | CI, audit dasar, staging Dokploy tervalidasi; backup/restore exercise, RBAC, dan retention belum |
 | Toko online pribadi | **Selesai untuk MVP** | Toko milik owner node: product, order, checkout visitor publik, alamat pengiriman, aset digital + download, produk promosi |
-| Payment | **Sebagian besar** | 6 gateway, sistem plugin gateway, pemilihan gateway aktif, sandbox/live per environment, konfirmasi manual; sandbox nyata, refund UI, dan rekonsiliasi belum |
+| Payment | **Sebagian besar** | 6 gateway, sistem plugin gateway, pemilihan gateway aktif, sandbox/live per environment, konfirmasi manual, pembatalan dan refund owner, rekonsiliasi; uji sandbox nyata dan ledger settlement belum |
 | Federasi | **Sebagian besar** | ActivityPub (WebFinger, actor, inbox/outbox, followers/following), post & produk federasi, federation worker, dashboard federation; uji interop lintas server belum terdokumentasi formal |
 | Dashboard | **Sebagian besar** | 12 halaman owner live; panel Analytics tersendiri dan security settings belum |
 | AI | **Sebagian besar** | LLM provider (OpenAI, Anthropic, OpenRouter), describe-image, RAG + FAQ, chatbot visitor berbayar via wallet, riwayat percakapan |
@@ -113,7 +113,12 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 - Webhook verification dan duplicate-event handling.
 - **Halaman konfirmasi pembayaran** untuk produk/CV/wallet, link konfirmasi di semua theme, dan halaman terima kasih (`/payment/thank-you`).
 - **Konfirmasi manual pembayaran pending** oleh owner (`/api/v1/me/payments/pending`, `.../{uuid}/confirm`).
-- Dashboard Payments: saldo/perkiraan settlement, success rate, transaksi terbaru, dan detail pembeli.
+- Dashboard Payments: saldo/perkiraan settlement, success rate, total refund, transaksi terbaru, dan detail pembeli.
+- **Pembatalan oleh owner** (`POST /api/v1/me/payments/{uuid}/cancel`): membatalkan di gateway bila ada API-nya (Midtrans, Paywuz, Dummy, Manual Transfer), dan tetap membatalkan lokal bila gateway menolak atau tidak punya API (PayPal, iPaymu), dengan pesan provider ditampilkan ke owner. Order terkait ikut ditutup.
+- **Refund oleh owner** (`POST /api/v1/me/payments/{uuid}/refund`): penuh atau sebagian (`refunded_amount`, status `PARTIALLY_REFUNDED`/`REFUNDED`, migration `0059`). Gateway tanpa API refund (Paywuz, iPaymu) memakai opsi refund manual. Refund penuh membatalkan fulfillment lewat `PaymentFulfillmentService`: grant CV dicabut, order menjadi `REFUNDED`, saldo top-up ditarik kembali. Refund top-up yang sebagian sudah dipakai untuk chat ditolak.
+- **Refund dari dashboard provider** kini diterapkan: webhook `refund`/`partial_refund` Midtrans memindahkan payment `PAID` ke `REFUNDED`/`PARTIALLY_REFUNDED`. Sebelumnya notifikasi refund terbuang sebagai duplikat karena Midtrans memakai `transaction_id` yang sama untuk semua notifikasi satu transaksi.
+- **Rekonsiliasi** (`scripts/reconcile-payments.php` untuk cron, dan tombol "Cek status ke gateway" / `POST /api/v1/me/payments/reconcile`): menanyakan status payment `PENDING` yang lebih tua dari 15 menit ke provider, menerapkan status final, dan menjalankan fulfillment. Payment yang dibatalkan/gagal lokal dalam 7 hari terakhir tetapi `PAID` di provider dipindah ke `PAID`, difulfill, dan dilaporkan sebagai mismatch. Exit code 1 bila ada error atau mismatch.
+- **Adapter Paywuz diselaraskan dengan dokumentasi resmi Merchant API v1**: `getPaymentStatus()` memakai `GET /transactions/{orderId}` dan `cancelPayment()` memakai `POST /transactions/{orderId}/cancel` (sebelumnya melempar error karena dianggap tidak ada). Event `transaction.settlement` tetap `PENDING`. Verifikasi credential kini memakai `GET /payment-methods` dan menolak key `pk_live_` yang disimpan di Sandbox atau sebaliknya.
 
 ### 3.7 AI, RAG, dan chatbot
 
@@ -159,11 +164,12 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 
 ### 4.2 Payment production
 
-- Paywuz, Midtrans, PayPal, dan iPaymu diuji dengan fake HTTP requester, belum terhadap sandbox provider nyata. Paywuz belum punya endpoint verifikasi non-transaksi.
-- Refund Midtrans setelah `PAID` tercatat sebagai transaction event, tetapi belum selalu merekonsiliasi status payment menjadi `REFUNDED`.
-- Belum ada UI/API owner untuk refund atau pembatalan pembayaran; `POST /payments/{id}/cancel` pada API contract belum diimplementasikan.
-- Saldo di dashboard Payments adalah perkiraan dari tabel `payments`; belum ada ledger settlement/payout, akuntansi fee gateway, atau reconciliation job.
-- Manual Transfer tidak mendukung refund (sesuai capability plugin).
+- Paywuz, Midtrans, PayPal, dan iPaymu diuji dengan fake HTTP requester, belum terhadap sandbox provider nyata. Uji sandbox membutuhkan credential sandbox milik owner dan harus dijalankan owner.
+- `scripts/reconcile-payments.php` belum dijadwalkan di Dokploy Compose; perlu cron (misalnya tiap 15 menit) atau service worker seperti federation worker.
+- Saldo di dashboard Payments masih perkiraan dari tabel `payments` (dikurangi refund); belum ada ledger settlement/payout dan akuntansi fee gateway (kolom `fee` belum diisi).
+- Refund sebagian dari dashboard Midtrans hanya memindahkan status ke `PARTIALLY_REFUNDED`; jumlahnya tidak tercatat karena notifikasi tidak selalu membawa nominal refund.
+- PayPal dan iPaymu tidak punya API pembatalan; pembatalan hanya lokal dan halaman bayar provider tetap terbuka sampai kedaluwarsa (rekonsiliasi menangkap bila tetap dibayar).
+- Pembatalan, refund, dan rekonsiliasi belum tercatat di audit trail (bagian dari prioritas #3).
 
 ### 4.3 Dashboard dan settings
 
@@ -215,7 +221,7 @@ flowchart LR
 ```
 
 1. ~~Perbaiki fixture `PostEndpointsTest` (kolom `slug`) dan buat test berbasis RSA tidak bergantung pada konfigurasi OpenSSL lokal.~~ **Selesai** (26 September 2026) — 47/47 test lulus.
-2. Uji Paywuz, Midtrans, PayPal, dan iPaymu terhadap sandbox nyata; tambahkan refund/cancel owner dan reconciliation job.
+2. **Sebagian selesai** (26 September 2026): refund/cancel owner, penerapan refund dari webhook, reconciliation job, dan penyelarasan adapter Paywuz dengan dokumentasi resmi sudah tersedia. Sisa: uji Paywuz, Midtrans, PayPal, dan iPaymu terhadap sandbox nyata (butuh credential owner) dan penjadwalan cron rekonsiliasi di Dokploy.
 3. Masukkan perubahan credential, aktivasi gateway, konfirmasi manual, grant wallet, dan trust remote node ke audit trail; tambahkan RBAC middleware.
 4. Implementasikan 2FA/session management, language settings, dan halaman Analytics.
 5. Dokumentasikan uji interop federasi dua domain dan tambahkan nonce cache.
@@ -238,7 +244,7 @@ flowchart LR
 
 Dijalankan 26 September 2026 di workspace pengembangan (PHP 8.5.8 CLI, Windows), dengan loop yang sama seperti CI (`php tests/*Test.php`):
 
-- **47 dari 47 test lulus**, tanpa perlu mengatur `OPENSSL_CONF`.
+- **48 dari 48 test lulus**, tanpa perlu mengatur `OPENSSL_CONF`. Test baru `PaymentRefundCancelReconcileTest` mencakup pembatalan, refund penuh/sebagian/manual, refund top-up yang sudah terpakai, webhook refund Midtrans setelah settlement, rekonsiliasi (status provider, batas umur, gateway tanpa API status, error, mismatch), dan ringkasan dashboard. `PaywuzGatewayTest` sebelumnya diam-diam mengirim request sungguhan ke `api.paywuz.id`; kini memakai fake requester.
 - Diperbaiki pada putaran ini:
   - `PostEndpointsTest`: fixture SQLite kini memiliki kolom `posts.slug`, dan assertion canonical URL mengikuti format `/posts/{id}-{slug}` yang diperkenalkan commit `24ab57b`.
   - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: sebelumnya gagal karena PHP Windows/XAMPP tidak menemukan `openssl.cnf` sehingga `openssl_pkey_new()` gagal (`error:80000003`). Masalah yang sama juga akan menggagalkan pembuatan key federasi node di deployment Windows. `NodeKeyService::createRsaKeyPair()` kini mencoba konfigurasi default OpenSSL dulu, lalu fallback ke `app/Services/Federation/openssl-fallback.cnf`; ketiga test memakai helper yang sama.

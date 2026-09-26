@@ -6,11 +6,22 @@
   const kpiRow = document.querySelector('#kpi-row');
   const pendingList = document.querySelector('#pending-list');
   const recentList = document.querySelector('#recent-list');
+  const reconcileButton = document.querySelector('#reconcile-button');
+  const reconcileResult = document.querySelector('#reconcile-result');
 
   const purposeLabels = {
     cv_access: 'Akses CV/Resume',
     marketplace_order: 'Pesanan produk',
     wallet_topup: 'Top up saldo chatbot',
+  };
+
+  const statusLabels = {
+    PENDING: 'Menunggu',
+    PAID: 'Lunas',
+    PARTIALLY_REFUNDED: 'Refund sebagian',
+    REFUNDED: 'Refund penuh',
+    FAILED: 'Gagal',
+    CANCELLED: 'Dibatalkan',
   };
 
   const token = () => sessionStorage.getItem(tokenKey);
@@ -55,6 +66,7 @@
         kpiTile('Pembayaran lunas', String(s.paid_count)),
         kpiTile('Tingkat sukses', `${s.success_rate}%`),
         kpiTile('Pendapatan bulan ini', money(s.revenue_this_month, s.currency)),
+        kpiTile('Total refund', money(s.refunded_amount || 0, s.currency), `${s.refunded_count || 0} transaksi`),
       );
       renderRecent(s.recent_transactions || []);
     } catch (error) {
@@ -73,7 +85,16 @@
     payments.forEach((p) => {
       const li = document.createElement('li');
       const when = p.created_at ? new Date(p.created_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : '';
-      li.innerHTML = `<span>${escapeHtml(p.gateway_code)} · ${escapeHtml(p.status)}<br><small class="muted">${escapeHtml(p.order_id)} · ${when}</small></span><span class="count">${money(p.amount, p.currency)}</span>`;
+      const refunded = Number(p.refunded_amount || 0);
+      const refundedNote = refunded > 0 ? ` · direfund ${money(refunded, p.currency)}` : '';
+      li.innerHTML = `<span>${escapeHtml(p.gateway_code)} · ${escapeHtml(statusLabels[p.status] || p.status)}<br><small class="muted">${escapeHtml(p.order_id)} · ${when}${refundedNote}</small></span><span class="count">${money(p.amount, p.currency)}</span>`;
+      if (p.status === 'PAID' || p.status === 'PARTIALLY_REFUNDED') {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Refund';
+        button.addEventListener('click', () => refundPayment(p, button));
+        li.append(button);
+      }
       list.append(li);
     });
     recentList.append(list);
@@ -90,6 +111,56 @@
       alert(error.message);
       button.disabled = false;
       button.textContent = 'Konfirmasi Lunas';
+    }
+  };
+
+  const refundPayment = async (payment, button) => {
+    const remaining = Number(payment.amount) - Number(payment.refunded_amount || 0);
+    const input = prompt(`Jumlah refund (maksimal ${money(remaining, payment.currency)}). Kosongkan untuk refund penuh.`, '');
+    if (input === null) return;
+    const trimmed = input.trim().replace(/[.,\s]/g, '');
+    const amount = trimmed === '' ? null : Number(trimmed);
+    if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) {
+      alert('Jumlah refund tidak valid.');
+      return;
+    }
+    const body = amount === null ? {} : { amount };
+    button.disabled = true;
+    button.textContent = 'Memproses…';
+    try {
+      let result;
+      try {
+        result = await api(`/api/v1/me/payments/${encodeURIComponent(payment.uuid)}/refund`, { method: 'POST', body: JSON.stringify(body) });
+      } catch (error) {
+        // Gateways without a refund API: offer to record a refund the owner
+        // already made outside the gateway.
+        if (!confirm(`${error.message}\n\nSudah mengembalikan dananya sendiri? Tekan OK untuk mencatatnya sebagai refund manual.`)) throw null;
+        result = await api(`/api/v1/me/payments/${encodeURIComponent(payment.uuid)}/refund`, { method: 'POST', body: JSON.stringify({ ...body, manual: true }) });
+      }
+      const notes = result.data.notes || [];
+      if (notes.length > 0) alert(notes.join('\n'));
+      await loadSummary();
+    } catch (error) {
+      if (error) alert(error.message);
+      button.disabled = false;
+      button.textContent = 'Refund';
+    }
+  };
+
+  const cancelPayment = async (uuid, button) => {
+    if (!confirm('Batalkan pembayaran ini? Pesanan terkait juga akan dibatalkan.')) return;
+    button.disabled = true;
+    button.textContent = 'Memproses…';
+    try {
+      const result = await api(`/api/v1/me/payments/${encodeURIComponent(uuid)}/cancel`, { method: 'POST' });
+      if (!result.data.provider_cancelled && result.data.provider_message) {
+        alert(`Dibatalkan di FPDP, tetapi gateway menolak pembatalan: ${result.data.provider_message}\nHalaman bayar di gateway mungkin masih terbuka sampai kedaluwarsa.`);
+      }
+      await Promise.all([loadPending(), loadSummary()]);
+    } catch (error) {
+      alert(error.message);
+      button.disabled = false;
+      button.textContent = 'Batalkan';
     }
   };
 
@@ -121,7 +192,14 @@
     button.type = 'button';
     button.textContent = 'Konfirmasi Lunas';
     button.addEventListener('click', () => confirmPayment(payment.uuid, button));
-    card.append(...parts, button);
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'secondary';
+    cancelButton.textContent = 'Batalkan';
+    cancelButton.addEventListener('click', () => cancelPayment(payment.uuid, cancelButton));
+    const actions = document.createElement('p');
+    actions.append(button, ' ', cancelButton);
+    card.append(...parts, actions);
     return card;
   };
 
@@ -161,6 +239,23 @@
       verify();
     }
   };
+
+  reconcileButton.addEventListener('click', async () => {
+    reconcileButton.disabled = true;
+    reconcileResult.textContent = 'Memeriksa…';
+    try {
+      const r = (await api('/api/v1/me/payments/reconcile', { method: 'POST' })).data;
+      const parts = [`${r.checked} dicek`, `${r.updated.length} diperbarui`];
+      if (r.errors.length > 0) parts.push(`${r.errors.length} gagal dicek`);
+      if (r.mismatches.length > 0) parts.push(`${r.mismatches.length} ternyata sudah dibayar setelah dibatalkan (kini LUNAS; refund bila tidak diinginkan)`);
+      reconcileResult.textContent = parts.join(' · ');
+      await Promise.all([loadPending(), loadSummary()]);
+    } catch (error) {
+      reconcileResult.textContent = error.message;
+    } finally {
+      reconcileButton.disabled = false;
+    }
+  });
 
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();

@@ -98,6 +98,17 @@ Post writes accept up to 10 ordered media metadata items (`IMAGE`, `VIDEO`, `AUD
 | POST | `/payments/{paymentId}/refunds` | Admin Bearer | Request full or partial refund |
 | POST | `/webhooks/payments/{gatewayCode}` | Signature | Receive and normalize provider events |
 
+Owner payment management is implemented today (owner Bearer) at these paths:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/me/payments/pending` | List `PENDING` payments for manual confirmation |
+| POST | `/me/payments/{uuid}/confirm` | Mark a `PENDING` payment `PAID` and run fulfillment |
+| POST | `/me/payments/{uuid}/cancel` | Cancel a `PENDING` payment at the gateway (when it has an API) and locally; closes the related order |
+| POST | `/me/payments/{uuid}/refund` | Body `{"amount"?: number, "manual"?: bool}`; no `amount` = full refund; `manual: true` records a refund made outside the gateway; a full refund undoes fulfillment |
+| POST | `/me/payments/reconcile` | Check old `PENDING` payments with the provider, and cancelled payments that were paid anyway |
+| POST | `/payments/webhook/{gateway}` | Provider webhook (replaces `/webhooks/payments/{gatewayCode}` above) |
+
 ### Administration and federation
 
 | Method | Path | Auth | Purpose |

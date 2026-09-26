@@ -268,6 +268,32 @@ The marketplace layer should not need to know whether payment is processed by Mi
 
 This makes payment infrastructure a configurable component of the user's digital node rather than a permanent dependency of the platform.
 
+#### What "marketplace" means in FPDP
+
+In FPDP, "marketplace" does **not** mean a multi-seller platform like Tokopedia or Shopee. Each node has a **personal online shop owned by the website owner**: one seller per node, selling their own products to visitors.
+
+What makes it different from an ordinary web shop is federation:
+
+- **Visitors buy directly on the node.** They browse `/shop`, check out, and pay through whichever gateway the owner activated.
+- **Product posts spread to the fediverse.** A product marked as promoted is published as an ActivityPub post, so followers on Mastodon and other FPDP nodes see it in their timelines.
+- **Federated commerce (cross-node orders) is the key differentiator.** The goal is for a buyer on another node or fediverse server to order and pay for a product they saw in their timeline. The seller node stays the source of truth for price, stock, and order status, and payment always happens on the seller node. This is planned as its own roadmap phase (Phase 7) — see the [roadmap](documentation/ROADMAP.en.md).
+
+What is implemented today:
+
+| Part | Status | Where |
+|---|---|---|
+| Products (physical and digital, with photos) and a public shop | Done | `/shop`, `/shop/{id}`, `/dashboard/products` |
+| Public visitor checkout with buyer details and shipping address | Done | `POST /api/v1/profiles/{handle}/orders` |
+| Payment through the owner's active gateway (Dummy, Paywuz, Midtrans, PayPal, iPaymu, Manual Transfer) | Done | Settings → Payments |
+| Payment confirmation page, manual confirmation by the owner, webhooks | Done | `/payment/thank-you`, `/dashboard/payments` |
+| Digital-product download after payment | Done | `GET /api/v1/products/{id}/download` |
+| Owner cancel and refund (full or partial, through the gateway or recorded manually), with the effect undone on a full refund | Done | `/dashboard/payments`, `POST /api/v1/me/payments/{uuid}/cancel` and `/refund` |
+| Payment reconciliation against the provider (missed webhooks, paid-after-cancel) | Done | `scripts/reconcile-payments.php`, `POST /api/v1/me/payments/reconcile` |
+| Promoted products federated to the fediverse | Done | `is_promoted` on a product |
+| Cross-node orders, payment, and order status sent back to the buyer node | Not started | Roadmap Phase 7 |
+
+The word "marketplace" also appears in three other senses in the documentation, none of which is a multi-seller shop: **external marketplaces** as content sources (for example a future Shopee connector), the **ad marketplace** (owners selling banner slots on their node), and the **plugin marketplace** (a future registry of adapters).
+
 #### Open Architecture
 
 FPDP currently follows a framework-light modular monolith approach using PHP and MySQL.
@@ -420,9 +446,10 @@ The intended product combines:
 |---|---|
 | PHP structure | Lightweight PHP 8.2+ modular structure with PSR-4 autoloading |
 | Web UI | Home page (`/`, a live personal digital home for the node owner once one exists), local timeline, public profile (`/@{handle}`), public post page, post editor with direct media upload (`/dashboard/posts`), and an owner dashboard Overview (`/dashboard`) |
-| Payments | `PaymentGatewayInterface` with Dummy, Paywuz, Midtrans, and PayPal (Orders API v2) adapters; no gateway-selection UI yet — see the progress report |
+| Personal online shop | Products, public shop, visitor checkout, digital downloads, and promoted products federated to the fediverse — see [What "marketplace" means in FPDP](#what-marketplace-means-in-fpdp) |
+| Payments | `PaymentGatewayInterface` with Dummy, Paywuz, Midtrans, and PayPal (Orders API v2) adapters plus iPaymu and Manual Transfer plugins; active-gateway selection in Settings; owner confirm, cancel, and refund; reconciliation against the provider |
 | Federation | Real, interoperable ActivityPub: WebFinger, RSA keys, HTTP Signatures (signed inbound verification and outbound delivery), content-negotiated Actor/outbox/followers/following documents, Follow/Accept/Reject/Undo/Block, and bidirectional post and promoted-product syndication merged into a unified local timeline — live-verified against real Mastodon instances (`mastodon.social`, `mastodon.world`) |
-| Tests | 43 test scripts covering identity, content, payments (including all four gateways), media upload, federation (ActivityPub discovery, signatures, inbox, outbox, mutual follows), marketplace, analytics, deployment config, and the installer — see `tests/` |
+| Tests | 48 test scripts covering identity, content, payments (every gateway, refund, cancel, reconciliation), media upload, federation (ActivityPub discovery, signatures, inbox, outbox, mutual follows), marketplace, analytics, deployment config, and the installer — see `tests/` |
 | API design | Bilingual API contract and OpenAPI 3.1 specification |
 
 For everything else — REST handler coverage, federation protocol depth, commerce/checkout completeness, dashboard panels beyond Overview, and known gaps — see the progress report linked above rather than this table.
@@ -950,6 +977,32 @@ Lapisan marketplace tidak perlu tahu apakah pembayaran diproses oleh Midtrans, X
 
 Hal ini menjadikan infrastruktur pembayaran sebagai komponen yang dapat dikonfigurasi pada node digital pengguna, alih-alih menjadi ketergantungan permanen dari platform.
 
+#### Arti "marketplace" di FPDP
+
+Di FPDP, "marketplace" **bukan** platform multi-penjual seperti Tokopedia atau Shopee. Setiap node memiliki **toko online pribadi milik pemilik website**: satu penjual per node, yang menjual produknya sendiri kepada pengunjung.
+
+Yang membedakannya dari toko web biasa adalah federasi:
+
+- **Pengunjung membeli langsung di node.** Mereka melihat `/shop`, checkout, lalu membayar lewat gateway yang diaktifkan owner.
+- **Posting produk tersebar ke fediverse.** Produk yang ditandai promosi dipublikasikan sebagai post ActivityPub, sehingga follower di Mastodon dan node FPDP lain melihatnya di timeline mereka.
+- **Federated commerce (order lintas node) adalah keunggulan utama.** Tujuannya, pembeli di node atau server fediverse lain dapat memesan dan membayar produk yang mereka lihat di timeline. Node penjual tetap menjadi sumber kebenaran untuk harga, stok, dan status order, dan pembayaran selalu terjadi di node penjual. Ini direncanakan sebagai fase roadmap tersendiri (Fase 7) — lihat [roadmap](documentation/ROADMAP.id.md).
+
+Yang sudah diimplementasikan:
+
+| Bagian | Status | Lokasi |
+|---|---|---|
+| Produk (fisik dan digital, dengan foto) dan toko publik | Selesai | `/shop`, `/shop/{id}`, `/dashboard/products` |
+| Checkout visitor publik dengan data pembeli dan alamat pengiriman | Selesai | `POST /api/v1/profiles/{handle}/orders` |
+| Pembayaran lewat gateway aktif owner (Dummy, Paywuz, Midtrans, PayPal, iPaymu, Transfer Manual) | Selesai | Settings → Payments |
+| Halaman konfirmasi pembayaran, konfirmasi manual oleh owner, webhook | Selesai | `/payment/thank-you`, `/dashboard/payments` |
+| Download produk digital setelah pembayaran | Selesai | `GET /api/v1/products/{id}/download` |
+| Pembatalan dan refund oleh owner (penuh atau sebagian, lewat gateway atau dicatat manual), dengan efeknya dibatalkan saat refund penuh | Selesai | `/dashboard/payments`, `POST /api/v1/me/payments/{uuid}/cancel` dan `/refund` |
+| Rekonsiliasi pembayaran dengan provider (webhook terlewat, dibayar setelah dibatalkan) | Selesai | `scripts/reconcile-payments.php`, `POST /api/v1/me/payments/reconcile` |
+| Produk promosi difederasikan ke fediverse | Selesai | `is_promoted` pada produk |
+| Order lintas node, pembayaran, dan status order dikirim balik ke node pembeli | Belum dimulai | Roadmap Fase 7 |
+
+Kata "marketplace" juga muncul dengan tiga arti lain di dokumentasi, dan tidak satu pun berarti toko multi-penjual: **marketplace eksternal** sebagai sumber konten (misalnya connector Shopee di masa depan), **marketplace iklan** (owner menjual slot banner di node-nya), dan **marketplace plugin** (registry adapter di masa depan).
+
 #### Arsitektur Terbuka
 
 FPDP saat ini mengikuti pendekatan modular monolith tanpa framework berat, menggunakan PHP dan MySQL.
@@ -1102,9 +1155,10 @@ Produk yang dituju menggabungkan:
 |---|---|
 | Struktur PHP | Struktur modular ringan berbasis PHP 8.2+ dengan autoload PSR-4 |
 | Web UI | Halaman utama (`/`, personal digital home live untuk owner node begitu ada), timeline lokal, profil publik (`/@{handle}`), halaman post publik, editor post dengan upload media langsung (`/dashboard/posts`), dan dashboard Overview owner (`/dashboard`) |
-| Pembayaran | `PaymentGatewayInterface` dengan adapter Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2); belum ada UI pemilihan gateway — lihat laporan progres |
+| Toko online pribadi | Produk, toko publik, checkout visitor, download produk digital, dan produk promosi yang difederasikan ke fediverse — lihat [Arti "marketplace" di FPDP](#arti-marketplace-di-fpdp) |
+| Pembayaran | `PaymentGatewayInterface` dengan adapter Dummy, Paywuz, Midtrans, dan PayPal (Orders API v2) plus plugin iPaymu dan Transfer Manual; pemilihan gateway aktif di Settings; konfirmasi, pembatalan, dan refund oleh owner; rekonsiliasi dengan provider |
 | Federasi | ActivityPub sungguhan dan interoperable: WebFinger, RSA key, HTTP Signatures (verifikasi inbound dan pengiriman outbound bertanda tangan), dokumen Actor/outbox/followers/following dengan content negotiation, Follow/Accept/Reject/Undo/Block, serta sinkronisasi post dan produk yang dipromosikan dua arah, tergabung dalam satu timeline lokal — sudah diverifikasi langsung terhadap instance Mastodon sungguhan (`mastodon.social`, `mastodon.world`) |
-| Pengujian | 43 test script mencakup identity, konten, payment (keempat gateway), upload media, federasi (discovery ActivityPub, signature, inbox, outbox, mutual follow), marketplace, analytics, config deployment, dan installer — lihat `tests/` |
+| Pengujian | 48 test script mencakup identity, konten, payment (semua gateway, refund, pembatalan, rekonsiliasi), upload media, federasi (discovery ActivityPub, signature, inbox, outbox, mutual follow), marketplace, analytics, config deployment, dan installer — lihat `tests/` |
 | Desain API | Kontrak API bilingual dan spesifikasi OpenAPI 3.1 |
 
 Untuk hal lainnya — cakupan REST handler, kedalaman protokol federasi, kelengkapan commerce/checkout, panel dashboard di luar Overview, dan gap yang diketahui — lihat laporan progres yang ditautkan di atas, bukan tabel ini.

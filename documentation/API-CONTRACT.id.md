@@ -98,6 +98,17 @@ Penulisan post menerima maksimal 10 metadata media terurut (`IMAGE`, `VIDEO`, `A
 | POST | `/payments/{paymentId}/refunds` | Admin Bearer | Meminta refund penuh atau sebagian |
 | POST | `/webhooks/payments/{gatewayCode}` | Signature | Menerima dan menormalisasi event provider |
 
+Yang sudah diimplementasikan untuk pengelolaan pembayaran oleh owner (Bearer owner) memakai path berikut:
+
+| Method | Path | Kegunaan |
+|---|---|---|
+| GET | `/me/payments/pending` | Daftar pembayaran `PENDING` untuk dikonfirmasi manual |
+| POST | `/me/payments/{uuid}/confirm` | Tandai `PENDING` sebagai `PAID` dan jalankan fulfillment |
+| POST | `/me/payments/{uuid}/cancel` | Batalkan `PENDING` di gateway (bila ada API-nya) lalu lokal; menutup order terkait |
+| POST | `/me/payments/{uuid}/refund` | Body `{"amount"?: number, "manual"?: bool}`; tanpa `amount` = refund penuh; `manual: true` mencatat refund yang dilakukan di luar gateway; refund penuh membatalkan fulfillment |
+| POST | `/me/payments/reconcile` | Cek status `PENDING` lama ke provider dan pembayaran yang dibatalkan tapi ternyata dibayar |
+| POST | `/payments/webhook/{gateway}` | Webhook provider (menggantikan `/webhooks/payments/{gatewayCode}` di atas) |
+
 ### Administrasi dan federasi
 
 | Method | Path | Auth | Kegunaan |
