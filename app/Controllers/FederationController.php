@@ -11,6 +11,7 @@ use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Services\Auth\AuthService;
 use App\Services\Federation\FederationService;
+use App\Services\Federation\FediverseDiscoveryService;
 use App\Services\Security\AuditService;
 
 final class FederationController
