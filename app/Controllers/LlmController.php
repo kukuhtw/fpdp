@@ -9,12 +9,14 @@ use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Services\Auth\AuthService;
 use App\Services\Llm\LLMConfigService;
+use App\Services\Security\AuditService;
 
 final class LlmController
 {
     public function __construct(
         private readonly AuthService $auth,
         private readonly LLMConfigService $llmConfig,
+        private readonly ?AuditService $audit = null,
     ) {
     }
 
@@ -49,6 +51,11 @@ final class LlmController
             (string) ($input['api_key'] ?? ''),
             (bool) ($input['supports_vision'] ?? false),
         );
+        // Provider and model only — never the API key.
+        $this->audit?->record($context, 'llm.configured', 'llm_config', null, [
+            'provider_code' => $result['provider_code'] ?? null,
+            'model' => $result['model'] ?? null,
+        ]);
 
         return JsonEnvelope::success($result);
     }

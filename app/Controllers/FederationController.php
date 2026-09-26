@@ -11,12 +11,14 @@ use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Services\Auth\AuthService;
 use App\Services\Federation\FederationService;
+use App\Services\Security\AuditService;
 
 final class FederationController
 {
     public function __construct(
         private readonly AuthService $auth,
         private readonly FederationService $federation,
+        private readonly ?AuditService $audit = null,
     ) {
     }
 
@@ -98,9 +100,10 @@ final class FederationController
         $input = $request->json() ?? [];
         $capabilities = is_array($input['capabilities'] ?? null) ? $input['capabilities'] : [];
 
-        return JsonEnvelope::success([
-            'capabilities' => $this->federation->updateNodeCapabilities((int) $context['node']['id'], $capabilities),
-        ]);
+        $updated = $this->federation->updateNodeCapabilities((int) $context['node']['id'], $capabilities);
+        $this->audit?->record($context, 'federation.capabilities_updated', 'node', null, ['capabilities' => $updated]);
+
+        return JsonEnvelope::success(['capabilities' => $updated]);
     }
 
     // ---- Remote node moderation ----
@@ -130,10 +133,14 @@ final class FederationController
      */
     public function updateRemoteNodeTrust(Request $request, array $params): Response
     {
-        $this->auth->authenticate($request->bearerToken());
+        $context = $this->auth->authenticate($request->bearerToken());
 
         $input = $request->json() ?? [];
         $node = $this->federation->updateRemoteNodeTrust($params['domain'], (string) ($input['trust_state'] ?? ''));
+        $this->audit?->record($context, 'federation.trust_changed', 'remote_node', null, [
+            'domain' => $params['domain'],
+            'trust_state' => $node['trust_state'] ?? ($input['trust_state'] ?? null),
+        ]);
 
         return JsonEnvelope::success($node);
     }
@@ -196,12 +203,18 @@ final class FederationController
     {
         $context = $this->auth->authenticate($request->bearerToken());
         $input = $request->json() ?? [];
-        return JsonEnvelope::success($this->federation->sendBlock(
+        $result = $this->federation->sendBlock(
             (int) $context['node']['id'],
             (int) $context['profile']['id'],
             (string) ($input['target_actor_uri'] ?? ''),
             (string) ($input['target_domain'] ?? ''),
-        ));
+        );
+        $this->audit?->record($context, 'federation.blocked', 'remote_actor', null, [
+            'target_actor_uri' => (string) ($input['target_actor_uri'] ?? ''),
+            'target_domain' => (string) ($input['target_domain'] ?? ''),
+        ]);
+
+        return JsonEnvelope::success($result);
     }
 
     /**

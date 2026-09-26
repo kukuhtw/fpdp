@@ -12,6 +12,7 @@ use App\Services\Chatbot\ChatbotService;
 use App\Services\Chatbot\VisitorWalletService;
 use App\Services\Profile\ProfileService;
 use App\Services\Visitor\VisitorAuthService;
+use App\Services\Security\AuditService;
 
 final class ChatbotController
 {
@@ -21,6 +22,7 @@ final class ChatbotController
         private readonly VisitorAuthService $visitorAuth,
         private readonly ChatbotService $chatbot,
         private readonly VisitorWalletService $wallet,
+        private readonly ?AuditService $audit = null,
     ) {
     }
 
@@ -66,6 +68,10 @@ final class ChatbotController
             (float) ($input['amount'] ?? 0),
             isset($input['note']) ? (string) $input['note'] : null,
         );
+        $this->audit?->record($context, 'wallet.granted', 'visitor', (string) $params['visitorId'], [
+            'amount' => (float) ($input['amount'] ?? 0),
+            'note' => isset($input['note']) ? (string) $input['note'] : null,
+        ]);
 
         return JsonEnvelope::success($wallet);
     }
