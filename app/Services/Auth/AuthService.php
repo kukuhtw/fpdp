@@ -14,13 +14,14 @@ use App\Repositories\AuthTokenRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\UserRepository;
-use App\Services\Security\AccessPolicy;
 use App\Services\Security\AuditService;
 use DateTimeImmutable;
 use PDOException;
 
 final class AuthService
 {
+    private const OWNER_ROLE = 'OWNER';
+
     public function __construct(
         private readonly NodeRepository $nodes,
         private readonly UserRepository $users,
@@ -148,9 +149,7 @@ final class AuthService
             }
             throw new UnauthorizedException('Invalid email or password.');
         }
-        if (!self::isUsable($user)) {
-            throw new ForbiddenException('This account is not active.');
-        }
+        $this->assertOwnerAccess($user);
 
         $result = [
             'user' => $user,
@@ -165,7 +164,9 @@ final class AuthService
 
     /**
      * Resolves a bearer token into its user/node/profile context, or throws
-     * UnauthorizedException when the token is missing, unknown, revoked, or expired.
+     * UnauthorizedException when the token is missing, unknown, revoked, or
+     * expired. Every owner dashboard/API endpoint goes through here, so this
+     * is also the one access check: see assertOwnerAccess().
      *
      * @return array<string, mixed>
      */
@@ -189,11 +190,7 @@ final class AuthService
         if ($user === null) {
             throw new UnauthorizedException();
         }
-        // A suspended account, or one with a role AccessPolicy doesn't know,
-        // loses access immediately — even with a token issued before.
-        if (!self::isUsable($user)) {
-            throw new ForbiddenException('This account is not active.');
-        }
+        $this->assertOwnerAccess($user);
 
         return [
             'user' => $user,
@@ -203,33 +200,27 @@ final class AuthService
     }
 
     /**
-     * authenticate() plus an AccessPolicy permission check, for endpoints
-     * that touch money, credentials, buyer data, or federation trust. A
-     * denial is written to the audit trail before the 403 is thrown.
+     * FPDP's access model is one owner per node (see the README): the only
+     * dashboard account that may act is an ACTIVE user with role OWNER. Any
+     * other status or role — a suspended owner, or a row with an unexpected
+     * role — is refused on login and on every request, even with a token
+     * issued earlier, and the refusal is written to the audit trail.
      *
-     * @return array<string, mixed>
-     */
-    public function authorize(?string $rawToken, string $permission): array
-    {
-        $context = $this->authenticate($rawToken);
-        if (!AccessPolicy::allows((string) ($context['user']['role'] ?? 'OWNER'), $permission)) {
-            $this->audit?->record($context, 'access.denied', 'user', (string) $context['user']['public_id'], [
-                'permission' => $permission,
-                'role' => $context['user']['role'] ?? 'OWNER',
-            ]);
-            throw new ForbiddenException();
-        }
-
-        return $context;
-    }
-
-    /**
      * @param array<string, mixed> $user
      */
-    private static function isUsable(array $user): bool
+    private function assertOwnerAccess(array $user): void
     {
-        return strtoupper((string) ($user['status'] ?? 'ACTIVE')) === 'ACTIVE'
-            && AccessPolicy::isKnownRole((string) ($user['role'] ?? 'OWNER'));
+        $status = strtoupper((string) ($user['status'] ?? 'ACTIVE'));
+        $role = strtoupper((string) ($user['role'] ?? self::OWNER_ROLE));
+        if ($status === 'ACTIVE' && $role === self::OWNER_ROLE) {
+            return;
+        }
+
+        $this->audit?->record(['user' => $user, 'node' => ['id' => $user['node_id']]], 'access.denied', 'user', (string) $user['public_id'], [
+            'status' => $status,
+            'role' => $role,
+        ]);
+        throw new ForbiddenException('This account is not allowed to access the dashboard.');
     }
 
     public function logout(string $rawToken): void
