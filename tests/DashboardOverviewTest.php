@@ -101,8 +101,8 @@ $db->exec("INSERT INTO payments (uuid, order_id, gateway_code, currency, amount,
 $db->exec("INSERT INTO follows (public_id, profile_id, target_actor_uri, status, direction) VALUES ('f1', {$ownerProfileId}, 'https://bob.example/@bob', 'ACCEPTED', 'INCOMING')");
 $db->exec("INSERT INTO follows (public_id, profile_id, target_actor_uri, status, direction) VALUES ('f2', {$ownerProfileId}, 'https://carol.example/@carol', 'ACCEPTED', 'OUTGOING')");
 
-// Seed two audit events.
-$db->exec("INSERT INTO audit_events (node_id, actor_user_id, action, subject_type) VALUES ({$ownerNodeId}, {$ownerUserId}, 'user.registered', 'user')");
+// Registration above already wrote a real `user.registered` audit event;
+// seed one more so recent_activity has two.
 $db->exec("INSERT INTO audit_events (node_id, actor_user_id, action, subject_type) VALUES ({$ownerNodeId}, {$ownerUserId}, 'post.created', 'post')");
 
 // ---- Test 1: overview requires auth ----
@@ -122,7 +122,7 @@ dash_assert($data['commerce']['order_count'] === 2, 'order_count wrong');
 dash_assert($data['commerce']['pending_order_count'] === 1, 'pending_order_count wrong');
 dash_assert((float) $data['commerce']['revenue_this_month'] === 100000.0, 'revenue_this_month wrong: ' . json_encode($data['commerce']));
 dash_assert($data['federation'] === ['follower_count' => 1, 'following_count' => 1], 'Federation counts wrong: ' . json_encode($data['federation']));
-dash_assert(count($data['recent_activity']) === 2, 'recent_activity should include both seeded audit events');
+dash_assert(count($data['recent_activity']) === 2, 'recent_activity should include the registration event and the seeded one: ' . json_encode($data['recent_activity']));
 dash_assert($data['analytics']['available'] === true, 'Analytics should report available now that the subsystem exists');
 dash_assert(count($data['analytics']['daily_traffic']) === 7, 'daily_traffic should always have exactly 7 entries (gaps filled with zero)');
 dash_assert($data['analytics']['profile_views'] === 0, 'No views have happened yet at this point in the test');

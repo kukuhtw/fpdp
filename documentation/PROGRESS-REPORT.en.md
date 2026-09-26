@@ -10,7 +10,7 @@ FPDP is past its core MVP. Since the September 21 report, visitor commerce flows
 Repository snapshot:
 
 - **59 MySQL migrations** (`0001`–`0059`);
-- **48 test scripts**, all passing (see Section 8);
+- **49 test scripts**, all passing (see Section 8);
 - REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, personal online shop (including visitor checkout and digital assets), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, themes, and media upload;
 - real UI: home, unified timeline (local + federated + promoted products), profile, post, shop, product page, public CV, "coretan" wall, YouTube page, payment thank-you page, and 12 owner dashboard pages;
 - 3 public themes: `default`, `editorial`, `minimal`;
@@ -44,7 +44,7 @@ flowchart LR
 | Identity & profile | **Done for MVP** | Register/login/logout/`me`, hashed tokens, rate limiting, profile visibility, Google OAuth visitors |
 | Local content | **Done for MVP** | CRUD, draft/publish, visibility, soft delete, media upload, lightbox, canonical URLs, cursor timeline, dashboard post list and delete |
 | External aggregation | **Done for MVP** | RSS/Atom/Custom API, YouTube feeds, LinkedIn Organizations, anti-SSRF HTTP client, sync worker, dedup |
-| Operations & hardening | **Partial** | CI, basic audit, validated Dokploy staging; backup/restore exercise, RBAC, and retention not done |
+| Operations & hardening | **Partial** | CI, audit trail live for sensitive actions, centralized owner-only access, validated Dokploy staging; backup/restore exercise and retention not done |
 | Personal online shop | **Done for MVP** | The node owner's own shop: products, orders, public visitor checkout, shipping address, digital assets + download, promoted products |
 | Payment | **Mostly done** | 6 gateways, gateway plugin system, active-gateway selection, per-environment sandbox/live, manual confirmation, owner cancel and refund, reconciliation; real sandbox testing and settlement ledger not done |
 | Federation | **Mostly done** | ActivityPub (WebFinger, actor, inbox/outbox, followers/following), federated posts and products, federation worker, federation dashboard; cross-server interop testing not formally documented |
@@ -169,7 +169,6 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 - The Payments dashboard balance is still an approximation from the `payments` table (net of refunds); there is no settlement/payout ledger or gateway-fee accounting (the `fee` column is never filled).
 - A partial refund made in the Midtrans dashboard only moves the status to `PARTIALLY_REFUNDED`; the amount is not recorded, since the notification does not reliably carry it.
 - PayPal and iPaymu have no cancel API; cancellation is local only and the provider's payment page stays open until it expires (reconciliation catches it if it is paid anyway).
-- Cancellation, refunds, and reconciliation are not recorded in the audit trail yet (part of priority #3).
 
 ### 4.3 Dashboard and settings
 
@@ -192,8 +191,11 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 
 ### 4.6 Authorization, audit, and analytics hardening
 
-- No centralized role/permission middleware (owner vs admin).
-- The audit trail covers auth, posts, profile, and wall comments; payment-credential changes, gateway activation, manual payment confirmation, wallet grants, and remote-node trust are not audited.
+- **Correction:** the previous report said the audit trail already covered auth, posts, profile, and wall comments. In fact `AuditService` was never wired into `routes.php`, so no audit event was ever recorded in production. Fixed on September 26, 2026.
+- **Done (September 26, 2026):** an **owner-only** access model is enforced centrally in `AuthService`: only an `ACTIVE` user with role `OWNER` can log in or use a token; a suspended account or any other role is refused immediately even with a still-valid token, and the refusal is recorded as `access.denied`. There is no admin role, per the product decision (one website = one owner).
+- **Done (September 26, 2026):** the audit trail now records `user.registered`, `user.login`, `user.login_failed`, `access.denied`, `payment.confirmed_manually`, `payment.cancelled`, `payment.refunded`, `payment.reconciled` (including from cron), `payment_gateway.configured` (key names only, no values), `payment_gateway.activated`, `llm.configured` (no API key), `wallet.granted`, `federation.trust_changed`, `federation.blocked`, and `federation.capabilities_updated`, alongside the existing post/profile/wall-comment events. Payment entries do not copy buyer personal data. A failed audit write does not undo the action; the error goes to the server log.
+- There is no dashboard page to browse the full audit trail yet (Overview only shows recent activity), and no retention for `audit_events`.
+- Owner access to buyer personal data (Payments/Orders pages) is not logged per view yet.
 - The public outbound-click endpoint has no dedicated rate limit.
 - `analytics_events` has no retention/cleanup job.
 
@@ -222,7 +224,7 @@ flowchart LR
 
 1. ~~Fix the `PostEndpointsTest` fixture (`slug` column) and make RSA-based tests independent of local OpenSSL configuration.~~ **Done** (September 26, 2026) — 47/47 tests pass.
 2. **Partly done** (September 26, 2026): owner refund/cancel, applying refunds from webhooks, a reconciliation job, and aligning the Paywuz adapter with its official docs are in place. Remaining: testing Paywuz, Midtrans, PayPal, and iPaymu against real sandboxes (needs the owner's credentials) and scheduling the reconciliation cron in Dokploy.
-3. Add credential changes, gateway activation, manual confirmation, wallet grants, and remote-node trust to the audit trail; add RBAC middleware.
+3. ~~Add credential changes, gateway activation, manual confirmation, wallet grants, and remote-node trust to the audit trail; add RBAC middleware.~~ **Done** (September 26, 2026) — the audit trail is wired in and covers every sensitive action; owner-only dashboard access is enforced centrally (no admin role).
 4. Implement 2FA/session management, language settings, and an Analytics page.
 5. Document a two-domain federation interop test and add a nonce cache.
 6. Start Phase 7 Federated Commerce: ActivityPub product representation, cross-node order requests, payment on the seller node, and order status sent back to the buyer node.
@@ -235,7 +237,7 @@ flowchart LR
 - MySQL and `storage/` (CVs, media, digital assets, RAG documents) must be restored from a consistent recovery point.
 - Code rollback does not reverse forward migrations.
 - `APP_KEY` protects OAuth state, analytics HMAC, gateway credentials, and OAuth tokens; rotation must use `scripts/rotate-app-key.php`.
-- Manual payment confirmation grants access/fulfillment without provider proof; without an audit trail it is hard to trace in a dispute.
+- Manual payment confirmation grants access/fulfillment without provider proof; it is now in the audit trail (who, when, which payment), but the transfer evidence itself stays outside the system.
 - The chatbot uses the owner's LLM API key; without a spend ceiling, abuse can run up provider bills.
 - **Buyer personal data** (name, email, phone, shipping address) is now stored in orders, payment metadata, and CV grants. In line with ISO/IEC 27001:2022 controls (A.5.34 Privacy and protection of PII, A.8.10 Information deletion, A.8.15 Logging), the following must be defined: a processing basis and privacy notice for buyers, retention and deletion periods, restricted dashboard access, and auditing of access to buyer data.
 - Payment and federation must be tested against real remote systems before being called production-ready.
@@ -244,7 +246,7 @@ flowchart LR
 
 Run on September 26, 2026 in the development workspace (PHP 8.5.8 CLI, Windows), using the same loop as CI (`php tests/*Test.php`):
 
-- **48 of 48 tests pass**, with no `OPENSSL_CONF` needed. The new `PaymentRefundCancelReconcileTest` covers cancellation, full/partial/manual refunds, refunding an already-spent top-up, a Midtrans refund webhook after settlement, reconciliation (provider status, minimum age, gateways without a status API, errors, mismatches), and the dashboard summary. `PaywuzGatewayTest` used to silently send real requests to `api.paywuz.id`; it now uses a fake requester.
+- **49 of 49 tests pass**, with no `OPENSSL_CONF` needed. The new `OwnerAccessAuditTest` checks owner-only access (suspended accounts and other roles are refused even with a valid token), auditing of failed logins, gateway and LLM configuration, confirmation, refund, and cancellation, that secrets and buyer personal data never reach the audit trail, and that login still works when the audit table is broken. The new `PaymentRefundCancelReconcileTest` covers cancellation, full/partial/manual refunds, refunding an already-spent top-up, a Midtrans refund webhook after settlement, reconciliation (provider status, minimum age, gateways without a status API, errors, mismatches), and the dashboard summary. `PaywuzGatewayTest` used to silently send real requests to `api.paywuz.id`; it now uses a fake requester.
 - Fixed in this round:
   - `PostEndpointsTest`: the SQLite fixture now has the `posts.slug` column, and the canonical URL assertion follows the `/posts/{id}-{slug}` format introduced in commit `24ab57b`.
   - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: previously failed because Windows/XAMPP PHP could not find `openssl.cnf`, so `openssl_pkey_new()` failed (`error:80000003`). The same issue would also break node federation key generation on Windows deployments. `NodeKeyService::createRsaKeyPair()` now tries OpenSSL's default config first, then falls back to `app/Services/Federation/openssl-fallback.cnf`; all three tests use the same helper.

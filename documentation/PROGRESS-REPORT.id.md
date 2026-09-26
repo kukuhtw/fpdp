@@ -10,7 +10,7 @@ FPDP sudah melewati tahap MVP inti. Sejak laporan 21 September, flow komersial v
 Ringkasan repository saat laporan ini dibuat:
 
 - **59 migration MySQL** (`0001`–`0059`);
-- **48 test script**, semuanya lulus (lihat Bagian 8);
+- **49 test script**, semuanya lulus (lihat Bagian 8);
 - REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, toko online pribadi (termasuk checkout visitor dan aset digital), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, theme, dan upload media;
 - UI nyata: home, timeline terpadu (lokal + federasi + produk promosi), profil, post, shop, halaman produk, CV publik, wall "coretan", halaman YouTube, halaman terima kasih pembayaran, serta 12 halaman dashboard owner;
 - 3 theme publik: `default`, `editorial`, `minimal`;
@@ -44,7 +44,7 @@ flowchart LR
 | Identity & profile | **Selesai untuk MVP** | Register/login/logout/`me`, token hash, rate limit, profile visibility, Google OAuth visitor |
 | Konten lokal | **Selesai untuk MVP** | CRUD, draft/publish, visibility, soft-delete, media upload, lightbox, canonical URL, cursor timeline, daftar & hapus post di dashboard |
 | External aggregation | **Selesai untuk MVP** | RSS/Atom/Custom API, YouTube feed, LinkedIn Organizations, anti-SSRF HTTP client, sync worker, dedup |
-| Operasional & hardening | **Sebagian** | CI, audit dasar, staging Dokploy tervalidasi; backup/restore exercise, RBAC, dan retention belum |
+| Operasional & hardening | **Sebagian** | CI, audit trail aktif untuk aksi sensitif, akses owner-only terpusat, staging Dokploy tervalidasi; backup/restore exercise dan retention belum |
 | Toko online pribadi | **Selesai untuk MVP** | Toko milik owner node: product, order, checkout visitor publik, alamat pengiriman, aset digital + download, produk promosi |
 | Payment | **Sebagian besar** | 6 gateway, sistem plugin gateway, pemilihan gateway aktif, sandbox/live per environment, konfirmasi manual, pembatalan dan refund owner, rekonsiliasi; uji sandbox nyata dan ledger settlement belum |
 | Federasi | **Sebagian besar** | ActivityPub (WebFinger, actor, inbox/outbox, followers/following), post & produk federasi, federation worker, dashboard federation; uji interop lintas server belum terdokumentasi formal |
@@ -169,7 +169,6 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 - Saldo di dashboard Payments masih perkiraan dari tabel `payments` (dikurangi refund); belum ada ledger settlement/payout dan akuntansi fee gateway (kolom `fee` belum diisi).
 - Refund sebagian dari dashboard Midtrans hanya memindahkan status ke `PARTIALLY_REFUNDED`; jumlahnya tidak tercatat karena notifikasi tidak selalu membawa nominal refund.
 - PayPal dan iPaymu tidak punya API pembatalan; pembatalan hanya lokal dan halaman bayar provider tetap terbuka sampai kedaluwarsa (rekonsiliasi menangkap bila tetap dibayar).
-- Pembatalan, refund, dan rekonsiliasi belum tercatat di audit trail (bagian dari prioritas #3).
 
 ### 4.3 Dashboard dan settings
 
@@ -192,8 +191,11 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 
 ### 4.6 Authorization, audit, dan analytics hardening
 
-- Belum ada middleware role/permission terpusat (owner vs admin).
-- Audit trail mencakup auth, post, profile, dan wall comment; perubahan payment credential, aktivasi gateway, konfirmasi pembayaran manual, grant wallet, dan remote-node trust belum diaudit.
+- **Koreksi:** laporan sebelumnya menyebut audit trail sudah mencakup auth, post, profile, dan wall comment. Kenyataannya `AuditService` tidak pernah dipasang di `routes.php`, sehingga tidak ada satu pun event audit yang tercatat di production. Sudah diperbaiki (26 September 2026).
+- **Selesai (26 September 2026):** model akses **owner-only** ditegakkan terpusat di `AuthService`: hanya user `ACTIVE` dengan role `OWNER` yang bisa login dan memakai token; akun yang di-suspend atau memiliki role lain langsung ditolak walau tokennya masih berlaku, dan penolakan dicatat sebagai `access.denied`. Tidak ada role admin, sesuai keputusan produk (satu website = satu pemilik).
+- **Selesai (26 September 2026):** audit trail kini mencatat `user.registered`, `user.login`, `user.login_failed`, `access.denied`, `payment.confirmed_manually`, `payment.cancelled`, `payment.refunded`, `payment.reconciled` (termasuk dari cron), `payment_gateway.configured` (nama key saja, tanpa nilai), `payment_gateway.activated`, `llm.configured` (tanpa API key), `wallet.granted`, `federation.trust_changed`, `federation.blocked`, dan `federation.capabilities_updated`, selain event post/profile/wall comment yang sudah ada. Entri pembayaran tidak menyalin data pribadi pembeli. Gagal menulis audit tidak membatalkan aksinya; error ditulis ke log server.
+- Belum ada halaman dashboard untuk menelusuri audit trail secara lengkap (Overview hanya menampilkan aktivitas terbaru), dan belum ada retensi untuk `audit_events`.
+- Akses owner ke data pribadi pembeli (halaman Payments/Orders) belum dicatat per tampilan.
 - Endpoint publik outbound-click belum punya rate limiting khusus.
 - `analytics_events` belum punya retention/cleanup job.
 
@@ -222,7 +224,7 @@ flowchart LR
 
 1. ~~Perbaiki fixture `PostEndpointsTest` (kolom `slug`) dan buat test berbasis RSA tidak bergantung pada konfigurasi OpenSSL lokal.~~ **Selesai** (26 September 2026) — 47/47 test lulus.
 2. **Sebagian selesai** (26 September 2026): refund/cancel owner, penerapan refund dari webhook, reconciliation job, dan penyelarasan adapter Paywuz dengan dokumentasi resmi sudah tersedia. Sisa: uji Paywuz, Midtrans, PayPal, dan iPaymu terhadap sandbox nyata (butuh credential owner) dan penjadwalan cron rekonsiliasi di Dokploy.
-3. Masukkan perubahan credential, aktivasi gateway, konfirmasi manual, grant wallet, dan trust remote node ke audit trail; tambahkan RBAC middleware.
+3. ~~Masukkan perubahan credential, aktivasi gateway, konfirmasi manual, grant wallet, dan trust remote node ke audit trail; tambahkan RBAC middleware.~~ **Selesai** (26 September 2026) — audit trail dipasang dan mencakup semua aksi sensitif; akses dashboard owner-only ditegakkan terpusat (tanpa role admin).
 4. Implementasikan 2FA/session management, language settings, dan halaman Analytics.
 5. Dokumentasikan uji interop federasi dua domain dan tambahkan nonce cache.
 6. Mulai Fase 7 Federated Commerce: representasi produk ActivityPub, order request lintas node, pembayaran di node penjual, dan status order balik ke node pembeli.
@@ -235,7 +237,7 @@ flowchart LR
 - MySQL dan `storage/` (CV, media, aset digital, dokumen RAG) harus dipulihkan dari recovery point yang konsisten.
 - Code rollback tidak membalikkan forward migration.
 - `APP_KEY` melindungi OAuth state, analytics HMAC, credential gateway, dan token OAuth; rotasi wajib memakai `scripts/rotate-app-key.php`.
-- Konfirmasi pembayaran manual memberi akses/fulfillment tanpa bukti dari provider; tanpa audit trail, tindakan ini sulit ditelusuri saat sengketa.
+- Konfirmasi pembayaran manual memberi akses/fulfillment tanpa bukti dari provider; kini tercatat di audit trail (siapa, kapan, payment mana), tetapi bukti transfer tetap berada di luar sistem.
 - Chatbot memakai API key LLM milik owner; tanpa plafon biaya, penyalahgunaan dapat menimbulkan tagihan provider.
 - **Data pribadi pembeli** (nama, email, telepon, alamat pengiriman) kini disimpan di order, payment metadata, dan grant CV. Sesuai kontrol ISO/IEC 27001:2022 (A.5.34 Privasi & perlindungan PII, A.8.10 Penghapusan informasi, A.8.15 Logging), perlu ditetapkan: dasar pemrosesan dan pemberitahuan privasi kepada pembeli, periode retensi dan penghapusan, pembatasan akses dashboard, serta audit akses data pembeli.
 - Payment dan federasi wajib diuji dengan sistem remote nyata sebelum diklaim production-ready.
@@ -244,7 +246,7 @@ flowchart LR
 
 Dijalankan 26 September 2026 di workspace pengembangan (PHP 8.5.8 CLI, Windows), dengan loop yang sama seperti CI (`php tests/*Test.php`):
 
-- **48 dari 48 test lulus**, tanpa perlu mengatur `OPENSSL_CONF`. Test baru `PaymentRefundCancelReconcileTest` mencakup pembatalan, refund penuh/sebagian/manual, refund top-up yang sudah terpakai, webhook refund Midtrans setelah settlement, rekonsiliasi (status provider, batas umur, gateway tanpa API status, error, mismatch), dan ringkasan dashboard. `PaywuzGatewayTest` sebelumnya diam-diam mengirim request sungguhan ke `api.paywuz.id`; kini memakai fake requester.
+- **49 dari 49 test lulus**, tanpa perlu mengatur `OPENSSL_CONF`. Test baru `OwnerAccessAuditTest` memeriksa akses owner-only (akun suspended dan role lain ditolak walau tokennya valid), audit untuk login gagal, konfigurasi gateway dan LLM, konfirmasi, refund, dan pembatalan, bahwa secret dan data pribadi pembeli tidak masuk ke audit, serta bahwa login tetap jalan saat tabel audit rusak. Test baru `PaymentRefundCancelReconcileTest` mencakup pembatalan, refund penuh/sebagian/manual, refund top-up yang sudah terpakai, webhook refund Midtrans setelah settlement, rekonsiliasi (status provider, batas umur, gateway tanpa API status, error, mismatch), dan ringkasan dashboard. `PaywuzGatewayTest` sebelumnya diam-diam mengirim request sungguhan ke `api.paywuz.id`; kini memakai fake requester.
 - Diperbaiki pada putaran ini:
   - `PostEndpointsTest`: fixture SQLite kini memiliki kolom `posts.slug`, dan assertion canonical URL mengikuti format `/posts/{id}-{slug}` yang diperkenalkan commit `24ab57b`.
   - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: sebelumnya gagal karena PHP Windows/XAMPP tidak menemukan `openssl.cnf` sehingga `openssl_pkey_new()` gagal (`error:80000003`). Masalah yang sama juga akan menggagalkan pembuatan key federasi node di deployment Windows. `NodeKeyService::createRsaKeyPair()` kini mencoba konfigurasi default OpenSSL dulu, lalu fallback ke `app/Services/Federation/openssl-fallback.cnf`; ketiga test memakai helper yang sama.
