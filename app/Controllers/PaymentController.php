@@ -14,6 +14,7 @@ use App\Services\Cv\CvAccessService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Payment\PaymentFulfillmentService;
 use App\Services\Payment\PaymentService;
+use App\Services\Security\AuditService;
 
 final class PaymentController
 {
@@ -25,6 +26,7 @@ final class PaymentController
         CvAccessService $cvAccess,
         ?MarketplaceService $marketplace = null,
         ?VisitorWalletService $wallet = null,
+        private readonly ?AuditService $audit = null,
     ) {
         $this->fulfillment = new PaymentFulfillmentService($cvAccess, $marketplace, $wallet);
     }
@@ -67,12 +69,13 @@ final class PaymentController
      */
     public function confirmPayment(Request $request, array $params): Response
     {
-        $this->auth->authenticate($request->bearerToken());
+        $context = $this->auth->authenticate($request->bearerToken());
 
         $result = $this->payments->confirmPaymentManually((string) ($params['uuid'] ?? ''));
 
         if ($result['status_changed'] && $this->isConfirmedPaid($result['payment'])) {
             $this->fulfillment->fulfill($result['payment']);
+            $this->audit?->record($context, 'payment.confirmed_manually', 'payment', (string) $result['payment']['uuid'], self::paymentAuditData($result['payment']));
         }
 
         return JsonEnvelope::success($result['payment']);
@@ -88,11 +91,14 @@ final class PaymentController
      */
     public function cancelPayment(Request $request, array $params): Response
     {
-        $this->auth->authenticate($request->bearerToken());
+        $context = $this->auth->authenticate($request->bearerToken());
 
         $result = $this->payments->cancelPaymentByOwner((string) ($params['uuid'] ?? ''));
         if ($result['status_changed']) {
             $this->fulfillment->cancel($result['payment']);
+            $this->audit?->record($context, 'payment.cancelled', 'payment', (string) $result['payment']['uuid'], self::paymentAuditData($result['payment']) + [
+                'provider_cancelled' => $result['provider_cancelled'],
+            ]);
         }
 
         return JsonEnvelope::success([
@@ -113,7 +119,7 @@ final class PaymentController
      */
     public function refundPayment(Request $request, array $params): Response
     {
-        $this->auth->authenticate($request->bearerToken());
+        $context = $this->auth->authenticate($request->bearerToken());
 
         $uuid = (string) ($params['uuid'] ?? '');
         $input = $request->json() ?? [];
@@ -131,6 +137,11 @@ final class PaymentController
 
         $result = $this->payments->refundPaymentByOwner($uuid, $amount === null ? null : (float) $amount, $manual);
         $notes = $result['fully_refunded'] ? $this->fulfillment->reverse($result['payment']) : [];
+        $this->audit?->record($context, 'payment.refunded', 'payment', (string) $result['payment']['uuid'], self::paymentAuditData($result['payment']) + [
+            'refunded_now' => $result['refunded_now'],
+            'fully_refunded' => $result['fully_refunded'],
+            'manual' => $manual,
+        ]);
 
         return JsonEnvelope::success([
             'payment' => $result['payment'],
@@ -148,15 +159,20 @@ final class PaymentController
      */
     public function reconcile(Request $request): Response
     {
-        $this->auth->authenticate($request->bearerToken());
+        $context = $this->auth->authenticate($request->bearerToken());
 
-        return JsonEnvelope::success($this->reconcileAndFulfill());
+        return JsonEnvelope::success($this->reconcileAndFulfill(15, 100, $context));
     }
 
     /**
+     * Shared by the reconcile endpoint and scripts/reconcile-payments.php.
+     * $context is the acting owner, or just ['node' => ...] from the cron
+     * script; a run that changed anything is written to the audit trail.
+     *
+     * @param array<string, mixed>|null $context
      * @return array<string, mixed>
      */
-    public function reconcileAndFulfill(int $minAgeMinutes = 15, int $limit = 100): array
+    public function reconcileAndFulfill(int $minAgeMinutes = 15, int $limit = 100, ?array $context = null): array
     {
         $report = $this->payments->reconcile($minAgeMinutes, $limit);
         foreach ($report['updated'] as $payment) {
@@ -165,6 +181,14 @@ final class PaymentController
             } elseif ((string) ($payment['status'] ?? '') === 'CANCELLED') {
                 $this->fulfillment->cancel($payment);
             }
+        }
+
+        if ($context !== null && ($report['updated'] !== [] || $report['mismatches'] !== [])) {
+            $this->audit?->record($context, 'payment.reconciled', null, null, [
+                'updated' => array_map(static fn (array $p): array => ['uuid' => $p['uuid'], 'status' => $p['status']], $report['updated']),
+                'mismatches' => array_column($report['mismatches'], 'uuid'),
+                'errors' => count($report['errors']),
+            ]);
         }
 
         return $report;
@@ -193,15 +217,22 @@ final class PaymentController
      */
     public function updateGateway(Request $request, array $params): Response
     {
-        $this->auth->authenticate($request->bearerToken());
+        $context = $this->auth->authenticate($request->bearerToken());
 
         $input = $request->json() ?? [];
         $environment = (string) ($input['environment'] ?? 'SANDBOX');
         $config = is_array($input['config'] ?? null) ? $input['config'] : [];
 
-        return JsonEnvelope::success(
-            $this->payments->updateGatewaySettings((string) ($params['code'] ?? ''), $environment, $config),
-        );
+        $result = $this->payments->updateGatewaySettings((string) ($params['code'] ?? ''), $environment, $config);
+        // Key names only — never the credential values.
+        $this->audit?->record($context, 'payment_gateway.configured', 'payment_gateway', null, [
+            'gateway' => $result['code'],
+            'environment' => $result['environment'],
+            'configured_keys' => $result['configured_keys'],
+            'provider_check' => $result['provider_check'],
+        ]);
+
+        return JsonEnvelope::success($result);
     }
 
     /**
@@ -217,9 +248,10 @@ final class PaymentController
     {
         $context = $this->auth->authenticate($request->bearerToken());
 
-        return JsonEnvelope::success(
-            $this->payments->setActiveGateway((int) $context['node']['id'], (string) ($params['code'] ?? null) ?: null),
-        );
+        $result = $this->payments->setActiveGateway((int) $context['node']['id'], (string) ($params['code'] ?? null) ?: null);
+        $this->audit?->record($context, 'payment_gateway.activated', 'payment_gateway', null, ['gateway' => $result['active_gateway']]);
+
+        return JsonEnvelope::success($result);
     }
 
     /**
@@ -246,6 +278,27 @@ final class PaymentController
         }
 
         return JsonEnvelope::success(['received' => true, 'duplicate' => $result['duplicate']]);
+    }
+
+    /**
+     * What an audit entry records about a payment: enough to trace it, no
+     * buyer personal data (that stays in the payment's own metadata).
+     *
+     * @param array<string, mixed> $payment
+     * @return array<string, mixed>
+     */
+    private static function paymentAuditData(array $payment): array
+    {
+        $metadata = is_string($payment['metadata'] ?? null) ? json_decode($payment['metadata'], true) : null;
+
+        return [
+            'order_id' => $payment['order_id'],
+            'gateway' => $payment['gateway_code'],
+            'amount' => (float) $payment['amount'],
+            'currency' => $payment['currency'],
+            'status' => $payment['status'],
+            'purpose' => is_array($metadata) ? ($metadata['purpose'] ?? null) : null,
+        ];
     }
 
     /**
