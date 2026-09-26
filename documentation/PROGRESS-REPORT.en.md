@@ -10,7 +10,7 @@ FPDP is past its core MVP. Since the September 21 report, visitor commerce flows
 Repository snapshot:
 
 - **58 MySQL migrations** (`0001`–`0058`);
-- **47 test scripts** (43 passing, 4 failing — see Section 8);
+- **47 test scripts**, all passing (see Section 8);
 - REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, personal online shop (including visitor checkout and digital assets), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, themes, and media upload;
 - real UI: home, unified timeline (local + federated + promoted products), profile, post, shop, product page, public CV, "coretan" wall, YouTube page, payment thank-you page, and 12 owner dashboard pages;
 - 3 public themes: `default`, `editorial`, `minimal`;
@@ -214,7 +214,7 @@ flowchart LR
     G --> F["7. Ads, post paywall,<br/>social OAuth"]
 ```
 
-1. Fix the `PostEndpointsTest` fixture (`slug` column) and make RSA-based tests independent of local OpenSSL configuration.
+1. ~~Fix the `PostEndpointsTest` fixture (`slug` column) and make RSA-based tests independent of local OpenSSL configuration.~~ **Done** (September 26, 2026) — 47/47 tests pass.
 2. Test Paywuz, Midtrans, PayPal, and iPaymu against real sandboxes; add owner refund/cancel and a reconciliation job.
 3. Add credential changes, gateway activation, manual confirmation, wallet grants, and remote-node trust to the audit trail; add RBAC middleware.
 4. Implement 2FA/session management, language settings, and an Analytics page.
@@ -238,9 +238,10 @@ flowchart LR
 
 Run on September 26, 2026 in the development workspace (PHP 8.5.8 CLI, Windows), using the same loop as CI (`php tests/*Test.php`):
 
-- **43 of 47 tests pass.**
-- `PostEndpointsTest` **fails due to a fixture bug**: the test's SQLite schema lacks the `posts.slug` column now used by `PostRepository`.
-- `FederationInboxTest`, `FederatedPostIngestionTest`, and `MutualFollowTest` **fail due to the local environment**: `openssl_pkey_new()` cannot generate an RSA keypair (`error:80000003`, no OpenSSL config found by this Windows PHP). CI results on Linux need confirmation.
+- **47 of 47 tests pass**, with no `OPENSSL_CONF` needed.
+- Fixed in this round:
+  - `PostEndpointsTest`: the SQLite fixture now has the `posts.slug` column, and the canonical URL assertion follows the `/posts/{id}-{slug}` format introduced in commit `24ab57b`.
+  - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: previously failed because Windows/XAMPP PHP could not find `openssl.cnf`, so `openssl_pkey_new()` failed (`error:80000003`). The same issue would also break node federation key generation on Windows deployments. `NodeKeyService::createRsaKeyPair()` now tries OpenSSL's default config first, then falls back to `app/Services/Federation/openssl-fallback.cnf`; all three tests use the same helper.
 - Docker build was not run in this workspace; the staging deployment was confirmed by the project owner.
 
 ## 9. References

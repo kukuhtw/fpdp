@@ -34,22 +34,7 @@ final class NodeKeyService
             throw new RuntimeException('Node already has a current keypair. Rotate instead.');
         }
 
-        $resource = openssl_pkey_new([
-            'private_key_bits' => self::KEY_BITS,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ]);
-        if ($resource === false) {
-            throw new RuntimeException('Unable to generate an RSA keypair: ' . (openssl_error_string() ?: 'unknown OpenSSL error'));
-        }
-
-        if (!openssl_pkey_export($resource, $privateKeyPem)) {
-            throw new RuntimeException('Unable to export the generated RSA private key.');
-        }
-        $details = openssl_pkey_get_details($resource);
-        if ($details === false || !isset($details['key'])) {
-            throw new RuntimeException('Unable to read the generated RSA public key.');
-        }
-        $publicKeyPem = $details['key'];
+        ['private_key' => $privateKeyPem, 'public_key' => $publicKeyPem] = self::createRsaKeyPair(self::KEY_BITS);
 
         $fingerprint = hash('sha256', $publicKeyPem);
 
@@ -108,5 +93,38 @@ final class NodeKeyService
     public function hasKey(int $nodeId): bool
     {
         return $this->keys->keyExists($nodeId, self::KEY_TYPE);
+    }
+
+    /**
+     * Generates an RSA keypair as PEM strings. Tries OpenSSL's default config
+     * first; if that fails (Windows/XAMPP PHP with no OPENSSL_CONF and no
+     * openssl.cnf on its default path), retries with the bundled minimal
+     * config, since generation only needs a readable config file.
+     *
+     * @return array{private_key: string, public_key: string}
+     */
+    public static function createRsaKeyPair(int $bits = self::KEY_BITS): array
+    {
+        $options = ['private_key_bits' => $bits, 'private_key_type' => OPENSSL_KEYTYPE_RSA];
+
+        $resource = openssl_pkey_new($options);
+        if ($resource === false) {
+            $options['config'] = __DIR__ . '/openssl-fallback.cnf';
+            $resource = openssl_pkey_new($options);
+        }
+        if ($resource === false) {
+            throw new RuntimeException('Unable to generate an RSA keypair: ' . (openssl_error_string() ?: 'unknown OpenSSL error'));
+        }
+
+        $exportOptions = isset($options['config']) ? ['config' => $options['config']] : null;
+        if (!openssl_pkey_export($resource, $privateKeyPem, null, $exportOptions)) {
+            throw new RuntimeException('Unable to export the generated RSA private key.');
+        }
+        $details = openssl_pkey_get_details($resource);
+        if ($details === false || !isset($details['key'])) {
+            throw new RuntimeException('Unable to read the generated RSA public key.');
+        }
+
+        return ['private_key' => $privateKeyPem, 'public_key' => $details['key']];
     }
 }

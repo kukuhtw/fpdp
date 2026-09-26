@@ -10,7 +10,7 @@ FPDP sudah melewati tahap MVP inti. Sejak laporan 21 September, flow komersial v
 Ringkasan repository saat laporan ini dibuat:
 
 - **58 migration MySQL** (`0001`–`0058`);
-- **47 test script** (43 lulus, 4 gagal — lihat Bagian 8);
+- **47 test script**, semuanya lulus (lihat Bagian 8);
 - REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, toko online pribadi (termasuk checkout visitor dan aset digital), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, theme, dan upload media;
 - UI nyata: home, timeline terpadu (lokal + federasi + produk promosi), profil, post, shop, halaman produk, CV publik, wall "coretan", halaman YouTube, halaman terima kasih pembayaran, serta 12 halaman dashboard owner;
 - 3 theme publik: `default`, `editorial`, `minimal`;
@@ -214,7 +214,7 @@ flowchart LR
     G --> F["7. Ads, paywall post,<br/>OAuth sosial"]
 ```
 
-1. Perbaiki fixture `PostEndpointsTest` (kolom `slug`) dan buat test berbasis RSA tidak bergantung pada konfigurasi OpenSSL lokal.
+1. ~~Perbaiki fixture `PostEndpointsTest` (kolom `slug`) dan buat test berbasis RSA tidak bergantung pada konfigurasi OpenSSL lokal.~~ **Selesai** (26 September 2026) — 47/47 test lulus.
 2. Uji Paywuz, Midtrans, PayPal, dan iPaymu terhadap sandbox nyata; tambahkan refund/cancel owner dan reconciliation job.
 3. Masukkan perubahan credential, aktivasi gateway, konfirmasi manual, grant wallet, dan trust remote node ke audit trail; tambahkan RBAC middleware.
 4. Implementasikan 2FA/session management, language settings, dan halaman Analytics.
@@ -238,9 +238,10 @@ flowchart LR
 
 Dijalankan 26 September 2026 di workspace pengembangan (PHP 8.5.8 CLI, Windows), dengan loop yang sama seperti CI (`php tests/*Test.php`):
 
-- **43 dari 47 test lulus.**
-- `PostEndpointsTest` **gagal karena bug fixture**: schema SQLite di test tidak memiliki kolom `posts.slug` yang kini dipakai `PostRepository`.
-- `FederationInboxTest`, `FederatedPostIngestionTest`, dan `MutualFollowTest` **gagal karena environment lokal**: `openssl_pkey_new()` tidak dapat membuat RSA keypair (`error:80000003`, konfigurasi OpenSSL tidak ditemukan pada PHP Windows ini). Hasil di CI Linux perlu dikonfirmasi.
+- **47 dari 47 test lulus**, tanpa perlu mengatur `OPENSSL_CONF`.
+- Diperbaiki pada putaran ini:
+  - `PostEndpointsTest`: fixture SQLite kini memiliki kolom `posts.slug`, dan assertion canonical URL mengikuti format `/posts/{id}-{slug}` yang diperkenalkan commit `24ab57b`.
+  - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: sebelumnya gagal karena PHP Windows/XAMPP tidak menemukan `openssl.cnf` sehingga `openssl_pkey_new()` gagal (`error:80000003`). Masalah yang sama juga akan menggagalkan pembuatan key federasi node di deployment Windows. `NodeKeyService::createRsaKeyPair()` kini mencoba konfigurasi default OpenSSL dulu, lalu fallback ke `app/Services/Federation/openssl-fallback.cnf`; ketiga test memakai helper yang sama.
 - Docker build tidak dijalankan di workspace ini; deployment staging dikonfirmasi oleh pemilik project.
 
 ## 9. Referensi

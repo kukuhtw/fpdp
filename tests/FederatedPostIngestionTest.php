@@ -64,9 +64,7 @@ $dispatch = static function (string $method, string $path, ?string $rawBody = nu
 /** @return array{privateKey: string, publicKeyPem: string, actorUri: string, keyId: string, inboxUrl: string, remoteActorId: int} */
 function fpost_seed_remote_actor(PDO $db, string $handle, string $domain): array
 {
-    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    openssl_pkey_export($keyPair, $privateKey);
-    $publicKeyPem = openssl_pkey_get_details($keyPair)['key'];
+    ['private_key' => $privateKey, 'public_key' => $publicKeyPem] = \App\Services\Federation\NodeKeyService::createRsaKeyPair(2048);
 
     $actorUri = "https://{$domain}/users/{$handle}";
     $keyId = $actorUri . '#main-key';

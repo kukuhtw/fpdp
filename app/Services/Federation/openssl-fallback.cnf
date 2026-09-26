@@ -1,0 +1,8 @@
+# Minimal OpenSSL config used by NodeKeyService::createRsaKeyPair() only when
+# key generation fails with the system default — typically Windows/XAMPP
+# builds where OPENSSL_CONF is unset and no openssl.cnf is found. Key
+# generation needs a readable config file, not any particular setting in it.
+[ req ]
+distinguished_name = req_dn
+
+[ req_dn ]
