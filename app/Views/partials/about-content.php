@@ -16,6 +16,8 @@ $t = static fn (string $key): string => \App\Core\View::t($key);
   .about-hero{text-align:center;padding:48px 28px;background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:20px;}
   .about-hero h1{font:700 clamp(2.2rem,6vw,3.8rem)/1.05 Georgia,serif;margin:.2em 0;}
   .about-hero .tagline{font-size:1.15rem;color:var(--muted);max-width:560px;margin:0 auto;}
+  .about-hero .about-source{margin:22px 0 6px;}
+  .about-hero .about-source-note{margin:0;color:var(--muted);font-size:.9rem;overflow-wrap:anywhere;}
   .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px;}
   .about-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:14px 0 4px;}
   .about-feature{padding:16px;border:1px solid var(--line);border-radius:12px;}
@@ -47,6 +49,8 @@ $t = static fn (string $key): string => \App\Core\View::t($key);
   <p class="eyebrow">FPDP</p>
   <h1><?= $t('about.hero.title') ?></h1>
   <p class="tagline"><?= $t('about.hero.tagline') ?></p>
+  <p class="about-source"><a class="button" href="https://github.com/kukuhtw/fpdp" rel="noopener"><?= $t('about.hero.source') ?></a></p>
+  <p class="about-source-note"><?= $t('about.hero.source_note') ?></p>
 </section>
 
 <div class="about-grid">

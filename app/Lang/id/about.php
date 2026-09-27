@@ -10,6 +10,8 @@ return [
 
     'about.hero.title' => 'Federated Personal Digital Platform',
     'about.hero.tagline' => 'Domain Anda adalah rumah digital Anda — bukan sekadar profil di platform milik orang lain.',
+    'about.hero.source' => 'Source code di GitHub',
+    'about.hero.source_note' => 'Open source (Apache-2.0): <a href="https://github.com/kukuhtw/fpdp">github.com/kukuhtw/fpdp</a> — pasang node Anda sendiri.',
 
     'about.what.heading' => 'Apa itu FPDP?',
     'about.what.intro' => 'FPDP adalah platform digital personal yang di-host sendiri. Setiap instalasi adalah satu node independen, di satu domain, milik satu orang: website, profil sosial, toko, dan inbox dalam satu tempat, terhubung ke fediverse.',

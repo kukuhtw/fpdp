@@ -1,10 +1,12 @@
 # Federated Personal Digital Platform (FPDP)
 
-[English](#english) · [Bahasa Indonesia](#bahasa-indonesia) · [Documentation](documentation/README.md) · [OpenAPI](documentation/openapi.yaml) · [License: Apache-2.0](LICENSE)
+[English](#english) · [Bahasa Indonesia](#bahasa-indonesia) · [Live example: kukuhtw.com](https://kukuhtw.com) · [Documentation](documentation/README.md) · [OpenAPI](documentation/openapi.yaml) · [License: Apache-2.0](LICENSE)
 
 FPDP is an early-stage, provider-agnostic **personal digital home**. It is designed to let individuals operate their identity, content, external feeds, products, and payment channels from an independent node on a domain they control.
 
 FPDP adalah **personal digital home** tahap awal yang tidak terikat pada provider tertentu. Platform ini dirancang agar individu dapat mengelola identitas, konten, feed eksternal, produk, dan saluran pembayaran dari node independen pada domain yang mereka kuasai.
+
+> **Live example / Contoh implementasi:** [kukuhtw.com](https://kukuhtw.com) runs FPDP in production: the author's personal digital home, reachable from the fediverse as `@kukuh@kukuhtw.com`. / [kukuhtw.com](https://kukuhtw.com) menjalankan FPDP di production: rumah digital pribadi penulis, bisa diikuti dari fediverse sebagai `@kukuh@kukuhtw.com`.
 
 > **Project status / Status proyek:** architecture prototype and API design. The repository is not yet a complete end-user application. / Prototipe arsitektur dan desain API. Repository ini belum menjadi aplikasi end-user yang lengkap.
 
@@ -437,6 +439,20 @@ The intended product combines:
 4. **Provider independence** — connectors and payment gateways sit behind common interfaces.
 5. **Revocable connections** — users can connect and disconnect external sources themselves.
 6. **Secure asynchronous processing** — synchronization and webhooks are designed for queues, retries, verification, and idempotency.
+
+### Live example: kukuhtw.com
+
+[**kukuhtw.com**](https://kukuhtw.com) is a real FPDP node: the author's own personal digital home, deployed from this repository on its own domain. It shows what one node looks like in practice:
+
+| What | Where |
+|---|---|
+| Home page with profile, federation, and AI chatbot | [kukuhtw.com](https://kukuhtw.com) |
+| Owner profile, followable from Mastodon and other fediverse servers | [kukuhtw.com/@kukuh](https://kukuhtw.com/@kukuh) — search `@kukuh@kukuhtw.com` |
+| Unified timeline (local posts, followed accounts, promoted products) | [kukuhtw.com/timeline](https://kukuhtw.com/timeline) |
+| Personal online shop | [kukuhtw.com/shop](https://kukuhtw.com/shop) |
+| What FPDP is and what the code does today | [kukuhtw.com/about](https://kukuhtw.com/about) |
+
+Any node you deploy works the same way on your own domain.
 
 ### Current implementation
 
@@ -1146,6 +1162,20 @@ Produk yang dituju menggabungkan:
 4. **Tidak terikat provider** — connector dan payment gateway berada di balik interface bersama.
 5. **Koneksi dapat dicabut** — pengguna dapat menghubungkan dan memutus sumber eksternal secara mandiri.
 6. **Pemrosesan async yang aman** — sinkronisasi dan webhook dirancang untuk queue, retry, verifikasi, dan idempotency.
+
+### Contoh implementasi: kukuhtw.com
+
+[**kukuhtw.com**](https://kukuhtw.com) adalah node FPDP sungguhan: rumah digital pribadi milik penulis, di-deploy dari repository ini di domainnya sendiri. Situs ini menunjukkan wujud satu node dalam praktik:
+
+| Apa | Di mana |
+|---|---|
+| Halaman depan dengan profil, federasi, dan chatbot AI | [kukuhtw.com](https://kukuhtw.com) |
+| Profil owner, bisa di-follow dari Mastodon dan server fediverse lain | [kukuhtw.com/@kukuh](https://kukuhtw.com/@kukuh) — cari `@kukuh@kukuhtw.com` |
+| Timeline gabungan (post lokal, akun yang diikuti, produk promosi) | [kukuhtw.com/timeline](https://kukuhtw.com/timeline) |
+| Toko online pribadi | [kukuhtw.com/shop](https://kukuhtw.com/shop) |
+| Apa itu FPDP dan apa yang sudah dikerjakan kode saat ini | [kukuhtw.com/about](https://kukuhtw.com/about) |
+
+Node yang Anda deploy bekerja dengan cara yang sama di domain Anda sendiri.
 
 ### Implementasi saat ini
 

@@ -9,6 +9,8 @@ return [
 
     'about.hero.title' => 'Federated Personal Digital Platform',
     'about.hero.tagline' => 'Your domain is your digital home — not a profile on someone else\'s platform.',
+    'about.hero.source' => 'Source code on GitHub',
+    'about.hero.source_note' => 'Open source (Apache-2.0): <a href="https://github.com/kukuhtw/fpdp">github.com/kukuhtw/fpdp</a> — deploy your own node.',
 
     'about.what.heading' => 'What is FPDP?',
     'about.what.intro' => 'FPDP is a self-hosted personal digital platform. Each installation is one independent node, on one domain, owned by one person: their website, social profile, shop, and inbox in one place, connected to the fediverse.',
