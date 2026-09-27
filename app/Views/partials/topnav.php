@@ -21,13 +21,11 @@ $languages = View::languageLinks();
     <a href="/shop"><?= View::te('nav.shop') ?></a>
     <a href="/about"><?= View::te('nav.about_fpdp') ?></a>
     <a href="/timeline"><?= View::te('nav.timeline') ?></a>
-    <a href="/cv" class="guest-nav"><?= View::te('nav.cv') ?></a>
     <a href="/dashboard" class="guest-nav"><?= View::te('nav.dashboard') ?></a>
     <a href="/dashboard/about-me" class="owner-nav hidden"><?= View::te('nav.edit_about_me') ?></a>
     <a href="/dashboard/coretan" class="owner-nav hidden"><?= View::te('nav.manage_coretan') ?></a>
     <a href="/dashboard/posts" class="owner-nav hidden"><?= View::te('nav.post_editor') ?></a>
     <a href="/dashboard/posts/list" class="owner-nav hidden"><?= View::te('nav.my_posts') ?></a>
-    <a href="/dashboard/cv" class="owner-nav hidden"><?= View::te('nav.cv') ?></a>
     <a href="/dashboard/rag" class="owner-nav hidden"><?= View::te('nav.rag') ?></a>
     <a href="/dashboard/products" class="owner-nav hidden"><?= View::te('nav.products') ?></a>
     <a href="/dashboard/orders" class="owner-nav hidden"><?= View::te('nav.orders') ?></a>

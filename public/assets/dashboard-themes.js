@@ -25,7 +25,6 @@
     'youtube': 'YouTube',
     'wall-coretan': 'Coretan',
     'post': 'Post',
-    'public-cv': 'CV publik',
   };
 
   const themeCard = (theme, activeSlug) => {

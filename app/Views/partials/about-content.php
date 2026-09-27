@@ -83,7 +83,7 @@ $t = static fn (string $key): string => \App\Core\View::t($key);
   <div class="icon">🧰</div>
   <h2><?= $t('about.features.heading') ?></h2>
   <div class="about-features">
-<?php foreach (['publishing', 'shop', 'payments', 'cv', 'chatbot', 'feeds', 'themes', 'dashboard'] as $feature): ?>
+<?php foreach (['publishing', 'shop', 'payments', 'chatbot', 'feeds', 'themes', 'dashboard'] as $feature): ?>
     <div class="about-feature"><h3><?= $t('about.features.' . $feature . '.title') ?></h3><p><?= $t('about.features.' . $feature . '.text') ?></p></div>
 <?php endforeach; ?>
   </div>

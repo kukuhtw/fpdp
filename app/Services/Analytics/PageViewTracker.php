@@ -31,7 +31,7 @@ final class PageViewTracker
     /** Public pages with no id in the path. */
     private const STATIC_PAGES = [
         '/' => 'home', '/about-me' => 'about_me', '/coretan' => 'coretan', '/youtube' => 'youtube',
-        '/timeline' => 'timeline', '/about' => 'about_fpdp', '/shop' => 'shop', '/cv' => 'cv',
+        '/timeline' => 'timeline', '/about' => 'about_fpdp', '/shop' => 'shop',
     ];
 
     /**
@@ -92,9 +92,6 @@ final class PageViewTracker
         }
         if (preg_match('#^/shop/([A-Za-z0-9-]{1,64})$#', $path, $m) === 1) {
             return ['PAGE_VIEW', 'product', $m[1]];
-        }
-        if (preg_match('#^/@[a-z0-9][a-z0-9-]{0,62}/cv$#i', $path) === 1) {
-            return ['PAGE_VIEW', 'cv', null];
         }
         if (preg_match('#^/@[a-z0-9][a-z0-9-]{0,62}$#i', $path) === 1) {
             return ['PROFILE_VIEW', 'profile', null];

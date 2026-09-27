@@ -31,8 +31,6 @@ use App\Core\Config;
 use App\Core\Database;
 use App\Repositories\AuditEventRepository;
 use App\Repositories\AuthTokenRepository;
-use App\Repositories\CvAccessGrantRepository;
-use App\Repositories\CvDocumentRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\OrderItemRepository;
 use App\Repositories\OrderRepository;
@@ -45,7 +43,6 @@ use App\Repositories\VisitorRepository;
 use App\Repositories\VisitorWalletRepository;
 use App\Services\Auth\AuthService;
 use App\Services\Chatbot\VisitorWalletService;
-use App\Services\Cv\CvAccessService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Payment\PaymentService;
 use App\Services\Security\AuditService;
@@ -67,13 +64,6 @@ $payments = new PaymentService(
 $controller = new PaymentController(
     new AuthService($nodes, new UserRepository($connection), new ProfileRepository($connection), new AuthTokenRepository($connection), $audit),
     $payments,
-    new CvAccessService(
-        new CvDocumentRepository($connection),
-        new CvAccessGrantRepository($connection),
-        $payments,
-        $nodes,
-        dirname(__DIR__) . '/storage/cv',
-    ),
     new MarketplaceService(
         new ProductRepository($connection),
         new OrderRepository($connection),

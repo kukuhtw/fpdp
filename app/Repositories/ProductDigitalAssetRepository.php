@@ -9,7 +9,7 @@ use PDO;
 /**
  * Reads/writes `product_digital_assets`: at most one row per (product,
  * kind) — PDF and SOURCE_CODE are independent slots, re-uploading a kind
- * replaces it. Mirrors CvDocumentRepository's one-row-per-node upsert.
+ * replaces it.
  */
 final class ProductDigitalAssetRepository
 {

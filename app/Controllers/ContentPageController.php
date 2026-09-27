@@ -168,21 +168,9 @@ final class ContentPageController
         ]);
     }
 
-    public function cvManager(): string
-    {
-        return View::render('dashboard-cv', ['title' => 'CV & Resume · FPDP']);
-    }
-
     public function ragManager(): string
     {
         return View::render('dashboard-rag', ['title' => 'RAG Documents · Dashboard · FPDP']);
-    }
-
-    public function publicCv(string $handle): string
-    {
-        $profile = $this->profiles->getPublicProfile($handle);
-
-        return View::renderThemed('public-cv', ['title' => 'CV ' . $profile['display_name'] . ' · FPDP', 'profile' => $profile], $this->activeThemeForNode((int) $profile['node_id']));
     }
 
     public function wallCoretan(string $handle): string

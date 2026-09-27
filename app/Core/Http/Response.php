@@ -67,7 +67,7 @@ final class Response
     {
         return new self(200, [
             'Content-Type' => $contentType,
-            'Content-Disposition' => 'attachment; filename="' . str_replace('"', '', $filename) . '"',
+            'Content-Disposition' => 'attachment; filename="' . (preg_replace('/[^\x20-\x7E]|["\\\\]/', '_', $filename) ?? 'download') . '"; filename*=UTF-8\'\'' . rawurlencode($filename),
             'Content-Length' => (string) strlen($content),
         ], $content);
     }

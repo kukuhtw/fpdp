@@ -18,8 +18,8 @@ use RuntimeException;
  * (PDF and/or source-code archive), stored outside the public webroot.
  * Download gating (proof of purchase) lives in MarketplaceService::
  * verifyDigitalPurchase(), already used by the legacy digital_asset_url
- * flow — this service only stores/reads bytes, mirroring how
- * CvDocumentService/CvAccessService split "store" from "gate+serve".
+ * flow — this service only stores/reads bytes ("store", kept apart
+ * from "gate+serve").
  */
 final class ProductDigitalAssetService
 {

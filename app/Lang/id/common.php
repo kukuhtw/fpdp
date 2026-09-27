@@ -8,7 +8,6 @@ return [
     'nav.shop' => 'Toko',
     'nav.about_fpdp' => 'Tentang FPDP',
     'nav.timeline' => 'Timeline',
-    'nav.cv' => 'CV & Resume',
     'nav.dashboard' => 'Dashboard',
     'nav.edit_about_me' => 'Edit Tentang Saya',
     'nav.manage_coretan' => 'Kelola Coretan',

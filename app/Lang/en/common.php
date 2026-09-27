@@ -8,7 +8,6 @@ return [
     'nav.shop' => 'Shop',
     'nav.about_fpdp' => 'About FPDP',
     'nav.timeline' => 'Timeline',
-    'nav.cv' => 'CV & Resume',
     'nav.dashboard' => 'Dashboard',
     'nav.edit_about_me' => 'Edit About Me',
     'nav.manage_coretan' => 'Manage guestbook',

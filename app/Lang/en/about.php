@@ -15,7 +15,7 @@ return [
     'about.what.heading' => 'What is FPDP?',
     'about.what.intro' => 'FPDP is a self-hosted personal digital platform. Each installation is one independent node, on one domain, owned by one person: their website, social profile, shop, and inbox in one place, connected to the fediverse.',
     'about.what.domain' => '<strong>Own your domain</strong> — your identity is <code>@you@your-domain</code>, not an account on a platform you don\'t control.',
-    'about.what.content' => '<strong>Own your content</strong> — posts, media, CV, and data stay on your node.',
+    'about.what.content' => '<strong>Own your content</strong> — posts, media, and data stay on your node.',
     'about.what.connections' => '<strong>Own your connections</strong> — follow and be followed by Mastodon users and other FPDP nodes.',
     'about.what.shop' => '<strong>Own your shop</strong> — sell your own products to visitors and pick the payment gateway yourself.',
 
@@ -33,8 +33,6 @@ return [
     'about.features.shop.text' => 'Physical and digital products, public checkout, and downloads after payment. Promoted products appear in followers\' fediverse timelines.',
     'about.features.payments.title' => '💳 Payments',
     'about.features.payments.text' => 'Midtrans, PayPal, Paywuz, iPaymu, or manual bank transfer; confirmation, cancel, refund, and reconciliation from the dashboard.',
-    'about.features.cv.title' => '📄 Paid CV access',
-    'about.features.cv.text' => 'Visitors sign in with Google and pay once to download the owner\'s CV.',
     'about.features.chatbot.title' => '🤖 AI chatbot',
     'about.features.chatbot.text' => 'A chatbot answering from the owner\'s own documents and FAQ, using the owner\'s LLM provider, paid from a visitor wallet.',
     'about.features.feeds.title' => '🔁 External feeds',

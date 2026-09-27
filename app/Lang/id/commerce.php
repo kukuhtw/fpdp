@@ -1,6 +1,6 @@
 <?php
 
-// Public commerce pages: shop, product, CV purchase, payment status, chatbot widget.
+// Public commerce pages: shop, product, payment status, chatbot widget.
 return [
     'shop.eyebrow' => 'Shop',
     'shop.heading' => 'Produk dari :name',
@@ -22,21 +22,12 @@ return [
     'product.buy' => 'Beli',
     'product.download' => 'Download',
 
-    'cv.heading' => 'CV / Resume',
-    'cv.avatar_alt' => 'Foto profil :name',
-    'cv.loading' => 'Memuat informasi CV…',
-    'cv.google_login' => 'Masuk dengan Google',
-    'cv.name' => 'Nama',
-    'cv.name_placeholder' => 'Nama lengkap',
-    'cv.phone' => 'Nomor telepon',
-    'cv.buy_access' => 'Beli akses',
-    'cv.download' => 'Download CV',
 
     'thankyou.eyebrow' => 'Pembayaran',
     'thankyou.checking' => 'Memeriksa status pembayaran…',
     'thankyou.checking_message' => 'Mohon tunggu sebentar, kami sedang mengecek status pembayaran Anda.',
 
-    // Shared by the shop, product, CV and chatbot scripts.
+    // Shared by the shop, product and chatbot scripts.
     'js.checkout.free' => 'Gratis',
     'js.checkout.type_physical' => 'Barang fisik',
     'js.checkout.type_digital' => 'Barang digital',
@@ -57,11 +48,6 @@ return [
     'js.product.paid' => 'Pembayaran berhasil. Terima kasih!',
     'js.product.order_pending' => 'Pesanan dibuat, menunggu konfirmasi pembayaran.',
 
-    'js.cv.buy_access' => 'Beli akses',
-    'js.cv.enable_download' => 'Aktifkan download',
-    'js.cv.not_published' => 'CV belum dipublikasikan.',
-    'js.cv.access_granted' => 'Akses diberikan. CV siap diunduh.',
-    'js.cv.payment_processing' => 'Pembayaran diproses. Muat ulang setelah pembayaran dikonfirmasi.',
 
     'js.thankyou.product_fallback' => 'Produk',
     'js.thankyou.total' => 'Total: :amount',
@@ -74,8 +60,6 @@ return [
     'js.thankyou.back_to_shop' => 'Kembali ke toko',
     'js.thankyou.waiting' => 'Menunggu konfirmasi pembayaran…',
     'js.thankyou.order_pending' => 'Status saat ini: PENDING. Halaman ini akan otomatis diperbarui begitu pembayaran dikonfirmasi.',
-    'js.thankyou.cv_active' => 'Akses CV/Resume Anda sudah aktif.',
-    'js.thankyou.download_cv' => 'Download CV',
     'js.thankyou.payment_pending' => 'Halaman ini akan otomatis diperbarui begitu pembayaran dikonfirmasi.',
     'js.thankyou.topup_success' => 'Top up berhasil!',
     'js.thankyou.balance_now' => 'Saldo Anda sekarang: :amount.',

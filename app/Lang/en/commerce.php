@@ -1,6 +1,6 @@
 <?php
 
-// Public commerce pages: shop, product, CV purchase, payment status, chatbot widget.
+// Public commerce pages: shop, product, payment status, chatbot widget.
 return [
     'shop.eyebrow' => 'Shop',
     'shop.heading' => 'Products from :name',
@@ -22,21 +22,12 @@ return [
     'product.buy' => 'Buy',
     'product.download' => 'Download',
 
-    'cv.heading' => 'CV / Resume',
-    'cv.avatar_alt' => 'Profile photo of :name',
-    'cv.loading' => 'Loading CV information…',
-    'cv.google_login' => 'Sign in with Google',
-    'cv.name' => 'Name',
-    'cv.name_placeholder' => 'Full name',
-    'cv.phone' => 'Phone number',
-    'cv.buy_access' => 'Buy access',
-    'cv.download' => 'Download CV',
 
     'thankyou.eyebrow' => 'Payment',
     'thankyou.checking' => 'Checking payment status…',
     'thankyou.checking_message' => 'Please wait a moment while we check the status of your payment.',
 
-    // Shared by the shop, product, CV and chatbot scripts.
+    // Shared by the shop, product and chatbot scripts.
     'js.checkout.free' => 'Free',
     'js.checkout.type_physical' => 'Physical goods',
     'js.checkout.type_digital' => 'Digital goods',
@@ -57,11 +48,6 @@ return [
     'js.product.paid' => 'Payment successful. Thank you!',
     'js.product.order_pending' => 'Order created, awaiting payment confirmation.',
 
-    'js.cv.buy_access' => 'Buy access',
-    'js.cv.enable_download' => 'Enable download',
-    'js.cv.not_published' => 'The CV has not been published yet.',
-    'js.cv.access_granted' => 'Access granted. The CV is ready to download.',
-    'js.cv.payment_processing' => 'Payment is being processed. Reload once the payment is confirmed.',
 
     'js.thankyou.product_fallback' => 'Product',
     'js.thankyou.total' => 'Total: :amount',
@@ -74,8 +60,6 @@ return [
     'js.thankyou.back_to_shop' => 'Back to shop',
     'js.thankyou.waiting' => 'Waiting for payment confirmation…',
     'js.thankyou.order_pending' => 'Current status: PENDING. This page will update automatically once the payment is confirmed.',
-    'js.thankyou.cv_active' => 'Your CV/Resume access is now active.',
-    'js.thankyou.download_cv' => 'Download CV',
     'js.thankyou.payment_pending' => 'This page will update automatically once the payment is confirmed.',
     'js.thankyou.topup_success' => 'Top-up successful!',
     'js.thankyou.balance_now' => 'Your balance is now: :amount.',

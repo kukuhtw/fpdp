@@ -16,7 +16,7 @@ return [
     'about.what.heading' => 'Apa itu FPDP?',
     'about.what.intro' => 'FPDP adalah platform digital personal yang di-host sendiri. Setiap instalasi adalah satu node independen, di satu domain, milik satu orang: website, profil sosial, toko, dan inbox dalam satu tempat, terhubung ke fediverse.',
     'about.what.domain' => '<strong>Miliki domain Anda</strong> — identitas Anda adalah <code>@you@your-domain</code>, bukan akun di platform yang tidak Anda kendalikan.',
-    'about.what.content' => '<strong>Miliki konten Anda</strong> — post, media, CV, dan data tetap tersimpan di node Anda.',
+    'about.what.content' => '<strong>Miliki konten Anda</strong> — post, media, dan data tetap tersimpan di node Anda.',
     'about.what.connections' => '<strong>Miliki koneksi Anda</strong> — follow dan di-follow oleh pengguna Mastodon maupun node FPDP lain.',
     'about.what.shop' => '<strong>Miliki toko Anda</strong> — jual produk sendiri kepada visitor dan pilih sendiri payment gateway-nya.',
 
@@ -34,8 +34,6 @@ return [
     'about.features.shop.text' => 'Produk fisik dan digital, checkout publik, serta unduhan setelah pembayaran. Produk promosi tampil di timeline fediverse para follower.',
     'about.features.payments.title' => '💳 Pembayaran',
     'about.features.payments.text' => 'Midtrans, PayPal, Paywuz, iPaymu, atau transfer bank manual; konfirmasi, pembatalan, refund, dan rekonsiliasi dari dashboard.',
-    'about.features.cv.title' => '📄 Akses CV berbayar',
-    'about.features.cv.text' => 'Visitor login dengan Google dan cukup membayar sekali untuk mengunduh CV owner.',
     'about.features.chatbot.title' => '🤖 Chatbot AI',
     'about.features.chatbot.text' => 'Chatbot yang menjawab berdasarkan dokumen dan FAQ milik owner, memakai LLM provider owner, dan dibayar dari wallet visitor.',
     'about.features.feeds.title' => '🔁 Feed eksternal',

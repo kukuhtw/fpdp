@@ -96,7 +96,7 @@ try {
 }
 
 // ---- Storage ----
-foreach (['storage', 'storage/cv', 'storage/media', 'storage/products'] as $directory) {
+foreach (['storage', 'storage/media', 'storage/products'] as $directory) {
     $path = $root . '/' . $directory;
     if (!is_dir($path)) {
         $report($directory === 'storage' ? 'FAIL' : 'OK', "{$directory}/", $directory === 'storage' ? 'missing' : 'created on first upload');

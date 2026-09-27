@@ -23,7 +23,7 @@ final class MarketplaceService
     private const PRODUCT_TYPES = ['PHYSICAL', 'DIGITAL', 'SERVICE'];
     private const ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'PROCESSING', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
 
-    /** The only gateway that confirms a payment synchronously (local dev/tests) — see CvAccessService for the same convention. */
+    /** The only gateway that confirms a payment synchronously (local dev/tests). */
     private const SYNCHRONOUS_GATEWAY = 'DUMMY';
 
     public function __construct(
@@ -285,8 +285,8 @@ public function listProducts(int $nodeId, array $query = []): array
 
     /**
      * The gateway to charge for this node's checkout: whichever one the
-     * owner activated under Settings > Payments. Mirrors
-     * CvAccessService::resolveGatewayCode() — no silent default, since
+     * owner activated under Settings > Payments. No
+     * silent default, since
      * without an active gateway nothing can actually collect payment.
      */
     private function resolveGatewayCode(int $nodeId): string

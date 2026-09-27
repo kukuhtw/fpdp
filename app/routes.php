@@ -6,7 +6,6 @@ use App\Controllers\AnalyticsController;
 use App\Controllers\ActivityPubController;
 use App\Controllers\AuthController;
 use App\Controllers\ChatbotController;
-use App\Controllers\CvController;
 use App\Controllers\ContentPageController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
@@ -38,8 +37,6 @@ use App\Repositories\AuthTokenRepository;
 use App\Repositories\ChatbotSettingsRepository;
 use App\Repositories\ChatMessageRepository;
 use App\Repositories\ChatSessionRepository;
-use App\Repositories\CvAccessGrantRepository;
-use App\Repositories\CvDocumentRepository;
 use App\Repositories\LlmConfigRepository;
 use App\Repositories\FollowRepository;
 use App\Repositories\NodeKeyRepository;
@@ -82,8 +79,6 @@ use App\Services\Federation\NodeKeyService;
 use App\Services\Federation\SignedRequestSigner;
 use App\Services\Federation\SignedRequestVerifier;
 use App\Services\Theme\ThemeService;
-use App\Services\Cv\CvAccessService;
-use App\Services\Cv\CvDocumentService;
 use App\Services\Llm\LLMConfigService;
 use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
@@ -208,7 +203,6 @@ $buildWallCommentController = static function () use ($buildAuthService, $buildV
     );
 };
 
-$cvStorageDirectory = dirname(__DIR__) . '/storage/cv';
 $mediaStorageDirectory = dirname(__DIR__) . '/storage/media';
 $productAssetStorageDirectory = dirname(__DIR__) . '/storage/products';
 
@@ -265,30 +259,6 @@ $buildMarketplaceService = static function () use ($buildPaymentService): Market
     );
 };
 
-$buildCvAccessService = static function () use ($cvStorageDirectory, $buildPaymentService): CvAccessService {
-    $connection = Database::connection();
-
-    return new CvAccessService(
-        new CvDocumentRepository($connection),
-        new CvAccessGrantRepository($connection),
-        $buildPaymentService(),
-        new NodeRepository($connection),
-        $cvStorageDirectory,
-    );
-};
-
-$buildCvController = static function () use ($buildAuthService, $buildVisitorAuthService, $buildCvAccessService, $cvStorageDirectory, $buildAuditService): CvController {
-    $connection = Database::connection();
-
-    return new CvController(
-        $buildAuthService(),
-        new ProfileService(new ProfileRepository($connection), $buildAuditService()),
-        $buildVisitorAuthService(),
-        new CvDocumentService(new CvDocumentRepository($connection), new CvAccessGrantRepository($connection), $cvStorageDirectory),
-        $buildCvAccessService(),
-    );
-};
-
 $buildVisitorWalletService = static function () use ($buildPaymentService): VisitorWalletService {
     $connection = Database::connection();
 
@@ -326,11 +296,10 @@ $buildChatbotController = static function () use ($buildAuthService, $buildVisit
     );
 };
 
-$buildPaymentController = static function () use ($buildAuthService, $buildCvAccessService, $buildPaymentService, $buildMarketplaceService, $buildVisitorWalletService, $buildAuditService): PaymentController {
+$buildPaymentController = static function () use ($buildAuthService, $buildPaymentService, $buildMarketplaceService, $buildVisitorWalletService, $buildAuditService): PaymentController {
     return new PaymentController(
         $buildAuthService(),
         $buildPaymentService(),
-        $buildCvAccessService(),
         $buildMarketplaceService(),
         $buildVisitorWalletService(),
         $buildAuditService(),
@@ -573,11 +542,6 @@ $router->get('/coretan', function (Request $request, array $params) use ($buildC
     $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
     return Response::html($home->wallCoretan());
 });
-$router->get('/cv', function (Request $request, array $params) use ($buildContentPageController): Response {
-    $connection = Database::connection();
-    $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
-    return Response::html($home->cv());
-});
 $router->get('/shop', function (Request $request, array $params) use ($buildContentPageController): Response {
     $connection = Database::connection();
     $home = new HomeController(new NodeRepository($connection), new ProfileRepository($connection), $buildContentPageController());
@@ -608,10 +572,6 @@ $router->get('/dashboard/about-me', function (Request $request, array $params) u
 });
 $router->get('/dashboard/coretan', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->wallCoretanManager());
-});
-
-$router->get('/dashboard/cv', function (Request $request, array $params) use ($buildContentPageController): Response {
-    return Response::html($buildContentPageController()->cvManager());
 });
 
 $router->get('/dashboard/rag', function (Request $request, array $params) use ($buildContentPageController): Response {
@@ -648,10 +608,6 @@ $router->get('/dashboard/themes', function (Request $request, array $params) use
 
 $router->get('/dashboard', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->dashboardOverview());
-});
-
-$router->get('/@{handle}/cv', function (Request $request, array $params) use ($buildContentPageController): Response {
-    return Response::html($buildContentPageController()->publicCv($params['handle']));
 });
 
 $router->get('/api/v1/health', function (Request $request, array $params): Response {
@@ -780,22 +736,6 @@ $router->delete('/api/v1/me/wall/comments/{commentId}', function (Request $reque
 
 $router->post('/api/v1/me/wall/comments/{commentId}/reply', function (Request $request, array $params) use ($buildWallCommentController): Response {
     return $buildWallCommentController()->reply($request, $params);
-});
-
-$router->post('/api/v1/me/cv', function (Request $request, array $params) use ($buildCvController): Response {
-    return $buildCvController()->upload($request);
-});
-
-$router->get('/api/v1/profiles/{handle}/cv', function (Request $request, array $params) use ($buildCvController): Response {
-    return $buildCvController()->show($request, $params);
-});
-
-$router->post('/api/v1/profiles/{handle}/cv/access', function (Request $request, array $params) use ($buildCvController): Response {
-    return $buildCvController()->grantAccess($request, $params);
-});
-
-$router->get('/api/v1/profiles/{handle}/cv/download', function (Request $request, array $params) use ($buildCvController): Response {
-    return $buildCvController()->download($request, $params);
 });
 
 $router->post('/api/v1/me/media', function (Request $request, array $params) use ($buildMediaController): Response {
@@ -1118,6 +1058,10 @@ $router->post('/api/v1/me/products/{productId}/digital-assets', function (Reques
 
 $router->get('/api/v1/products/{productId}/digital-assets/{kind}/download', function (Request $request, array $params) use ($buildMarketplaceController): Response {
     return $buildMarketplaceController()->downloadDigitalAsset($request, $params);
+});
+
+$router->get('/api/v1/products/{productId}/digital-assets/{kind}/file', function (Request $request, array $params) use ($buildMarketplaceController): Response {
+    return $buildMarketplaceController()->downloadDigitalAssetByLink($request, $params);
 });
 $router->post('/api/v1/federation/send-follow', function (Request $request, array $params) use ($buildFederationController): Response {
     return $buildFederationController()->sendFollow($request);

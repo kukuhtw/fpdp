@@ -6,7 +6,6 @@ namespace App\Services\Payment;
 
 use App\Core\Exceptions\ConflictException;
 use App\Services\Chatbot\VisitorWalletService;
-use App\Services\Cv\CvAccessService;
 use App\Services\Marketplace\MarketplaceService;
 
 /**
@@ -18,14 +17,13 @@ use App\Services\Marketplace\MarketplaceService;
 final class PaymentFulfillmentService
 {
     public function __construct(
-        private readonly CvAccessService $cvAccess,
         private readonly ?MarketplaceService $marketplace = null,
         private readonly ?VisitorWalletService $wallet = null,
     ) {
     }
 
     /**
-     * A payment became PAID: grant CV access, complete the order, or credit
+     * A payment became PAID: complete the order or credit
      * the wallet.
      *
      * @param array<string, mixed> $payment
@@ -35,13 +33,8 @@ final class PaymentFulfillmentService
         $metadata = self::metadata($payment);
         $purpose = $metadata['purpose'] ?? null;
 
-        if ($purpose === 'cv_access') {
-            $documentId = (int) ($metadata['document_id'] ?? 0);
-            $visitorId = (int) ($metadata['visitor_id'] ?? 0);
-            if ($documentId > 0 && $visitorId > 0) {
-                $this->cvAccess->confirmPayment($documentId, $visitorId, (string) $payment['order_id']);
-            }
-        }
+        // Payments with purpose 'cv_access' may still exist from before the
+        // paid CV download was removed: they have nothing left to fulfil.
 
         if ($purpose === 'marketplace_order') {
             $orderPublicId = (string) ($metadata['order_public_id'] ?? '');
@@ -83,7 +76,7 @@ final class PaymentFulfillmentService
     }
 
     /**
-     * A payment was fully refunded: revoke CV access, mark the order
+     * A payment was fully refunded: mark the order
      * REFUNDED, or take the top-up back out of the wallet. Returns notes on
      * anything that could not be undone (a webhook refund of a top-up the
      * visitor already spent), for the caller to show or log.
@@ -96,14 +89,6 @@ final class PaymentFulfillmentService
         $metadata = self::metadata($payment);
         $purpose = $metadata['purpose'] ?? null;
         $notes = [];
-
-        if ($purpose === 'cv_access') {
-            $documentId = (int) ($metadata['document_id'] ?? 0);
-            $visitorId = (int) ($metadata['visitor_id'] ?? 0);
-            if ($documentId > 0 && $visitorId > 0) {
-                $this->cvAccess->revokeAccess($documentId, $visitorId);
-            }
-        }
 
         if ($purpose === 'marketplace_order') {
             $orderPublicId = (string) ($metadata['order_public_id'] ?? '');
@@ -124,7 +109,7 @@ final class PaymentFulfillmentService
 
     /**
      * A PENDING payment was cancelled: close its order so it no longer shows
-     * as awaiting payment. CV access and top-ups granted nothing yet.
+     * as awaiting payment. Top-ups granted nothing yet.
      *
      * @param array<string, mixed> $payment
      */

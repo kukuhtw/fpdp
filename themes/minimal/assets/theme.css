@@ -43,7 +43,7 @@ a:hover{text-decoration:underline}
 
 .mn-main-narrow{width:min(560px,calc(100% - 32px))}
 
-/* Core semantic classes reused by shared JS (wall-coretan.js, public-cv.js) and
+/* Core semantic classes reused by shared JS (wall-coretan.js) and
    the about-me/youtube/CV pages — a theme must restyle these under its own
    palette rather than rename them, since the JS creates elements with these
    exact class names at runtime. */

@@ -44,11 +44,6 @@ final class HomeController
         return $this->ownerPage('wallCoretan');
     }
 
-    public function cv(): string
-    {
-        return $this->ownerPage('publicCv');
-    }
-
     public function shop(): string
     {
         return $this->ownerPage('shop');

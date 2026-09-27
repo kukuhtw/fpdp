@@ -35,7 +35,7 @@ final class AnalyticsService
     /** Human names for PAGE_VIEW subject types, and where each page lives. */
     private const PAGES = [
         'home' => '/', 'about_me' => '/about-me', 'coretan' => '/coretan', 'youtube' => '/youtube',
-        'timeline' => '/timeline', 'about_fpdp' => '/about', 'shop' => '/shop', 'cv' => '/cv',
+        'timeline' => '/timeline', 'about_fpdp' => '/about', 'shop' => '/shop',
     ];
     private const MAX_TARGET_URL_LENGTH = 2048;
     private const MAX_USER_AGENT_LENGTH = 200;

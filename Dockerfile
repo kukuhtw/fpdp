@@ -15,7 +15,7 @@ COPY deploy/ubuntu/php-fpdp.ini /usr/local/etc/php/conf.d/99-fpdp.ini
 COPY . /var/www/html
 
 RUN chmod +x /usr/local/bin/fpdp-entrypoint \
-    && mkdir -p /var/www/html/storage/cv /var/www/html/storage/media /var/www/html/storage/products /var/www/html/storage/logs /var/www/html/storage/tmp \
+    && mkdir -p /var/www/html/storage/media /var/www/html/storage/products /var/www/html/storage/logs /var/www/html/storage/tmp \
     && chown -R www-data:www-data /var/www/html/storage
 
 WORKDIR /var/www/html

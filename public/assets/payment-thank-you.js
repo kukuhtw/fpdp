@@ -91,8 +91,14 @@
           addAction(t('thankyou.download_item', { title: snapshot.title }, `Download: ${snapshot.title}`), download.data.digital_asset_url);
         }
         (download.data.digital_assets || []).forEach((asset) => {
+          const label = `${kindLabels[asset.kind] || asset.kind}: ${snapshot.title}`;
+          if (asset.download_url) {
+            // Signed link: a native download, which also works on phones and in-app browsers.
+            addAction(label, asset.download_url);
+            return;
+          }
           addAction(
-            `${kindLabels[asset.kind] || asset.kind}: ${snapshot.title}`,
+            label,
             null,
             () => downloadBlob(`/api/v1/products/${encodeURIComponent(snapshot.public_id)}/digital-assets/${encodeURIComponent(asset.kind)}/download`, asset.original_filename),
           );
@@ -121,20 +127,6 @@
     }
     heading.textContent = t('thankyou.waiting', {}, 'Menunggu konfirmasi pembayaran…');
     message.textContent = t('thankyou.order_pending', {}, 'Status saat ini: PENDING. Halaman ini akan otomatis diperbarui begitu pembayaran dikonfirmasi.');
-    return false;
-  };
-
-  // ---- CV / Resume ----
-  const checkCv = async (handle) => {
-    const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/cv/access`, { method: 'POST' });
-    if (result.data.granted) {
-      heading.textContent = t('thankyou.paid', {}, 'Pembayaran berhasil!');
-      message.textContent = t('thankyou.cv_active', {}, 'Akses CV/Resume Anda sudah aktif.');
-      addAction(t('thankyou.download_cv', {}, 'Download CV'), null, () => downloadBlob(`/api/v1/profiles/${encodeURIComponent(handle)}/cv/download`, 'cv'));
-      return true;
-    }
-    heading.textContent = t('thankyou.waiting', {}, 'Menunggu konfirmasi pembayaran…');
-    message.textContent = t('thankyou.payment_pending', {}, 'Halaman ini akan otomatis diperbarui begitu pembayaran dikonfirmasi.');
     return false;
   };
 
@@ -175,7 +167,6 @@
     try {
       let done = false;
       if (type === 'order' && ref) done = await checkOrder(ref, handle);
-      else if (type === 'cv' && handle) done = await checkCv(handle);
       else if (type === 'wallet' && handle) done = await checkWallet(handle, before);
       else {
         heading.textContent = t('thankyou.thanks', {}, 'Terima kasih');

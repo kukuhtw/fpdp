@@ -15,7 +15,7 @@ use App\Services\Payment\PaymentService;
 
 /**
  * Visitor deposit top-ups (paid, via the node's active payment gateway —
- * same pattern as CvAccessService/MarketplaceService) and owner-granted
+ * same pattern as MarketplaceService) and owner-granted
  * credits (free, e.g. comping a visitor). Both just call
  * VisitorWalletRepository::credit(); the difference is only where the
  * money is asserted to have come from.
@@ -163,7 +163,7 @@ final class VisitorWalletService
     }
 
     /**
-     * Mirrors CvAccessService::resolveGatewayCode() — no silent default.
+     * Mirrors MarketplaceService::resolveGatewayCode() — no silent default.
      */
     private function resolveGatewayCode(int $nodeId): string
     {

@@ -27,7 +27,7 @@
       <ol>
         <li>Buat folder baru di <code>/themes/&lt;slug-anda&gt;/</code> (slug: huruf kecil, angka, <code>-</code>/<code>_</code>).</li>
         <li>Tambahkan <code>theme.json</code> berisi <code>name</code>, <code>description</code>, <code>author</code>, <code>version</code>, <code>preview_color</code>.</li>
-        <li>Tambahkan file view PHP di <code>views/</code> untuk halaman yang ingin Anda override &mdash; nama file harus persis salah satu dari: <code>profile.php</code>, <code>about-me.php</code>, <code>youtube.php</code>, <code>wall-coretan.php</code>, <code>post.php</code>, <code>public-cv.php</code>. Halaman yang tidak Anda sediakan otomatis memakai tampilan bawaan.</li>
+        <li>Tambahkan file view PHP di <code>views/</code> untuk halaman yang ingin Anda override &mdash; nama file harus persis salah satu dari: <code>profile.php</code>, <code>about-me.php</code>, <code>youtube.php</code>, <code>wall-coretan.php</code>, <code>post.php</code>. Halaman yang tidak Anda sediakan otomatis memakai tampilan bawaan.</li>
         <li>Tambahkan CSS Anda di <code>assets/theme.css</code> (dan aset lain seperti gambar/font bila perlu) &mdash; diakses publik lewat <code>/themes/&lt;slug&gt;/assets/&lt;file&gt;</code>.</li>
         <li>Muat ulang halaman ini &mdash; template baru otomatis terdeteksi dan muncul di daftar di atas.</li>
       </ol>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Config;
 use App\Core\Http\JsonEnvelope;
 use App\Core\Http\Request;
 use App\Core\Http\Response;
@@ -17,6 +18,9 @@ use App\Services\Visitor\VisitorAuthService;
 
 final class MarketplaceController
 {
+    /** How long a signed digital-download link from getDigitalDownload() works. */
+    private const DOWNLOAD_LINK_TTL = 900;
+
     public function __construct(
         private readonly AuthService $auth,
         private readonly MarketplaceService $marketplace,
@@ -234,13 +238,70 @@ final class MarketplaceController
         // Verify the caller (the buyer, not the store owner) has a completed order for this product
         $this->marketplace->verifyDigitalPurchase((int) $visitor['id'], (int) $product['id']);
 
+        // Each file also gets a plain link valid for DOWNLOAD_LINK_TTL
+        // seconds, so the browser downloads it natively. Fetching the file
+        // with the bearer token and saving a blob from JavaScript silently
+        // does nothing on many phones and in-app browsers (WhatsApp,
+        // Instagram, Facebook).
+        $expires = (string) (time() + self::DOWNLOAD_LINK_TTL);
+        $assets = array_map(function (array $asset) use ($product, $visitor, $expires): array {
+            $kind = strtoupper((string) $asset['kind']);
+
+            return $asset + ['download_url' => sprintf(
+                '/api/v1/products/%s/digital-assets/%s/file?visitor=%d&expires=%s&token=%s',
+                rawurlencode((string) $product['public_id']),
+                rawurlencode(strtolower($kind)),
+                (int) $visitor['id'],
+                $expires,
+                self::downloadToken((string) $product['public_id'], $kind, (int) $visitor['id'], $expires),
+            ), 'download_expires_at' => gmdate('c', (int) $expires)];
+        }, $this->productAssets?->listForProduct((int) $product['id']) ?? []);
+
         return JsonEnvelope::success([
             'product_id' => $product['public_id'],
             'title' => $product['title'],
             'digital_asset_url' => $product['digital_asset_url'],
             'digital_asset_metadata' => $product['digital_asset_metadata'],
-            'digital_assets' => $this->productAssets?->listForProduct((int) $product['id']) ?? [],
+            'digital_assets' => $assets,
         ]);
+    }
+
+    /**
+     * GET /api/v1/products/{productId}/digital-assets/{kind}/file?visitor=&expires=&token=
+     *
+     * The same gated file as downloadDigitalAsset(), reached through the
+     * short-lived signed link from getDigitalDownload() instead of a bearer
+     * header, so a plain <a href> works in every browser. The purchase is
+     * checked again at download time: a refund stops the link at once.
+     *
+     * @param array<string, string> $params
+     */
+    public function downloadDigitalAssetByLink(Request $request, array $params): Response
+    {
+        $visitorId = (string) ($request->query['visitor'] ?? '');
+        $expires = (string) ($request->query['expires'] ?? '');
+        $token = (string) ($request->query['token'] ?? '');
+        $kind = strtoupper((string) ($params['kind'] ?? ''));
+        $valid = ctype_digit($visitorId) && ctype_digit($expires) && (int) $expires >= time()
+            && hash_equals(self::downloadToken((string) $params['productId'], $kind, (int) $visitorId, $expires), $token);
+        if (!$valid) {
+            throw new \App\Core\Exceptions\ForbiddenException('This download link has expired. Open the product page again to get a new one.');
+        }
+
+        $product = $this->marketplace->getProduct($params['productId']);
+        if (($product['product_type'] ?? 'PHYSICAL') !== 'DIGITAL') {
+            throw new \App\Core\Exceptions\ValidationException([['field' => 'product_type', 'reason' => 'not_a_digital_product']]);
+        }
+        $this->marketplace->verifyDigitalPurchase((int) $visitorId, (int) $product['id']);
+
+        $file = $this->requireProductAssets()->readForDownload((int) $product['id'], $kind);
+
+        return Response::binary($file['content'], $file['content_type'], $file['filename']);
+    }
+
+    private static function downloadToken(string $productPublicId, string $kind, int $visitorId, string $expires): string
+    {
+        return hash_hmac('sha256', "fpdp-asset-download|{$productPublicId}|{$kind}|{$visitorId}|{$expires}", (string) Config::get('APP_KEY', ''));
     }
 
     /**

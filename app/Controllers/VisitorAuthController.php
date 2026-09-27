@@ -73,7 +73,7 @@ final class VisitorAuthController
         if (str_contains(strtolower((string) ($request->header('accept') ?? '')), 'text/html')) {
             $returnTo = $verified['return_to'] ?? null;
             if ($returnTo === null || !self::isSafeReturnPath($returnTo)) {
-                $returnTo = '/@' . rawurlencode($handle) . '/cv';
+                $returnTo = '/@' . rawurlencode($handle);
             }
 
             $token = json_encode((string) $result['token']['access_token'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);

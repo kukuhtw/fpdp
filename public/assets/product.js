@@ -144,10 +144,23 @@
           downloadButton.classList.add('hidden');
         }
         (download.data.digital_assets || []).forEach((asset) => {
+          const label = kindLabels[asset.kind] || t('checkout.download_kind', { kind: asset.kind }, `Download ${asset.kind}`);
+          if (asset.download_url) {
+            // A plain link to a short-lived signed URL: the browser downloads
+            // it natively, which also works on phones and in-app browsers
+            // where saving a JavaScript blob silently does nothing.
+            const link = document.createElement('a');
+            link.className = 'button';
+            link.href = asset.download_url;
+            link.textContent = label;
+            if (asset.original_filename) link.setAttribute('download', asset.original_filename);
+            digitalAssetsButtons.append(link);
+            return;
+          }
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'button';
-          button.textContent = kindLabels[asset.kind] || t('checkout.download_kind', { kind: asset.kind }, `Download ${asset.kind}`);
+          button.textContent = label;
           button.addEventListener('click', () => downloadGatedAsset(asset.kind, asset.original_filename));
           digitalAssetsButtons.append(button);
         });

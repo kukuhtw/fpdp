@@ -10,7 +10,6 @@ use App\Core\Http\Request;
 use App\Core\Http\Response;
 use App\Services\Auth\AuthService;
 use App\Services\Chatbot\VisitorWalletService;
-use App\Services\Cv\CvAccessService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Payment\PaymentFulfillmentService;
 use App\Services\Payment\PaymentService;
@@ -23,12 +22,11 @@ final class PaymentController
     public function __construct(
         private readonly AuthService $auth,
         private readonly PaymentService $payments,
-        CvAccessService $cvAccess,
         ?MarketplaceService $marketplace = null,
         ?VisitorWalletService $wallet = null,
         private readonly ?AuditService $audit = null,
     ) {
-        $this->fulfillment = new PaymentFulfillmentService($cvAccess, $marketplace, $wallet);
+        $this->fulfillment = new PaymentFulfillmentService($marketplace, $wallet);
     }
 
     /**
@@ -47,8 +45,8 @@ final class PaymentController
     /**
      * GET /api/v1/me/payments/pending
      *
-     * Owner-only: every payment awaiting confirmation, across all three
-     * checkout flows (product order, CV access, wallet top-up) — chiefly
+     * Owner-only: every payment awaiting confirmation, across both
+     * checkout flows (product order, wallet top-up) — chiefly
      * for gateways like Manual Transfer that have no automatic webhook.
      */
     public function listPending(Request $request): Response
@@ -62,8 +60,8 @@ final class PaymentController
      * POST /api/v1/me/payments/{uuid}/confirm
      *
      * Owner-only manual confirmation: marks a PENDING payment PAID and runs
-     * the same fulfillment dispatch a gateway webhook would (grant CV
-     * access, complete the order, credit the wallet) — see fulfill() below.
+     * the same fulfillment dispatch a gateway webhook would (complete the
+     * order, credit the wallet) — see fulfill() below.
      *
      * @param array<string, string> $params
      */
@@ -239,7 +237,7 @@ final class PaymentController
      * PUT /api/v1/me/payment-gateways/{code}/activate
      *
      * Set a configured gateway as the node's default for all checkout flows
-     * (orders, CV access, etc.). The gateway must already have credentials
+     * (orders, wallet top-ups). The gateway must already have credentials
      * stored via updateGateway. Pass code=null in the body to clear.
      *
      * @param array<string, string> $params
