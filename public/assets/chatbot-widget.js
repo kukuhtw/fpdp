@@ -163,8 +163,14 @@
       priceNote.textContent = price > 0
         ? t('chatbot.price_per_question', { price: formatMoney(price) }, `${formatMoney(price)} per pertanyaan.`)
         : t('chatbot.free_to_ask', {}, 'Gratis untuk bertanya.');
-      googleLogin.href = `/api/v1/profiles/${encodeURIComponent(handle)}/visitor-auth/google/redirect?return_to=${encodeURIComponent('/@' + handle)}`;
+      googleLogin.href = `/api/v1/profiles/${encodeURIComponent(handle)}/visitor-auth/google/redirect?return_to=${encodeURIComponent('/@' + handle + '#chatbot-widget')}`;
       widget.classList.remove('hidden');
+      // Collapsed by default; open when linked to directly (e.g. back from Google sign-in).
+      const details = document.getElementById('chatbot-details');
+      if (details && location.hash === '#chatbot-widget') {
+        details.open = true;
+        widget.scrollIntoView({ block: 'start' });
+      }
       await updateSignedInUi();
     } catch (_) {
       // No chatbot for this profile (disabled or not configured) — leave the widget hidden.

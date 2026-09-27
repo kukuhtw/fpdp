@@ -9,6 +9,7 @@ return [
 
     'profile.avatar_alt' => 'Foto profil :name',
     'profile.editorial_eyebrow' => 'Digital home — edisi editorial',
+    'profile.about_toggle' => 'Tentang saya',
     'profile.federation_eyebrow' => 'Federasi',
     'profile.follow_heading' => 'Cara mengikuti (follow) :name',
     'profile.follow_heading_plain' => 'Cara mengikuti (follow)',

@@ -9,21 +9,21 @@
     <div>
       <h1><?= htmlspecialchars((string) $profile['display_name'], ENT_QUOTES, 'UTF-8') ?></h1>
       <p class="mn-handle">@<?= htmlspecialchars((string) $profile['handle'], ENT_QUOTES, 'UTF-8') ?></p>
-      <?php if ($profile['bio'] !== null): ?><p class="mn-bio"><?= nl2br(\App\Core\View::autolink(htmlspecialchars((string) $profile['bio'], ENT_QUOTES, 'UTF-8'))) ?></p><?php endif; ?>
+      <?php if ($profile['bio'] !== null): ?><details class="collapsible profile-bio"><summary><?= \App\Core\View::te('profile.about_toggle') ?></summary><p class="mn-bio"><?= nl2br(\App\Core\View::autolink(htmlspecialchars((string) $profile['bio'], ENT_QUOTES, 'UTF-8'))) ?></p></details><?php endif; ?>
     </div>
   </header>
 
   <section class="mn-follow">
-    <h2><?= \App\Core\View::te('profile.follow_heading_plain') ?></h2>
+    <details class="collapsible"><summary><h2><?= \App\Core\View::te('profile.follow_heading_plain') ?></h2></summary>
     <p><?= \App\Core\View::te('profile.follow_intro_minimal') ?></p>
     <label><?= \App\Core\View::te('profile.federation_address') ?><div class="mn-field-row"><input type="text" readonly onclick="this.select()" value="@<?= htmlspecialchars((string) $profile['handle'], ENT_QUOTES, 'UTF-8') ?>@<?= htmlspecialchars((string) $profile['node_domain'], ENT_QUOTES, 'UTF-8') ?>"></div></label>
     <label><?= \App\Core\View::te('profile.actor_uri') ?><div class="mn-field-row"><input type="text" readonly onclick="this.select()" value="https://<?= htmlspecialchars((string) $profile['node_domain'], ENT_QUOTES, 'UTF-8') ?>/@<?= htmlspecialchars((string) $profile['handle'], ENT_QUOTES, 'UTF-8') ?>"></div></label>
-    <p class="mn-muted"><?= \App\Core\View::te('profile.pending_minimal') ?><a href="/dashboard/federation">/dashboard/federation</a>.</p>
+    <p class="mn-muted"><?= \App\Core\View::te('profile.pending_minimal') ?><a href="/dashboard/federation">/dashboard/federation</a>.</p></details>
   </section>
 
   <section id="chatbot-widget" class="panel hidden">
     <p class="eyebrow"><?= \App\Core\View::te('profile.chatbot_eyebrow') ?></p>
-    <h2><?= \App\Core\View::te('profile.chatbot_heading', ['name' => (string) $profile['display_name']]) ?></h2>
+    <details class="collapsible" id="chatbot-details"><summary><h2><?= \App\Core\View::te('profile.chatbot_heading', ['name' => (string) $profile['display_name']]) ?></h2></summary>
     <p id="chatbot-price-note" class="muted"></p>
     <div id="chatbot-signin" class="hidden"><a id="chatbot-google-login" class="button" href="#"><?= \App\Core\View::te('profile.chatbot_signin') ?></a></div>
     <div id="chatbot-chat" class="hidden stack">
@@ -35,7 +35,7 @@
       <form id="chatbot-ask-form" class="field-row"><input id="chatbot-question-input" type="text" placeholder="<?= \App\Core\View::te('profile.chatbot_question_placeholder') ?>" maxlength="1000" required style="flex:1"><button type="submit"><?= \App\Core\View::te('profile.chatbot_send') ?></button></form>
     </div>
     <p id="chatbot-status" class="status" role="status" aria-live="polite"></p>
-    <p id="chatbot-payment-confirm-link"></p>
+    <p id="chatbot-payment-confirm-link"></p></details>
   </section>
 
   <section class="mn-feed">

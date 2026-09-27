@@ -9,6 +9,7 @@ return [
 
     'profile.avatar_alt' => 'Profile photo of :name',
     'profile.editorial_eyebrow' => 'Digital home — editorial edition',
+    'profile.about_toggle' => 'About me',
     'profile.federation_eyebrow' => 'Federation',
     'profile.follow_heading' => 'How to follow :name',
     'profile.follow_heading_plain' => 'How to follow',

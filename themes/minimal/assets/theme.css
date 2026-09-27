@@ -89,3 +89,14 @@ button:disabled,.button:disabled{opacity:.4;cursor:not-allowed}
 .mn-youtube-copy{padding:12px}
 .mn-youtube-copy h3{margin:0 0 4px;font-size:.98rem;font-weight:700}
 .mn-youtube-copy p{margin:0 0 6px;font-size:.8rem;color:var(--mn-muted)}
+
+/* Collapsible sections on the profile/home page (<details>/<summary>): closed by default. */
+details.collapsible > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;}
+details.collapsible > summary::-webkit-details-marker{display:none;}
+details.collapsible > summary::after{content:"";flex:none;width:.5em;height:.5em;margin-left:auto;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s;opacity:.6;}
+details.collapsible[open] > summary::after{transform:rotate(-135deg) translateY(-2px);}
+details.collapsible > summary h2{margin:0;}
+details.collapsible[open] > summary{margin-bottom:12px;}
+details.collapsible > summary:focus-visible{outline:2px solid currentColor;outline-offset:3px;border-radius:4px;}
+details.profile-bio > summary{display:inline-flex;font-size:.9rem;font-weight:650;opacity:.8;}
+details.profile-bio > summary::after{margin-left:4px;}
