@@ -163,13 +163,13 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 ### 4.1 Production validation
 
 - Dokploy staging was validated (September 19, 2026), but no CI job runs all migrations against a disposable MySQL 8.
-- Backup/restore/rollback is documented but not tested through a recovery exercise.
-- The `sodium` extension is not declared explicitly in the `Dockerfile`; its availability in the image needs verification.
+- **Ubuntu VPS kit (September 27, 2026):** `deploy/ubuntu/` has an Nginx site (with `/.well-known/` reaching PHP — the old guide's dotfile rule blocked WebFinger, so nobody could follow a VPS node), PHP upload limits, a cron file for the three background jobs plus a nightly backup, and `backup.sh`/`restore.sh`; `scripts/check-requirements.php --http` verifies a server. The guide now targets Ubuntu 24.04 (the old `php8.2-*` packages don't exist there). The same PHP limits are in the Docker image, and the Dokploy Compose gained a `scheduler` service.
+- A restore has not yet been **practised** on a real server; `restore.sh` exists but a recovery exercise is still to be done.
+- `sodium` is not needed: encryption uses `openssl` (the earlier item asking to verify it was wrong).
 
 ### 4.2 Payment production
 
 - Paywuz, Midtrans, PayPal, and iPaymu are tested with a fake HTTP requester, not against real provider sandboxes. Sandbox testing needs the owner's sandbox credentials and has to be run by the owner.
-- `scripts/reconcile-payments.php` is not scheduled in the Dokploy Compose yet; it needs a cron (e.g. every 15 minutes) or a worker service like the federation worker.
 - The Payments dashboard balance is still an approximation from the `payments` table (net of refunds); there is no settlement/payout ledger or gateway-fee accounting (the `fee` column is never filled).
 - A partial refund made in the Midtrans dashboard only moves the status to `PARTIALLY_REFUNDED`; the amount is not recorded, since the notification does not reliably carry it.
 - PayPal and iPaymu have no cancel API; cancellation is local only and the provider's payment page stays open until it expires (reconciliation catches it if it is paid anyway).

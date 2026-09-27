@@ -10,10 +10,12 @@ ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/entrypoint.sh /usr/local/bin/fpdp-entrypoint
+# Upload limits (base64 JSON uploads up to 20 MB) — same file the Ubuntu VPS setup uses.
+COPY deploy/ubuntu/php-fpdp.ini /usr/local/etc/php/conf.d/99-fpdp.ini
 COPY . /var/www/html
 
 RUN chmod +x /usr/local/bin/fpdp-entrypoint \
-    && mkdir -p /var/www/html/storage/cv /var/www/html/storage/media /var/www/html/storage/logs /var/www/html/storage/tmp \
+    && mkdir -p /var/www/html/storage/cv /var/www/html/storage/media /var/www/html/storage/products /var/www/html/storage/logs /var/www/html/storage/tmp \
     && chown -R www-data:www-data /var/www/html/storage
 
 WORKDIR /var/www/html

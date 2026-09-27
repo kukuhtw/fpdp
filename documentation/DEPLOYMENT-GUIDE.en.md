@@ -8,7 +8,7 @@ It assumes the [repository README](../README.md) quick start already works on yo
 
 ## 2. Requirements
 
-- PHP 8.2 or newer, with the `pdo_mysql`, `simplexml`, `json`, and `mbstring` extensions enabled.
+- PHP 8.2 or newer, with the `pdo_mysql`, `simplexml`, `json`, `mbstring`, `openssl`, and `fileinfo` extensions enabled.
 - MySQL 8 (or a compatible MariaDB version) with a database and a user that has full privileges on it.
 - The web server's document root pointed at the repository's `public/` folder (see [§5](#5-shared-hosting-deployment) if your host will not let you change it).
 - HTTPS in production — FPDP sends bearer tokens and passwords over HTTP, so plain HTTP is only acceptable for local development.
@@ -33,10 +33,15 @@ Example uses Ubuntu 22.04+, Nginx, and PHP-FPM; adapt package names for your dis
 
 ### 4.1 Install packages
 
+Use **Ubuntu 24.04 LTS**: its default PHP is 8.3. (Ubuntu 22.04 ships PHP 8.1, which is too old — add `ppa:ondrej/php` and install the `php8.3-*` packages there.) The unversioned package names below always install the distribution's default PHP:
+
 ```bash
 sudo apt update
-sudo apt install -y nginx mysql-server php8.2-fpm php8.2-mysql php8.2-xml php8.2-mbstring git
+sudo apt install -y nginx mysql-server php-fpm php-cli php-mysql php-xml php-mbstring git
+php -v   # note the version (e.g. 8.3) for the paths below
 ```
+
+`openssl`, `fileinfo`, and `json` are built into Ubuntu's PHP. FPDP does not need `sodium` or `curl`.
 
 ### 4.2 Create the database
 
@@ -57,31 +62,33 @@ cd /var/www/fpdp
 
 If Composer is available, run `composer install && composer dump-autoload` to keep the autoloader in sync with `composer.json`; it is optional today since the checked-in `vendor/autoload.php` already works standalone.
 
-### 4.4 Configure Nginx
+### 4.4 Configure Nginx and PHP
 
-```nginx
-server {
-    listen 80;
-    server_name your-domain.example;
-    root /var/www/fpdp/public;
-    index index.php;
+The repository ships a ready site file, [`deploy/ubuntu/nginx-fpdp.conf`](../deploy/ubuntu/nginx-fpdp.conf):
 
-    location ~ /\. {
-        deny all;
-    }
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-    }
-}
+```bash
+sudo cp deploy/ubuntu/nginx-fpdp.conf /etc/nginx/sites-available/fpdp
+sudo sed -i 's/fpdp.example.com/your-domain.example/g' /etc/nginx/sites-available/fpdp
+sudo ln -s /etc/nginx/sites-available/fpdp /etc/nginx/sites-enabled/fpdp
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Reload with `sudo nginx -t && sudo systemctl reload nginx`. (Apache on a VPS can reuse the `public/.htaccess` file already in the repository — point `DocumentRoot` at `public/` and make sure `AllowOverride All` is set for that directory.)
+Two things in it matter and are easy to get wrong in a hand-written config:
+
+- **`/.well-known/` must reach PHP.** It serves WebFinger, which is how Mastodon and other FPDP nodes find `@you@your-domain`. A plain "deny all dotfiles" rule (`location ~ /\.`) also blocks `/.well-known/`, and then nobody can follow you.
+- **`client_max_body_size 32m`.** Uploads are base64 JSON, so a 20 MB product file is a ~27 MB request; Nginx's default is 1 MB.
+
+PHP needs matching limits, for PHP-FPM and for the CLI that runs the background jobs ([`deploy/ubuntu/php-fpdp.ini`](../deploy/ubuntu/php-fpdp.ini)):
+
+```bash
+PHPV=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+sudo cp deploy/ubuntu/php-fpdp.ini /etc/php/$PHPV/fpm/conf.d/99-fpdp.ini
+sudo cp deploy/ubuntu/php-fpdp.ini /etc/php/$PHPV/cli/conf.d/99-fpdp.ini
+sudo systemctl restart php$PHPV-fpm
+```
+
+(Apache on a VPS can use the `public/.htaccess` already in the repository — point `DocumentRoot` at `public/` and enable `AllowOverride All` for it.)
 
 ### 4.5 Add TLS
 
@@ -119,8 +126,42 @@ touch storage/installed.lock
 
 ```bash
 sudo chown -R www-data:www-data /var/www/fpdp
-chmod 600 /var/www/fpdp/.env
+sudo chmod 600 /var/www/fpdp/.env
 ```
+
+### 4.8 Background jobs
+
+Three jobs must run on a schedule, or federation, feeds, and payments silently stall: delivering queued ActivityPub activities (every minute), syncing external feeds, and reconciling payments with the gateways (every 15 minutes each). [`deploy/ubuntu/fpdp.cron`](../deploy/ubuntu/fpdp.cron) runs them as `www-data`, with `flock` so a slow run never overlaps the next, plus the nightly backup:
+
+```bash
+sudo mkdir -p /var/log/fpdp && sudo chown www-data:www-data /var/log/fpdp
+sudo cp deploy/ubuntu/fpdp.cron /etc/cron.d/fpdp && sudo chmod 644 /etc/cron.d/fpdp
+tail -f /var/log/fpdp/federation.log   # a line per minute once it runs
+```
+
+`reconcile.log` lists every payment it changed; a `MISMATCH` line means a payment cancelled in FPDP was paid at the gateway anyway — it has been marked paid and fulfilled, and should be refunded from the dashboard if the sale is unwanted.
+
+### 4.9 Backup and restore
+
+[`deploy/ubuntu/backup.sh`](../deploy/ubuntu/backup.sh) writes one consistent recovery point — a `mysqldump --single-transaction`, `storage/` (CVs, media, product files), and `.env` — to `/var/backups/fpdp/fpdp-<UTC time>.tar.gz`, mode 600, keeping 14 days. The cron file above runs it nightly; run it by hand with `sudo sh deploy/ubuntu/backup.sh`.
+
+- **Keep `.env` with the database.** `APP_KEY` in it decrypts the stored gateway and OAuth credentials; a database restored with a different key cannot use them.
+- **Copy backups off the VPS** (another provider or region) and encrypt them there. They contain secrets and buyers' personal data, so treat them like the production database.
+- **Practise a restore** on a spare VPS or scratch database before you need it:
+
+```bash
+sudo FPDP_DIR=/var/www/fpdp sh deploy/ubuntu/restore.sh /var/backups/fpdp/fpdp-20260927T023000Z.tar.gz
+```
+
+`restore.sh` asks for confirmation, pauses the cron jobs, loads the dump, swaps `storage/` (the old one is kept as `storage.before-restore.*`) and `.env`, runs any newer migration, and turns the jobs back on.
+
+### 4.10 Check the server
+
+```bash
+sudo -u www-data php scripts/check-requirements.php --http
+```
+
+It checks PHP and its extensions, upload limits, RSA key generation for federation signing, `.env` production settings, the database and pending migrations, writable `storage/`, and — with `--http` — that `/api/v1/health` answers, that WebFinger finds the owner, and that `/.env` is not served. It exits non-zero if anything fails; run it after every upgrade too.
 
 ## 5. Shared hosting deployment
 
@@ -212,6 +253,10 @@ To intentionally reinstall (for example onto a fresh staging copy), delete `stor
 
 ## 7. Post-deployment checklist
 
+- `sudo -u www-data php scripts/check-requirements.php --http` passes (VPS).
+- `/etc/cron.d/fpdp` is installed and `/var/log/fpdp/federation.log` gets a line every minute (VPS).
+- A backup exists under `/var/backups/fpdp/` and a copy is stored off the server.
+
 - `curl https://your-domain.example/api/v1/health` returns a success envelope.
 - `.env` is not publicly reachable (`curl https://your-domain.example/.env` must **not** return its contents — `public/.htaccess` already denies this once the document root is correct).
 - `public/install.php` is deleted, or provably blocked and covered by `storage/installed.lock`.
@@ -225,7 +270,10 @@ To intentionally reinstall (for example onto a fresh staging copy), delete `stor
 cd /var/www/fpdp   # or wherever the code lives
 git pull
 php database/migrate.php   # safe to run repeatedly; only pending migrations apply
+sudo -u www-data php scripts/check-requirements.php
 ```
+
+Take a backup (`sudo sh deploy/ubuntu/backup.sh`) before pulling, so a failed upgrade can be rolled back — code rollback alone does not undo a migration.
 
 On shared hosting without SSH, re-upload the changed files through File Manager/FTP, then either re-run `install.php` step 3 only (it is safe — delete `storage/installed.lock`, click through steps 1–2 with the *same* database values so `.env` is rewritten identically, run step 3, then stop — do not repeat step 4) or apply the SQL in any new `database/migrations/*.sql` files by hand through phpMyAdmin.
 

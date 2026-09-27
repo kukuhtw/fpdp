@@ -7,6 +7,8 @@
 !.env.example
 node_modules
 storage/cv
+storage/media
+storage/products
 storage/logs
 storage/tmp
 storage/installed.lock

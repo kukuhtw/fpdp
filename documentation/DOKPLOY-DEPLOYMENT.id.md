@@ -11,6 +11,7 @@ Repository menyediakan deployment Dokploy berbasis Docker Compose dengan:
 - persistent volume untuk MySQL dan `storage/`;
 - health check aplikasi dan database;
 - worker `federation-worker` yang berjalan terus-menerus untuk mengirim activity ActivityPub yang tertunda (follow, accept, post, dsb.) ke inbox remote — tanpa ini, permintaan follow akan tersimpan sebagai PENDING tapi tidak pernah benar-benar terkirim;
+- service `scheduler` yang setiap 15 menit menyinkronkan feed eksternal (`sync-external.php`) dan merekonsiliasi pembayaran dengan gateway (`scripts/reconcile-payments.php`);
 - tanpa host-port binding, `container_name`, atau label Traefik manual;
 - default production dengan web installer terkunci.
 

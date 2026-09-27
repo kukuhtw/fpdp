@@ -163,13 +163,13 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 ### 4.1 Production validation
 
 - Staging Dokploy sudah tervalidasi (19 September 2026), tetapi belum ada job CI yang menjalankan seluruh migration di MySQL 8 disposable.
-- Backup/restore/rollback baru terdokumentasi, belum diuji lewat recovery exercise.
-- Extension `sodium` tidak dideklarasikan eksplisit di `Dockerfile`; ketersediaannya di image perlu diverifikasi.
+- **Paket VPS Ubuntu (27 September 2026):** `deploy/ubuntu/` berisi site Nginx (dengan `/.well-known/` diteruskan ke PHP — aturan dotfile di panduan lama memblokir WebFinger sehingga node VPS tidak bisa di-follow), batas upload PHP, file cron untuk tiga job latar belakang plus backup malam hari, serta `backup.sh`/`restore.sh`; `scripts/check-requirements.php --http` memverifikasi server. Panduan kini menargetkan Ubuntu 24.04 (paket `php8.2-*` lama tidak ada di sana). Batas PHP yang sama dipasang di image Docker, dan Dokploy Compose mendapat service `scheduler`.
+- Restore belum **dilatih** di server sungguhan; `restore.sh` sudah ada tetapi recovery exercise masih perlu dijalankan.
+- `sodium` tidak dibutuhkan: enkripsi memakai `openssl` (item sebelumnya yang meminta verifikasi sodium keliru).
 
 ### 4.2 Payment production
 
 - Paywuz, Midtrans, PayPal, dan iPaymu diuji dengan fake HTTP requester, belum terhadap sandbox provider nyata. Uji sandbox membutuhkan credential sandbox milik owner dan harus dijalankan owner.
-- `scripts/reconcile-payments.php` belum dijadwalkan di Dokploy Compose; perlu cron (misalnya tiap 15 menit) atau service worker seperti federation worker.
 - Saldo di dashboard Payments masih perkiraan dari tabel `payments` (dikurangi refund); belum ada ledger settlement/payout dan akuntansi fee gateway (kolom `fee` belum diisi).
 - Refund sebagian dari dashboard Midtrans hanya memindahkan status ke `PARTIALLY_REFUNDED`; jumlahnya tidak tercatat karena notifikasi tidak selalu membawa nominal refund.
 - PayPal dan iPaymu tidak punya API pembatalan; pembatalan hanya lokal dan halaman bayar provider tetap terbuka sampai kedaluwarsa (rekonsiliasi menangkap bila tetap dibayar).

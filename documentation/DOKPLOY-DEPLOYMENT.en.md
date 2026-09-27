@@ -11,6 +11,7 @@ The repository includes a production-oriented Dokploy Compose deployment:
 - persistent volumes for MySQL and `storage/` (including CV documents and the install lock);
 - app and database health checks;
 - a `federation-worker` service that continuously delivers pending ActivityPub activities (follow, accept, post, etc.) to remote inboxes — without it, follow requests stay queued as PENDING and are never actually sent;
+- a `scheduler` service that every 15 minutes syncs external feeds (`sync-external.php`) and reconciles payments with the gateways (`scripts/reconcile-payments.php`);
 - no host port binding, `container_name`, or hand-written Traefik labels;
 - production defaults with the web installer locked.
 

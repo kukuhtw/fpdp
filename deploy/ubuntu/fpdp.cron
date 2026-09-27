@@ -1,0 +1,21 @@
+# FPDP background jobs. Install:
+#   sudo cp deploy/ubuntu/fpdp.cron /etc/cron.d/fpdp && sudo chmod 644 /etc/cron.d/fpdp
+# Adjust FPDP_DIR if the code is not in /var/www/fpdp. Jobs run as www-data
+# (the owner of storage/), and flock stops a slow run from overlapping the
+# next one. Output goes to /var/log/fpdp/ — create it first:
+#   sudo mkdir -p /var/log/fpdp && sudo chown www-data:www-data /var/log/fpdp
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+FPDP_DIR=/var/www/fpdp
+
+# Deliver queued ActivityPub activities (follows, posts, products) — every minute.
+* * * * *   www-data  cd $FPDP_DIR && flock -n /tmp/fpdp-federation.lock php deliver-federation.php --max=20 >> /var/log/fpdp/federation.log 2>&1
+
+# Sync external feeds (RSS, Atom, YouTube, LinkedIn) — every 15 minutes.
+*/15 * * * * www-data  cd $FPDP_DIR && flock -n /tmp/fpdp-sync.lock php sync-external.php --max=20 >> /var/log/fpdp/sync.log 2>&1
+
+# Reconcile payments with the gateways (missed webhooks, paid-after-cancel) — every 15 minutes, offset.
+7,22,37,52 * * * * www-data  cd $FPDP_DIR && flock -n /tmp/fpdp-reconcile.lock php scripts/reconcile-payments.php >> /var/log/fpdp/reconcile.log 2>&1
+
+# Nightly backup at 02:30 (database + storage + .env), kept 14 days. See deploy/ubuntu/backup.sh.
+30 2 * * *   root      FPDP_DIR=$FPDP_DIR /bin/sh $FPDP_DIR/deploy/ubuntu/backup.sh >> /var/log/fpdp/backup.log 2>&1

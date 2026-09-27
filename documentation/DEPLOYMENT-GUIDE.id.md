@@ -8,7 +8,7 @@ Panduan ini mengasumsikan quick start pada [README repository](../README.md) sud
 
 ## 2. Kebutuhan sistem
 
-- PHP 8.2 atau lebih baru, dengan ekstensi `pdo_mysql`, `simplexml`, `json`, dan `mbstring` aktif.
+- PHP 8.2 atau lebih baru, dengan ekstensi `pdo_mysql`, `simplexml`, `json`, `mbstring`, `openssl`, dan `fileinfo` aktif.
 - MySQL 8 (atau versi MariaDB yang kompatibel) dengan sebuah database dan user yang memiliki full privilege pada database tersebut.
 - Document root web server diarahkan ke folder `public/` pada repository ini (lihat [§5](#5-deployment-di-shared-hosting) bila hosting Anda tidak mengizinkan perubahan document root).
 - HTTPS di production — FPDP mengirim bearer token dan password lewat HTTP, sehingga HTTP polos hanya boleh dipakai untuk development lokal.
@@ -29,14 +29,19 @@ Kedua jalur bertemu pada tiga hal yang sama: pindahkan kode ke server, arahkan d
 
 ## 4. Deployment di VPS
 
-Contoh memakai Ubuntu 22.04+, Nginx, dan PHP-FPM; sesuaikan nama paket untuk distro Anda.
+Contoh memakai Ubuntu 24.04 LTS, Nginx, dan PHP-FPM; sesuaikan nama paket untuk distro Anda.
 
 ### 4.1 Instal paket
 
+Gunakan **Ubuntu 24.04 LTS**: PHP bawaannya 8.3. (Ubuntu 22.04 membawa PHP 8.1, terlalu lama — tambahkan `ppa:ondrej/php` dan instal paket `php8.3-*` di sana.) Nama paket tanpa versi di bawah selalu menginstal PHP bawaan distro:
+
 ```bash
 sudo apt update
-sudo apt install -y nginx mysql-server php8.2-fpm php8.2-mysql php8.2-xml php8.2-mbstring git
+sudo apt install -y nginx mysql-server php-fpm php-cli php-mysql php-xml php-mbstring git
+php -v   # catat versinya (mis. 8.3) untuk path di bawah
 ```
+
+`openssl`, `fileinfo`, dan `json` sudah menjadi bagian PHP Ubuntu. FPDP tidak membutuhkan `sodium` maupun `curl`.
 
 ### 4.2 Buat database
 
@@ -57,31 +62,33 @@ cd /var/www/fpdp
 
 Bila Composer tersedia, jalankan `composer install && composer dump-autoload` agar autoloader selaras dengan `composer.json`; ini opsional saat ini karena `vendor/autoload.php` yang sudah ada di repository sudah berfungsi mandiri.
 
-### 4.4 Konfigurasi Nginx
+### 4.4 Konfigurasi Nginx dan PHP
 
-```nginx
-server {
-    listen 80;
-    server_name domain-anda.example;
-    root /var/www/fpdp/public;
-    index index.php;
+Repository menyertakan file site siap pakai, [`deploy/ubuntu/nginx-fpdp.conf`](../deploy/ubuntu/nginx-fpdp.conf):
 
-    location ~ /\. {
-        deny all;
-    }
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-    }
-}
+```bash
+sudo cp deploy/ubuntu/nginx-fpdp.conf /etc/nginx/sites-available/fpdp
+sudo sed -i 's/fpdp.example.com/domain-anda.example/g' /etc/nginx/sites-available/fpdp
+sudo ln -s /etc/nginx/sites-available/fpdp /etc/nginx/sites-enabled/fpdp
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Reload dengan `sudo nginx -t && sudo systemctl reload nginx`. (Apache pada VPS dapat memakai file `public/.htaccess` yang sudah ada di repository — arahkan `DocumentRoot` ke `public/` dan pastikan `AllowOverride All` aktif untuk direktori tersebut.)
+Dua hal di dalamnya penting dan mudah salah bila menulis konfigurasi sendiri:
+
+- **`/.well-known/` harus sampai ke PHP.** Di situlah WebFinger, cara Mastodon dan node FPDP lain menemukan `@anda@domain-anda`. Aturan "tolak semua dotfile" (`location ~ /\.`) ikut memblokir `/.well-known/`, dan akibatnya tidak ada yang bisa mem-follow Anda.
+- **`client_max_body_size 32m`.** Upload dikirim sebagai JSON base64, jadi file produk 20 MB menjadi request ~27 MB; default Nginx hanya 1 MB.
+
+PHP butuh batas yang sama, untuk PHP-FPM dan untuk CLI yang menjalankan job latar belakang ([`deploy/ubuntu/php-fpdp.ini`](../deploy/ubuntu/php-fpdp.ini)):
+
+```bash
+PHPV=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+sudo cp deploy/ubuntu/php-fpdp.ini /etc/php/$PHPV/fpm/conf.d/99-fpdp.ini
+sudo cp deploy/ubuntu/php-fpdp.ini /etc/php/$PHPV/cli/conf.d/99-fpdp.ini
+sudo systemctl restart php$PHPV-fpm
+```
+
+(Apache pada VPS dapat memakai file `public/.htaccess` yang sudah ada di repository — arahkan `DocumentRoot` ke `public/` dan pastikan `AllowOverride All` aktif untuk direktori tersebut.)
 
 ### 4.5 Tambahkan TLS
 
@@ -119,8 +126,42 @@ touch storage/installed.lock
 
 ```bash
 sudo chown -R www-data:www-data /var/www/fpdp
-chmod 600 /var/www/fpdp/.env
+sudo chmod 600 /var/www/fpdp/.env
 ```
+
+### 4.8 Job latar belakang
+
+Tiga job wajib berjalan terjadwal; tanpa itu federasi, feed, dan pembayaran diam-diam macet: mengirim aktivitas ActivityPub yang mengantre (tiap menit), sinkronisasi feed eksternal, dan rekonsiliasi pembayaran dengan gateway (masing-masing tiap 15 menit). [`deploy/ubuntu/fpdp.cron`](../deploy/ubuntu/fpdp.cron) menjalankannya sebagai `www-data`, dengan `flock` agar run yang lambat tidak tumpang tindih dengan run berikutnya, plus backup malam hari:
+
+```bash
+sudo mkdir -p /var/log/fpdp && sudo chown www-data:www-data /var/log/fpdp
+sudo cp deploy/ubuntu/fpdp.cron /etc/cron.d/fpdp && sudo chmod 644 /etc/cron.d/fpdp
+tail -f /var/log/fpdp/federation.log   # satu baris per menit setelah berjalan
+```
+
+`reconcile.log` mencatat setiap pembayaran yang diubahnya; baris `MISMATCH` berarti pembayaran yang dibatalkan di FPDP ternyata tetap dibayar di gateway — sudah ditandai lunas dan difulfill, dan sebaiknya di-refund dari dashboard bila penjualannya tidak diinginkan.
+
+### 4.9 Backup dan restore
+
+[`deploy/ubuntu/backup.sh`](../deploy/ubuntu/backup.sh) menulis satu recovery point yang konsisten — `mysqldump --single-transaction`, `storage/` (CV, media, file produk), dan `.env` — ke `/var/backups/fpdp/fpdp-<waktu UTC>.tar.gz`, mode 600, disimpan 14 hari. File cron di atas menjalankannya tiap malam; jalankan manual dengan `sudo sh deploy/ubuntu/backup.sh`.
+
+- **Simpan `.env` bersama database.** `APP_KEY` di dalamnya mendekripsi credential gateway dan OAuth yang tersimpan; database yang dipulihkan dengan key lain tidak bisa memakainya.
+- **Salin backup ke luar VPS** (provider atau region lain) dan enkripsi di sana. Isinya secret dan data pribadi pembeli, jadi perlakukan seperti database production.
+- **Latih restore** di VPS cadangan atau database percobaan sebelum Anda benar-benar membutuhkannya:
+
+```bash
+sudo FPDP_DIR=/var/www/fpdp sh deploy/ubuntu/restore.sh /var/backups/fpdp/fpdp-20260927T023000Z.tar.gz
+```
+
+`restore.sh` meminta konfirmasi, menghentikan sementara job cron, memuat dump, menukar `storage/` (yang lama disimpan sebagai `storage.before-restore.*`) dan `.env`, menjalankan migration yang lebih baru, lalu menyalakan kembali job-nya.
+
+### 4.10 Periksa server
+
+```bash
+sudo -u www-data php scripts/check-requirements.php --http
+```
+
+Script ini memeriksa PHP dan ekstensinya, batas upload, pembuatan RSA key untuk signing federasi, pengaturan production di `.env`, database dan migration yang tertunda, `storage/` yang bisa ditulis, dan — dengan `--http` — bahwa `/api/v1/health` menjawab, WebFinger menemukan owner, dan `/.env` tidak tersaji. Exit code bukan nol bila ada yang gagal; jalankan juga setelah setiap upgrade.
 
 ## 5. Deployment di shared hosting
 
@@ -212,6 +253,10 @@ Untuk sengaja menginstal ulang (misalnya pada salinan staging baru), hapus `stor
 
 ## 7. Checklist pasca-deployment
 
+- `sudo -u www-data php scripts/check-requirements.php --http` lulus (VPS).
+- `/etc/cron.d/fpdp` terpasang dan `/var/log/fpdp/federation.log` bertambah satu baris tiap menit (VPS).
+- Sudah ada backup di `/var/backups/fpdp/` dan salinannya disimpan di luar server.
+
 - `curl https://domain-anda.example/api/v1/health` mengembalikan envelope sukses.
 - `.env` tidak dapat diakses publik (`curl https://domain-anda.example/.env` **tidak boleh** mengembalikan isinya — `public/.htaccess` sudah menolak ini begitu document root benar).
 - `public/install.php` sudah dihapus, atau terbukti terblokir dan tercakup oleh `storage/installed.lock`.
@@ -225,7 +270,10 @@ Untuk sengaja menginstal ulang (misalnya pada salinan staging baru), hapus `stor
 cd /var/www/fpdp   # atau lokasi kode Anda
 git pull
 php database/migrate.php   # aman dijalankan berulang; hanya migration pending yang diterapkan
+sudo -u www-data php scripts/check-requirements.php
 ```
+
+Buat backup (`sudo sh deploy/ubuntu/backup.sh`) sebelum `git pull`, agar upgrade yang gagal bisa dikembalikan — rollback kode saja tidak membatalkan migration.
 
 Di shared hosting tanpa SSH, unggah ulang file yang berubah lewat File Manager/FTP, lalu jalankan ulang `install.php` hanya sampai langkah 3 (aman — hapus `storage/installed.lock`, lewati langkah 1–2 dengan nilai database yang *sama* persis agar `.env` ditulis ulang identik, jalankan langkah 3, lalu berhenti — jangan ulangi langkah 4), atau terapkan SQL pada file `database/migrations/*.sql` yang baru secara manual lewat phpMyAdmin.
 
