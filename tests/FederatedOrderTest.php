@@ -135,6 +135,7 @@ $storageKey = 'fed-order-test-' . bin2hex(random_bytes(6)) . '.pdf';
 $storageFile = dirname(__DIR__) . '/storage/products/' . $storageKey;
 @mkdir(dirname($storageFile), 0770, true);
 file_put_contents($storageFile, '%PDF-1.4 test');
+register_shutdown_function(static fn () => @unlink($storageFile)); // also when an assertion exits early
 $db->prepare('INSERT INTO product_digital_assets (product_id, kind, storage_key, original_filename, content_type, size_bytes) VALUES (?, "PDF", ?, "ebook.pdf", "application/pdf", 13)')->execute([$ebook['row'], $storageKey]);
 
 // Remote actors with keys this test holds (so no network is needed).
