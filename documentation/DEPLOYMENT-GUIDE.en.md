@@ -143,7 +143,9 @@ tail -f /var/log/fpdp/federation.log   # a line per minute once it runs
 
 ### 4.9 Backup and restore
 
-[`deploy/ubuntu/backup.sh`](../deploy/ubuntu/backup.sh) writes one consistent recovery point — a `mysqldump --single-transaction`, `storage/` (CVs, media, product files), and `.env` — to `/var/backups/fpdp/fpdp-<UTC time>.tar.gz`, mode 600, keeping 14 days. The cron file above runs it nightly; run it by hand with `sudo sh deploy/ubuntu/backup.sh`.
+Full explanation — what is in a backup, copying it to your laptop, restoring on the same or a new server, Dokploy, troubleshooting: [Backup and Restore](BACKUP-RESTORE.en.md).
+
+[`deploy/ubuntu/backup.sh`](../deploy/ubuntu/backup.sh) writes one consistent recovery point — a `mysqldump --single-transaction`, `storage/` (media, product files), and `.env` — to `/var/backups/fpdp/fpdp-<UTC time>.tar.gz`, mode 600, keeping 14 days. The cron file above runs it nightly; run it by hand with `sudo sh deploy/ubuntu/backup.sh`.
 
 - **Keep `.env` with the database.** `APP_KEY` in it decrypts the stored gateway and OAuth credentials; a database restored with a different key cannot use them.
 - **Copy backups off the VPS** (another provider or region) and encrypt them there. They contain secrets and buyers' personal data, so treat them like the production database.

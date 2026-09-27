@@ -143,6 +143,8 @@ tail -f /var/log/fpdp/federation.log   # satu baris per menit setelah berjalan
 
 ### 4.9 Backup dan restore
 
+Penjelasan lengkap — isi backup, menyalinnya ke laptop, restore di server yang sama atau server baru, Dokploy, troubleshooting: [Backup dan Restore](BACKUP-RESTORE.id.md).
+
 [`deploy/ubuntu/backup.sh`](../deploy/ubuntu/backup.sh) menulis satu recovery point yang konsisten — `mysqldump --single-transaction`, `storage/` (media, file produk), dan `.env` — ke `/var/backups/fpdp/fpdp-<waktu UTC>.tar.gz`, mode 600, disimpan 14 hari. File cron di atas menjalankannya tiap malam; jalankan manual dengan `sudo sh deploy/ubuntu/backup.sh`.
 
 - **Simpan `.env` bersama database.** `APP_KEY` di dalamnya mendekripsi credential gateway dan OAuth yang tersimpan; database yang dipulihkan dengan key lain tidak bisa memakainya.

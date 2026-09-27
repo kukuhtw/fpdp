@@ -1,10 +1,10 @@
 #!/bin/sh
 # FPDP backup: one consistent recovery point = database dump + storage/
-# (CVs, media, product files) + .env (APP_KEY decrypts stored gateway and
+# (media, product files) + .env (APP_KEY decrypts stored gateway and
 # OAuth credentials — without it an encrypted database is useless).
 #
 # Usage:  sudo FPDP_DIR=/var/www/fpdp BACKUP_DIR=/var/backups/fpdp KEEP_DAYS=14 sh deploy/ubuntu/backup.sh
-# Restore: see deploy/ubuntu/restore.sh and the deployment guide.
+# Restore: see deploy/ubuntu/restore.sh and documentation/BACKUP-RESTORE.en.md (.id.md).
 #
 # The archive holds secrets and buyers' personal data: it is written 600,
 # root-only. Copy it off the server (another region/provider) and encrypt it

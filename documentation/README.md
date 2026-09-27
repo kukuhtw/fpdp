@@ -25,6 +25,7 @@ FPDP adalah personal digital home yang tidak terikat pada provider tertentu. Dok
 | Development Progress Report | [English](PROGRESS-REPORT.en.md) | [Bahasa Indonesia](PROGRESS-REPORT.id.md) |
 | Deployment Guide (VPS & shared hosting, install wizard) | [English](DEPLOYMENT-GUIDE.en.md) | [Bahasa Indonesia](DEPLOYMENT-GUIDE.id.md) |
 | Dokploy Deployment | [English](DOKPLOY-DEPLOYMENT.en.md) | [Bahasa Indonesia](DOKPLOY-DEPLOYMENT.id.md) |
+| Backup and Restore | [English](BACKUP-RESTORE.en.md) | [Bahasa Indonesia](BACKUP-RESTORE.id.md) |
 | Google OAuth Setup | — | [Bahasa Indonesia](GOOGLE-OAUTH-SETUP.id.md) |
 | PayPal Setup | — | [Bahasa Indonesia](PAYPAL-SETUP.id.md) |
 | Payment Gateway Configuration | — | [Bahasa Indonesia](PAYMENT-GATEWAY-CONFIGURATION.id.md) |

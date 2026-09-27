@@ -190,6 +190,8 @@ Restore from the pre-deployment backup when a destructive/incompatible migration
 
 ## 10. Backup and restore
 
+See also [Backup and Restore](BACKUP-RESTORE.en.md) §9 for backing up and restoring the storage volume and the database together.
+
 At minimum, back up both named volumes:
 
 - `fpdp_mysql`: database and migration state;

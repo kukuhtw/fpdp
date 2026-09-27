@@ -53,4 +53,4 @@ sudo -u www-data php "$FPDP_DIR/database/migrate.php"
 
 [ -f /etc/cron.d/fpdp.disabled-by-restore ] && mv /etc/cron.d/fpdp.disabled-by-restore /etc/cron.d/fpdp
 
-echo "Restored from $ARCHIVE. Check: curl https://YOUR-DOMAIN/api/v1/health, log in, open a CV/media file."
+echo "Restored from $ARCHIVE. Check: curl https://YOUR-DOMAIN/api/v1/health, log in, open a post with an image. Full guide: documentation/BACKUP-RESTORE.en.md"

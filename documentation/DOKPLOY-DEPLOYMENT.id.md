@@ -178,6 +178,8 @@ Pulihkan backup sebelum deployment jika migration destruktif tidak dapat diperba
 
 ## 10. Backup dan restore
 
+Lihat juga [Backup dan Restore](BACKUP-RESTORE.id.md) §9 untuk backup dan restore volume storage bersama database.
+
 Minimal backup kedua named volume:
 
 - `fpdp_mysql`: database dan migration state;
