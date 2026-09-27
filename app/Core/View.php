@@ -183,7 +183,11 @@ final class View
         $helper = 'window.fpdpT=function(k,p,f){var s=window.FPDP_I18N[k];if(s==null)s=f==null?k:f;p=p||{};'
             . 'for(var n in p){s=s.split(":"+n).join(p[n]);}return s;};';
 
-        return $tags . '<script>window.FPDP_I18N=' . $json . ';window.FPDP_LOCALE=' . $locale . ';' . $helper . '</script>';
+        // Outbound-link analytics on the public pages only, not the dashboard.
+        $path = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+        $tracking = str_starts_with($path, '/dashboard') ? '' : '<script src="/assets/track-outbound.js" defer></script>';
+
+        return $tags . '<script>window.FPDP_I18N=' . $json . ';window.FPDP_LOCALE=' . $locale . ';' . $helper . '</script>' . $tracking;
     }
 
     private static function urlWithLang(string $code): string
