@@ -79,7 +79,7 @@ return [
     'about.status.row_interactions' => 'Like, boost, dan reply',
     'about.status.row_flag' => 'Pelaporan akun (Flag)',
     'about.status.row_products' => 'Produk sebagai objek terstruktur, dengan kartu "Beli di {seller}" di node FPDP lain',
-    'about.status.row_native_order' => 'Pemesanan langsung dari dashboard node lain',
+    'about.status.row_native_order' => 'Pemesanan langsung dari dashboard node lain (pesanan bertanda tangan, bayar di gateway penjual, status disinkronkan balik)',
 
     'about.docs.heading' => 'Dokumentasi',
     'about.docs.intro' => 'Untuk developer dan operator node — source code tersedia di <a href="https://github.com/kukuhtw/fpdp">GitHub</a> dengan lisensi Apache-2.0:',

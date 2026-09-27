@@ -28,12 +28,17 @@ final class OrderRepository
         ?string $notes = null,
         ?int $visitorId = null,
         ?string $shippingAddress = null,
+        ?string $remoteActorUri = null,
+        ?string $remoteClientReference = null,
     ): array {
+        $remote = $remoteActorUri !== null;
         $statement = $this->connection->prepare(
-            'INSERT INTO orders (public_id, node_id, visitor_id, buyer_email, buyer_name, total_amount, currency, notes, shipping_address)
-             VALUES (:public_id, :node_id, :visitor_id, :buyer_email, :buyer_name, :total_amount, :currency, :notes, :shipping_address)',
+            'INSERT INTO orders (public_id, node_id, visitor_id, buyer_email, buyer_name, total_amount, currency, notes, shipping_address'
+            . ($remote ? ', remote_actor_uri, remote_client_reference' : '') . ')
+             VALUES (:public_id, :node_id, :visitor_id, :buyer_email, :buyer_name, :total_amount, :currency, :notes, :shipping_address'
+            . ($remote ? ', :remote_actor_uri, :remote_client_reference' : '') . ')',
         );
-        $statement->execute([
+        $statement->execute(($remote ? ['remote_actor_uri' => $remoteActorUri, 'remote_client_reference' => $remoteClientReference] : []) + [
             'public_id' => $publicId,
             'node_id' => $nodeId,
             'visitor_id' => $visitorId,
@@ -58,6 +63,20 @@ final class OrderRepository
         );
         $statement->execute(['public_id' => $publicId]);
 
+        $row = $statement->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * An order another node's owner already placed with this reference.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByRemoteReference(string $clientReference): ?array
+    {
+        $statement = $this->connection->prepare(self::SELECT . ' WHERE o.remote_client_reference = :reference');
+        $statement->execute(['reference' => $clientReference]);
         $row = $statement->fetch();
 
         return $row === false ? null : $row;

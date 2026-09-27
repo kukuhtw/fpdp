@@ -242,6 +242,11 @@ final class ContentPageController
         return View::render('dashboard-orders', ['title' => 'Orders · Dashboard · FPDP']);
     }
 
+    public function purchasesManager(): string
+    {
+        return View::render('dashboard-purchases', ['title' => 'Belanja · Dashboard · FPDP']);
+    }
+
     public function analyticsManager(): string
     {
         return View::render('dashboard-analytics', ['title' => 'Analytics · Dashboard · FPDP']);

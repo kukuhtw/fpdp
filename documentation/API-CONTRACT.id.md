@@ -129,6 +129,18 @@ Yang sudah diimplementasikan untuk pengelolaan pembayaran oleh owner (Bearer own
 | POST | `/admin/integration-jobs/{jobId}/retry` | Admin Bearer | Mengulang job gagal |
 | GET | `/.well-known/fpdp` | Publik | Discovery identitas dan kapabilitas node |
 
+### Order antar-node (FEDERATION-CONCEPT §11b)
+
+| Method | Path | Auth | Kegunaan |
+|---|---|---|---|
+| POST | `/federation/orders` | HTTP Signature (actor pembeli) | `fpdp:OrderRequest` → `201 {order}` (`200` untuk pengiriman ulang dengan `clientReference` yang sama) |
+| GET | `/federation/orders/{orderId}` | HTTP Signature (actor yang memesan) | Status order, item, dan — setelah dibayar — link unduhan |
+| GET | `/federation/orders/{orderId}/downloads/{productId}/{kind}` | `?expires=&token=` (15 menit) | File digital dari order yang sudah dibayar |
+| GET | `/me/fediverse-shop` | Bearer | Produk dari akun yang diikuti; `orderable` bila penjual menerima order antar-node |
+| GET | `/me/purchases` | Bearer | Pesanan owner di node lain |
+| POST | `/me/purchases` | Bearer | `{post_id, quantity, buyer_name, buyer_email, shipping_address, notes}` → pembelian dengan `payment_url`; 409 beserta alasan penjual bila ditolak |
+| POST | `/me/purchases/{id}/refresh` | Bearer | Membaca ulang status dari penjual (atau mengirim ulang order yang belum sampai) |
+
 ## 4. Perilaku penting
 
 ### Pengujian dan penyimpanan sumber

@@ -138,7 +138,7 @@ $statusRows = [
     'interactions' => 'planned',
     'flag' => 'planned',
     'products' => 'done',
-    'native_order' => 'deferred',
+    'native_order' => 'done',
 ];
 $statusClass = ['done' => 'status-done', 'planned' => 'status-todo', 'deferred' => 'status-todo'];
 foreach ($statusRows as $row => $status): ?>

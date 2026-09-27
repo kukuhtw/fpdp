@@ -19,6 +19,7 @@ return [
     'nav.orders' => 'Pesanan',
     'nav.payments' => 'Pembayaran',
     'nav.analytics' => 'Analytics',
+    'nav.purchases' => 'Belanja',
     'nav.integrations' => 'Integrasi',
     'nav.settings' => 'Pengaturan',
     'nav.federation' => 'Federasi',

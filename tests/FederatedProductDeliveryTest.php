@@ -127,7 +127,8 @@ fprod_assert($afterCount === $beforeCount, 'A PRIVATE product must never be fede
 fprod_assert(in_array(['fpdp' => 'https://github.com/kukuhtw/fpdp/ns#'], (array) $payload['@context'], true), 'The activity @context should declare the fpdp namespace: ' . json_encode($payload['@context']));
 fprod_assert($payload['object']['fpdp:product'] === [
     'price' => '150000.00', 'currency' => 'IDR', 'productType' => 'PHYSICAL', 'checkoutUrl' => "https://test.local/shop/{$productPublicId}",
-], 'fpdp:product should carry price, currency, type, and the checkout URL: ' . json_encode($payload['object']['fpdp:product'] ?? null));
+    'productId' => $productPublicId, 'orderEndpoint' => 'https://test.local/api/v1/federation/orders',
+], 'fpdp:product should carry price, currency, type, the checkout URL, and the node-to-node order endpoint: ' . json_encode($payload['object']['fpdp:product'] ?? null));
 fprod_assert($updatePayload['object']['fpdp:product']['price'] === '175000.00', 'An Update should carry the new structured price');
 
 $latestActivity = static fn () => $db->query('SELECT * FROM federation_activities ORDER BY id DESC LIMIT 1')->fetch();

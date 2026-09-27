@@ -17,6 +17,9 @@ FPDP_DIR=/var/www/fpdp
 # Reconcile payments with the gateways (missed webhooks, paid-after-cancel) — every 15 minutes, offset.
 7,22,37,52 * * * * www-data  cd $FPDP_DIR && flock -n /tmp/fpdp-reconcile.lock php scripts/reconcile-payments.php >> /var/log/fpdp/reconcile.log 2>&1
 
+# Refresh the owner's orders placed with other FPDP nodes (status, download links) — every 15 minutes, offset.
+11,26,41,56 * * * * www-data  cd $FPDP_DIR && flock -n /tmp/fpdp-purchases.lock php scripts/sync-purchases.php >> /var/log/fpdp/purchases.log 2>&1
+
 # Delete analytics events older than ANALYTICS_RETENTION_DAYS (default 400) — daily at 03:15.
 15 3 * * *   www-data  cd $FPDP_DIR && php scripts/prune-analytics.php >> /var/log/fpdp/analytics.log 2>&1
 

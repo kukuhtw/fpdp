@@ -41,6 +41,14 @@
     meta.textContent = `${itemsText} · ${new Date(order.created_at).toLocaleString('id-ID')}`;
 
     const parts = [head, meta];
+    // Ordered by the owner of another FPDP node from their own dashboard
+    // (node-to-node order): identified by their signed fediverse actor.
+    if (order.remote_actor_uri) {
+      const via = document.createElement('p');
+      via.className = 'muted';
+      via.textContent = `Dipesan dari node lain: ${order.remote_actor_uri}`;
+      parts.push(via);
+    }
     // Pemesan (buyer_name/buyer_email) always come from the authenticated
     // visitor's Google account, never a free-text field — see product.js.
     // Nomor telepon has no dedicated column; it's the "Telepon: ..." line

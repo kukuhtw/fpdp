@@ -78,7 +78,7 @@ return [
     'about.status.row_interactions' => 'Likes, boosts, and replies',
     'about.status.row_flag' => 'Reporting accounts (Flag)',
     'about.status.row_products' => 'Products as structured objects, with a "Buy on {seller}" card on other FPDP nodes',
-    'about.status.row_native_order' => 'Ordering natively from another node\'s dashboard',
+    'about.status.row_native_order' => 'Ordering directly from another node\'s dashboard (signed order, paid on the seller\'s gateway, status synced back)',
 
     'about.docs.heading' => 'Documentation',
     'about.docs.intro' => 'For developers and node operators — source code on <a href="https://github.com/kukuhtw/fpdp">GitHub</a>, licensed under Apache-2.0:',

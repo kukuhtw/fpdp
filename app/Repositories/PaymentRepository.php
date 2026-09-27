@@ -71,6 +71,22 @@ final class PaymentRepository
     }
 
     /**
+     * The newest payment whose order_id starts with $prefix (e.g. the
+     * "MKT-{order id}-" payments of one marketplace order).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findLatestByOrderIdPrefix(string $prefix): ?array
+    {
+        $statement = $this->connection->prepare("SELECT * FROM payments WHERE order_id LIKE :prefix ESCAPE '!' ORDER BY id DESC LIMIT 1");
+        $statement->execute(['prefix' => str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $prefix) . '%']);
+
+        $row = $statement->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function findByUuid(string $uuid): ?array

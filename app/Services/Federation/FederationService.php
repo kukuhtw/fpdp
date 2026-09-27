@@ -433,75 +433,19 @@ final class FederationService
     }
 
     /**
-     * Verifies an inbound HTTP Signature (draft-cavage — the header-based
-     * scheme Mastodon and the rest of the Fediverse actually use) and
-     * refuses anything that is not provably from the activity's own actor:
-     *
-     * - no Signature header, or one that doesn't parse → 401;
-     * - the signature must cover (request-target), host, date, and digest,
-     *   the Digest must match the body, and the Date must be within
-     *   MAX_ACTIVITY_SKEW_SECONDS (so a captured request can't be replayed
-     *   later or have its body swapped);
-     * - the key must belong to `activity.actor` — a valid signature from
-     *   some other account is not permission to act as this one;
-     * - a key that can't be resolved, or a signature that fails, is retried
-     *   once against a freshly fetched actor document (key rotation) before
-     *   the request is refused.
+     * The inbox's signature check: see SignedRequestVerifier — required,
+     * covering (request-target) host date digest, fresh, and made with a key
+     * that belongs to the activity's actor.
      *
      * @param array<string, string> $headers
      * @return array{0: bool, 1: string} [verified (always true), raw Signature header]
      */
     private function verifyInboundSignature(array $headers, string $rawBody, string $requestPath, string $actorUri): array
     {
-        $signatureHeader = $headers['signature'] ?? null;
-        if (!is_string($signatureHeader) || $signatureHeader === '') {
-            throw new UnauthorizedException('Activities must carry an HTTP Signature.');
-        }
+        $result = (new SignedRequestVerifier($this->getDiscoveryService(), $this->getKeyService()))
+            ->verify('POST', $requestPath, $headers, $rawBody, $actorUri);
 
-        $parsed = HttpSignature::parseSignatureHeader($signatureHeader);
-        if ($parsed === null) {
-            throw new UnauthorizedException('The Signature header could not be parsed.');
-        }
-
-        $signedHeaders = array_map('strtolower', $parsed['headers']);
-        foreach (['(request-target)', 'host', 'date', 'digest'] as $required) {
-            if (!in_array($required, $signedHeaders, true)) {
-                throw new UnauthorizedException("The signature must cover the {$required} header.");
-            }
-        }
-
-        if (!isset($headers['digest']) || !hash_equals(HttpSignature::digestHeader($rawBody), $headers['digest'])) {
-            throw new ForbiddenException('Digest header does not match the request body.');
-        }
-
-        $date = strtotime((string) ($headers['date'] ?? ''));
-        if ($date === false || abs(time() - $date) > self::MAX_ACTIVITY_SKEW_SECONDS) {
-            throw new UnauthorizedException('The signed Date header is missing or outside the acceptable window.');
-        }
-
-        $signerActorUri = explode('#', $parsed['keyId'], 2)[0];
-        $signingString = HttpSignature::buildSigningString('POST', $requestPath, $headers, $parsed['headers']);
-
-        foreach ([false, true] as $forceRefresh) {
-            $signerActor = $this->getDiscoveryService()->resolveActorByUri($signerActorUri, $forceRefresh);
-            $publicKeyPem = (string) ($signerActor['public_key_pem'] ?? '');
-            if ($signerActor === null || $publicKeyPem === '') {
-                continue;
-            }
-
-            // Compare canonical identities: the keyId may use a vanity URL
-            // that the actor document canonicalizes (Mastodon /@x -> /users/x).
-            $signerIdentities = array_filter([$signerActorUri, (string) ($signerActor['actor_uri'] ?? '')]);
-            if (!in_array($actorUri, $signerIdentities, true)) {
-                throw new UnauthorizedException('The signing key does not belong to the activity actor.');
-            }
-
-            if ($this->getKeyService()->verify($signingString, $parsed['signature'], $publicKeyPem)) {
-                return [true, $signatureHeader];
-            }
-        }
-
-        throw new UnauthorizedException('Invalid activity signature.');
+        return [true, $result['signature']];
     }
 
     public function ensureNodeKey(int $nodeId): array
@@ -1034,7 +978,7 @@ final class FederationService
      * different site than the account that published it.
      *
      * @param array<string, mixed> $object
-     * @return array{price: string, currency: string, product_type: string, checkout_url: string}|null
+     * @return array{price: string, currency: string, product_type: string, checkout_url: string, product_id?: string, order_endpoint?: string}|null
      */
     private static function extractFpdpProduct(array $object, string $actorUri): ?array
     {
@@ -1056,12 +1000,27 @@ final class FederationService
             return null;
         }
 
-        return [
+        $result = [
             'price' => number_format((float) $price, 2, '.', ''),
             'currency' => $currency,
             'product_type' => in_array($productType, self::PRODUCT_TYPES, true) ? $productType : 'PHYSICAL',
             'checkout_url' => $checkoutUrl,
         ];
+
+        // Optional: node-to-node ordering. Kept only when both are valid and
+        // the endpoint is on the seller's own host; otherwise the product
+        // still works through its checkout link.
+        $productId = strtolower((string) ($product['productId'] ?? ''));
+        $orderEndpoint = (string) ($product['orderEndpoint'] ?? '');
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $productId) === 1
+            && preg_match('~^https://[^\s"\'<>?#]+$~i', $orderEndpoint) === 1
+            && strlen($orderEndpoint) <= 512
+            && strtolower((string) parse_url($orderEndpoint, PHP_URL_HOST)) === $actorHost) {
+            $result['product_id'] = $productId;
+            $result['order_endpoint'] = $orderEndpoint;
+        }
+
+        return $result;
     }
 
     /**
@@ -1448,6 +1407,10 @@ final class FederationService
                 'currency' => $currency,
                 'productType' => (string) ($product['product_type'] ?? 'PHYSICAL'),
                 'checkoutUrl' => $objectUri,
+                // Lets another FPDP node's owner order from their own
+                // dashboard (FEDERATION-CONCEPT §11b).
+                'productId' => (string) $product['public_id'],
+                'orderEndpoint' => 'https://' . (string) parse_url($actorUri, PHP_URL_HOST) . '/api/v1/federation/orders',
             ],
         ];
 

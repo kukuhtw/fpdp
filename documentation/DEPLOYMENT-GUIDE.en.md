@@ -131,7 +131,7 @@ sudo chmod 600 /var/www/fpdp/.env
 
 ### 4.8 Background jobs
 
-Three jobs must run on a schedule, or federation, feeds, and payments silently stall: delivering queued ActivityPub activities (every minute), syncing external feeds, and reconciling payments with the gateways (every 15 minutes each) and pruning old analytics events (daily). [`deploy/ubuntu/fpdp.cron`](../deploy/ubuntu/fpdp.cron) runs them as `www-data`, with `flock` so a slow run never overlaps the next, plus the nightly backup:
+Three jobs must run on a schedule, or federation, feeds, and payments silently stall: delivering queued ActivityPub activities (every minute), syncing external feeds, and reconciling payments with the gateways (every 15 minutes each) refreshing the owner's orders on other FPDP nodes (every 15 minutes), and pruning old analytics events (daily). [`deploy/ubuntu/fpdp.cron`](../deploy/ubuntu/fpdp.cron) runs them as `www-data`, with `flock` so a slow run never overlaps the next, plus the nightly backup:
 
 ```bash
 sudo mkdir -p /var/log/fpdp && sudo chown www-data:www-data /var/log/fpdp

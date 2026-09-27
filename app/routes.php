@@ -15,6 +15,7 @@ use App\Controllers\LocaleSettingsController;
 use App\Controllers\MediaController;
 use App\Controllers\RagController;
 use App\Controllers\ProfileController;
+use App\Controllers\FederatedCommerceController;
 use App\Controllers\FederationController;
 use App\Controllers\ThemeController;
 use App\Controllers\ExternalContentController;
@@ -49,6 +50,7 @@ use App\Repositories\RemoteActorRepository;
 use App\Repositories\RemoteNodeRepository;
 use App\Repositories\FederatedConnectionRepository;
 use App\Repositories\FederatedPostRepository;
+use App\Repositories\FederatedPurchaseRepository;
 use App\Repositories\ExternalFeedSourceRepository;
 use App\Repositories\ExternalAccountRepository;
 use App\Repositories\ExternalPostRepository;
@@ -77,6 +79,8 @@ use App\Services\Federation\FederationService;
 use App\Services\Federation\FediverseDiscoveryService;
 use App\Services\Federation\NodeDiscoveryService;
 use App\Services\Federation\NodeKeyService;
+use App\Services\Federation\SignedRequestSigner;
+use App\Services\Federation\SignedRequestVerifier;
 use App\Services\Theme\ThemeService;
 use App\Services\Cv\CvAccessService;
 use App\Services\Cv\CvDocumentService;
@@ -88,6 +92,8 @@ use App\Services\Content\PostService;
 use App\Services\Content\WallCommentService;
 use App\Services\External\SyncWorker;
 use App\Services\External\LinkedInIntegrationService;
+use App\Services\Marketplace\FederatedOrderService;
+use App\Services\Marketplace\FederatedPurchaseService;
 use App\Services\Marketplace\MarketplaceService;
 use App\Services\Marketplace\ProductDigitalAssetService;
 use App\Services\Rag\RagService;
@@ -439,6 +445,47 @@ $buildMarketplaceController = static function () use ($buildAuthService, $buildA
         $buildFederationService(),
     );
 };
+// Node-to-node orders (FEDERATION-CONCEPT §11b): seller side (signed
+// requests from other nodes) and buyer side (this node's owner).
+$buildFederatedCommerceController = static function (bool $owner) use ($buildRateLimiter, $buildMarketplaceService, $buildAuditService, $buildAuthService, $productAssetStorageDirectory): FederatedCommerceController {
+    $connection = Database::connection();
+    $keys = new NodeKeyService(new NodeKeyRepository($connection));
+    $profiles = new ProfileRepository($connection);
+    if ($owner) {
+        return new FederatedCommerceController(
+            $buildRateLimiter(),
+            new NodeRepository($connection),
+            null,
+            $buildAuthService(),
+            new FederatedPurchaseService(
+                new FederatedPostRepository($connection),
+                new FederatedPurchaseRepository($connection),
+                new SignedRequestSigner($keys, $profiles),
+                new HttpClient(),
+                $buildAuditService(),
+            ),
+        );
+    }
+
+    $remoteNodes = new RemoteNodeRepository($connection);
+    $discovery = new NodeDiscoveryService($remoteNodes, new RemoteActorRepository($connection), new HttpClient(), $keys, new NodeRepository($connection), $profiles);
+
+    return new FederatedCommerceController(
+        $buildRateLimiter(),
+        new NodeRepository($connection),
+        new FederatedOrderService(
+            $buildMarketplaceService(),
+            new OrderRepository($connection),
+            new OrderItemRepository($connection),
+            new ProductRepository($connection),
+            $remoteNodes,
+            new SignedRequestVerifier($discovery, $keys),
+            new ProductDigitalAssetService(new ProductRepository($connection), new ProductDigitalAssetRepository($connection), $productAssetStorageDirectory),
+            $buildAuditService(),
+        ),
+    );
+};
+
 $buildExternalContentController = static function () use ($buildAuthService): ExternalContentController {
     $connection = Database::connection();
     return new ExternalContentController(
@@ -581,6 +628,10 @@ $router->get('/dashboard/products', function (Request $request, array $params) u
 
 $router->get('/dashboard/orders', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->ordersManager());
+});
+
+$router->get('/dashboard/purchases', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->purchasesManager());
 });
 
 $router->get('/dashboard/analytics', function (Request $request, array $params) use ($buildContentPageController): Response {
@@ -999,6 +1050,34 @@ $router->get('/api/v1/products/{productId}', function (Request $request, array $
 
 $router->patch('/api/v1/products/{productId}', function (Request $request, array $params) use ($buildMarketplaceController): Response {
     return $buildMarketplaceController()->updateProduct($request, $params);
+});
+
+$router->post('/api/v1/federation/orders', function (Request $request, array $params) use ($buildFederatedCommerceController): Response {
+    return $buildFederatedCommerceController(false)->receiveOrder($request);
+});
+
+$router->get('/api/v1/federation/orders/{orderId}', function (Request $request, array $params) use ($buildFederatedCommerceController): Response {
+    return $buildFederatedCommerceController(false)->orderStatus($request, $params);
+});
+
+$router->get('/api/v1/federation/orders/{orderId}/downloads/{productId}/{kind}', function (Request $request, array $params) use ($buildFederatedCommerceController): Response {
+    return $buildFederatedCommerceController(false)->download($request, $params);
+});
+
+$router->get('/api/v1/me/fediverse-shop', function (Request $request, array $params) use ($buildFederatedCommerceController): Response {
+    return $buildFederatedCommerceController(true)->shop($request);
+});
+
+$router->get('/api/v1/me/purchases', function (Request $request, array $params) use ($buildFederatedCommerceController): Response {
+    return $buildFederatedCommerceController(true)->listPurchases($request);
+});
+
+$router->post('/api/v1/me/purchases', function (Request $request, array $params) use ($buildFederatedCommerceController): Response {
+    return $buildFederatedCommerceController(true)->placePurchase($request);
+});
+
+$router->post('/api/v1/me/purchases/{purchaseId}/refresh', function (Request $request, array $params) use ($buildFederatedCommerceController): Response {
+    return $buildFederatedCommerceController(true)->refreshPurchase($request, $params);
 });
 
 $router->get('/api/v1/orders', function (Request $request, array $params) use ($buildMarketplaceController): Response {

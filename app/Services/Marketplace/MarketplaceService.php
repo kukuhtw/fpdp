@@ -12,6 +12,7 @@ use App\Core\Uuid;
 use App\Repositories\NodeRepository;
 use App\Repositories\OrderItemRepository;
 use App\Repositories\OrderRepository;
+use App\Repositories\PaymentRepository;
 use App\Repositories\ProductRepository;
 use App\Services\Payment\PaymentService;
 
@@ -142,29 +143,98 @@ public function listProducts(int $nodeId, array $query = []): array
     {
         $visitorId = (int) $visitor['id'];
         $order = $this->buildOrder($nodeId, $input, $visitorId, (string) $visitor['email'], $visitor['display_name'] ?? null);
+        $returnUrl = $returnUrlBase !== null ? $returnUrlBase . '&ref=' . urlencode((string) $order['public_id']) : null;
 
+        return $this->charge($nodeId, $order, (string) $visitor['email'], $returnUrl, $cancelUrl, ['visitor_id' => $visitorId], (string) $visitorId);
+    }
+
+    /**
+     * Node-to-node order: the owner of another FPDP node (identified by
+     * their HTTP-signed actor) orders from this shop from their own
+     * dashboard. Same rules as a visitor checkout — public, active products
+     * only, priced here — and charged through this node's gateway; the
+     * buyer's node sends its owner to the payment page. A retried request
+     * with the same client reference returns the first order.
+     *
+     * @param array<string, mixed> $input items, buyer_name, buyer_email, shipping_address, notes
+     * @return array{order: array<string, mixed>, payment: array<string, mixed>|null, duplicate: bool}
+     */
+    public function placeRemoteOrder(int $nodeId, string $remoteActorUri, string $clientReference, array $input, ?string $returnUrl, ?string $cancelUrl): array
+    {
+        $existing = $this->orders->findByRemoteReference($clientReference);
+        if ($existing !== null) {
+            if ((int) $existing['node_id'] !== $nodeId || (string) $existing['remote_actor_uri'] !== $remoteActorUri) {
+                throw new ConflictException('This client reference is already in use.');
+            }
+            $existing['items'] = $this->orderItems->findByOrderId((int) $existing['id']);
+            // The first answer may have been lost on the way back: hand the
+            // still-open payment out again rather than charging twice.
+            $payment = (string) $existing['status'] === 'PENDING'
+                ? (new PaymentRepository(\App\Core\Database::connection()))->findLatestByOrderIdPrefix('MKT-' . (int) $existing['id'] . '-')
+                : null;
+
+            return ['order' => $existing, 'payment' => $payment, 'duplicate' => true];
+        }
+
+        $errors = [];
+        $email = strtolower(trim((string) ($input['buyer_email'] ?? '')));
+        $name = trim((string) ($input['buyer_name'] ?? ''));
+        if ($email === '' || strlen($email) > 254 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            $errors[] = ['field' => 'buyer_email', 'reason' => 'invalid_format'];
+        }
+        if ($name === '' || mb_strlen($name) > 128) {
+            $errors[] = ['field' => 'buyer_name', 'reason' => 'invalid_length'];
+        }
+        if (isset($input['notes']) && mb_strlen((string) $input['notes']) > 1000) {
+            $errors[] = ['field' => 'notes', 'reason' => 'invalid_length'];
+        }
+        if (is_array($input['items'] ?? null) && count($input['items']) > 20) {
+            $errors[] = ['field' => 'items', 'reason' => 'too_many'];
+        }
+        if ($errors !== []) {
+            throw new ValidationException($errors);
+        }
+
+        $order = $this->buildOrder($nodeId, $input, null, $email, $name, true, $remoteActorUri, $clientReference);
+        $order['items'] = $this->orderItems->findByOrderId((int) $order['id']);
+
+        return $this->charge($nodeId, $order, $email, $returnUrl, $cancelUrl, ['remote_actor_uri' => $remoteActorUri], 'R' . substr(hash('sha256', $remoteActorUri), 0, 8)) + ['duplicate' => false];
+    }
+
+    /**
+     * Charges a freshly built order through the node's active gateway (a
+     * free order completes at once).
+     *
+     * @param array<string, mixed> $order
+     * @param array<string, mixed> $buyerMetadata
+     * @return array{order: array<string, mixed>, payment: array<string, mixed>|null}
+     */
+    private function charge(int $nodeId, array $order, string $payerEmail, ?string $returnUrl, ?string $cancelUrl, array $buyerMetadata, string $buyerTag): array
+    {
+        $items = $order['items'] ?? null;
         $totalAmount = (float) $order['total_amount'];
         if ($totalAmount <= 0.0) {
             $order = $this->orders->markPaid((string) $order['public_id'], 'COMPLETED', null);
+            if ($items !== null) {
+                $order['items'] = $items;
+            }
             return ['order' => $order, 'payment' => null];
         }
 
         $gatewayCode = $this->resolveGatewayCode($nodeId);
-        $returnUrl = $returnUrlBase !== null ? $returnUrlBase . '&ref=' . urlencode((string) $order['public_id']) : null;
         $payment = $this->getPayments()->createPayment($gatewayCode, [
-            'order_id' => sprintf('MKT-%d-%d-%d', $order['id'], $visitorId, time()),
+            'order_id' => sprintf('MKT-%d-%s-%d', $order['id'], $buyerTag, time()),
             'amount' => $totalAmount,
             'currency' => $order['currency'],
             'description' => 'Marketplace order ' . $order['public_id'],
-            'payer_email' => $visitor['email'],
+            'payer_email' => $payerEmail,
             'metadata' => [
                 'purpose' => 'marketplace_order',
                 'order_public_id' => $order['public_id'],
-                'visitor_id' => $visitorId,
                 'buyer_name' => $order['buyer_name'],
                 'buyer_phone' => null,
                 'buyer_email' => $order['buyer_email'],
-            ],
+            ] + $buyerMetadata,
             'return_url' => $returnUrl,
             'cancel_url' => $cancelUrl,
         ]);
@@ -234,7 +304,7 @@ public function listProducts(int $nodeId, array $query = []): array
     /**
      * @param array<string, mixed> $input
      */
-    private function buildOrder(int $nodeId, array $input, ?int $visitorId, ?string $buyerEmail, ?string $buyerName): array
+    private function buildOrder(int $nodeId, array $input, ?int $visitorId, ?string $buyerEmail, ?string $buyerName, bool $remoteBuyer = false, ?string $remoteActorUri = null, ?string $remoteReference = null): array
     {
         $errors = [];
         if (empty($input['items']) || !is_array($input['items'])) $errors[] = ['field' => 'items', 'reason' => 'required'];
@@ -251,7 +321,7 @@ public function listProducts(int $nodeId, array $query = []): array
             if ((int) $product['node_id'] !== $nodeId) { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_found']; continue; }
             if ((string) ($product['status'] ?? 'ACTIVE') !== 'ACTIVE') { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_available']; continue; }
             // A visitor can only buy what the shop shows; the owner may still record a sale of a private product by hand.
-            if ($visitorId !== null && (string) ($product['visibility'] ?? 'PUBLIC') === 'PRIVATE') { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_found']; continue; }
+            if (($visitorId !== null || $remoteBuyer) && (string) ($product['visibility'] ?? 'PUBLIC') === 'PRIVATE') { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_found']; continue; }
             $currencies[(string) ($product['currency'] ?? 'IDR')] = true;
             if ((string) ($product['product_type'] ?? 'PHYSICAL') === 'PHYSICAL') { $hasPhysicalItem = true; }
             $unitPrice = $product['price'];
@@ -277,7 +347,7 @@ public function listProducts(int $nodeId, array $query = []): array
         if ($errors !== []) throw new ValidationException($errors);
         $currency = (string) (array_key_first($currencies) ?? 'IDR');
         $orderPubId = Uuid::v4();
-        $order = $this->orders->create($orderPubId, $nodeId, $totalAmount, $currency, $buyerEmail, $buyerName, $input['notes'] ?? null, $visitorId, $shippingAddress !== '' ? $shippingAddress : null);
+        $order = $this->orders->create($orderPubId, $nodeId, $totalAmount, $currency, $buyerEmail, $buyerName, $input['notes'] ?? null, $visitorId, $shippingAddress !== '' ? $shippingAddress : null, $remoteActorUri, $remoteReference);
         foreach ($orderItems as $oi) {
             $this->orderItems->create((int) $order['id'], (int) $oi['product']['id'], ['public_id' => $oi['product']['public_id'], 'title' => $oi['product']['title'], 'price' => $oi['product']['price']], $oi['quantity'], $oi['unit_price'], $oi['subtotal']);
         }

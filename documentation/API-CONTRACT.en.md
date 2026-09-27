@@ -129,6 +129,18 @@ Owner payment management is implemented today (owner Bearer) at these paths:
 | POST | `/admin/integration-jobs/{jobId}/retry` | Admin Bearer | Retry a failed job |
 | GET | `/.well-known/fpdp` | Public | Discover node identity and capabilities |
 
+### Node-to-node orders (FEDERATION-CONCEPT §11b)
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/federation/orders` | HTTP Signature (buyer actor) | `fpdp:OrderRequest` → `201 {order}` (`200` for a retry with the same `clientReference`) |
+| GET | `/federation/orders/{orderId}` | HTTP Signature (the actor that ordered) | Order status, items, and — once paid — download links |
+| GET | `/federation/orders/{orderId}/downloads/{productId}/{kind}` | `?expires=&token=` (15 minutes) | Digital file of a paid order |
+| GET | `/me/fediverse-shop` | Bearer | Products from followed accounts; `orderable` when the seller takes node-to-node orders |
+| GET | `/me/purchases` | Bearer | The owner's orders on other nodes |
+| POST | `/me/purchases` | Bearer | `{post_id, quantity, buyer_name, buyer_email, shipping_address, notes}` → purchase with `payment_url`; 409 with the seller's reason if refused |
+| POST | `/me/purchases/{id}/refresh` | Bearer | Re-read the status from the seller (or re-send an order that never got through) |
+
 ## 4. Important behavior
 
 ### Source test and connection

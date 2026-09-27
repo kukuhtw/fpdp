@@ -286,7 +286,9 @@ Exit criteria:
 
 Bergantung pada Fase 5 (toko online dan payment) dan Fase 6 (federasi). Estimasi: 4–6 minggu.
 
-> **Status 27 September 2026 — pendekatan dipilih: link checkout.** Produk terstruktur (`fpdp:product`), siklus Create/Update/Delete, kartu produk dengan link "Beli di {penjual}" di node FPDP penerima, dan validasi kepemilikan sudah diimplementasikan (task 1, 2, 7, 9, sebagian 10). Semua pembeli checkout sebagai visitor di node penjual. Order lintas node native (task 3–6, 8) **sengaja ditunda** atas keputusan pemilik produk. Lihat [FEDERATION-CONCEPT §11a](FEDERATION-CONCEPT.id.md).
+> **Status 27 September 2026 — pendekatan dipilih: link checkout.** Produk terstruktur (`fpdp:product`), siklus Create/Update/Delete, kartu produk dengan link "Beli di {penjual}" di node FPDP penerima, dan validasi kepemilikan sudah diimplementasikan (task 1, 2, 7, 9, sebagian 10). Semua pembeli checkout sebagai visitor di node penjual. Order lintas node native (task 3–6, 8) awalnya ditunda.
+>
+> **Pembaruan 27 September 2026 — order antar-node sudah diimplementasikan** (task 3, 4, 6, sebagian besar 8 dan 9): owner node FPDP lain memesan dari dashboard-nya sendiri dengan `fpdp:OrderRequest` yang ditandatangani HTTP Signature; penjual menentukan harga dan menagih lewat gateway-nya sendiri; pengiriman ulang tidak pernah membuat order ganda; order tampil di kedua dashboard; produk digital dikirim sebagai link bertanda tangan berlaku 15 menit. **Perbedaan dan kekurangan:** status kembali lewat **pull bertanda tangan** (node pembeli membacanya saat halaman dibuka, saat diperbarui, dan tiap 15 menit), bukan activity yang di-push (task 5); retensi/penghapusan salinan pembelian belum ditetapkan (task 8); uji interop dua domain di server sungguhan (task 10) belum dilakukan. Lihat [FEDERATION-CONCEPT §11a–11b](FEDERATION-CONCEPT.id.md).
 
 Task secara berurutan:
 

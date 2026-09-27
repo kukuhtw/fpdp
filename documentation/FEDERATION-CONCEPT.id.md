@@ -354,10 +354,39 @@ FPDP memfederasikan produk yang dipromosikan sebagai `Note` ActivityStreams bias
 ```
 
 - **Siklus hidup:** `Create` saat produk menjadi dipromosikan, `ACTIVE`, dan bukan `PRIVATE`; `Update` selama tetap begitu; `Delete` dengan `Tombstone` saat diarsipkan, dijadikan private, atau tidak dipromosikan lagi. `Create` berikutnya untuk id yang sama memulihkannya.
-- **Pembelian lewat link checkout.** Tidak ada protokol order lintas node: semua pembeli, termasuk owner node FPDP lain, checkout sebagai visitor di node penjual, tempat pembayaran dan fulfillment terjadi. Node FPDP penerima menampilkan kartu produk dengan link "Beli di {penjual}".
+- **Pembelian:** pengguna fediverse mana pun membeli lewat link checkout, sebagai visitor di node penjual, tempat pembayaran dan fulfillment terjadi; node FPDP penerima menampilkan kartu produk dengan link "Beli di {penjual}". Owner node FPDP lain juga bisa memesan dari dashboard-nya sendiri (§11b); untuk itu blok ini membawa `productId` dan `orderEndpoint`.
 - **Validasi di sisi penerima:** `price` numerik dan ≥ 0, `currency` tiga huruf kapital, `productType` salah satu dari `PHYSICAL`/`DIGITAL`/`SERVICE` (selain itu `PHYSICAL`), `checkoutUrl` https **di host milik actor itu sendiri**. Blok yang gagal salah satu pemeriksaan dibuang dan Note disimpan sebagai post biasa.
 - **Kepemilikan:** objek hanya diterima dari penulisnya (id di host actor, `attributedTo` sama dengan actor), `Update`/`Delete` hanya berlaku untuk objek yang dibuat actor pengirim, dan `Update` yang terlambat tidak menghidupkan objek yang sudah dihapus. Semua aktivitas inbox wajib ditandatangani HTTP Signature oleh actor itu sendiri (§14).
-- **Belum termasuk:** stok/ketersediaan (produk belum punya inventaris) dan order lintas node native (sengaja ditunda).
+- **Belum termasuk:** stok/ketersediaan (produk belum punya inventaris).
+
+## 11b. Order antar-node — federated commerce
+
+Owner sebuah node FPDP bisa memesan produk dari node FPDP lain **langsung dari dashboard-nya sendiri** (halaman *Belanja*, `/dashboard/purchases`), tanpa login di node penjual. Diimplementasikan 27 September 2026. Pengguna fediverse non-FPDP tetap membeli lewat link checkout (§11a).
+
+- **Penemuan:** blok `fpdp:product` membawa dua term tambahan, `productId` dan `orderEndpoint` (`https://{penjual}/api/v1/federation/orders`). Penerima hanya menyimpannya bila `productId` berupa UUID dan endpoint-nya https di host milik actor itu sendiri; bila tidak, produk tetap hanya bisa dibeli lewat link checkout.
+- **Permintaan order:** node pembeli mengirim POST ke `orderEndpoint`, ditandatangani HTTP Signature sebagai actor owner-nya (`(request-target) host date digest`, kunci yang sama dengan ActivityPub):
+
+```json
+{
+  "@context": ["https://www.w3.org/ns/activitystreams", {"fpdp": "https://github.com/kukuhtw/fpdp/ns#"}],
+  "type": "fpdp:OrderRequest",
+  "actor": "https://pembeli.example/@ari",
+  "clientReference": "{uuid pembelian di node pembeli}",
+  "items": [{"productId": "{uuid}", "quantity": 2}],
+  "buyer": {"name": "Ari", "email": "ari@example.com"},
+  "shippingAddress": "…",
+  "notes": "…",
+  "returnUrl": "https://pembeli.example/dashboard/purchases?ref={clientReference}"
+}
+```
+
+- **Pemeriksaan di penjual:** tanda tangan wajib memakai kunci milik actor itu dan masih baru (±300 detik, digest cocok); domain yang diblokir dan order ke diri sendiri ditolak; batas 30 permintaan per jam per domain pengirim; aturannya sama dengan checkout visitor (produk aktif, bukan private, satu mata uang, alamat untuk barang fisik); **harga, total, dan status ditentukan penjual**, nilai lain di permintaan diabaikan; `returnUrl` wajib https di host actor. Penjual menjawab `201 {order: {id, status, total_amount, currency, items, downloads, status_url, payment: {status, payment_url, instructions}}}`.
+- **Idempotensi:** `clientReference` unik. Pengiriman ulang dengan referensi yang sama oleh actor yang sama mengembalikan order yang sama (`200`), beserta halaman bayar yang masih terbuka bila belum dibayar; actor lain yang memakai referensi itu mendapat `409`. Node pembeli menyimpan permintaan yang hasilnya belum pasti (gangguan jaringan, 5xx) sebagai `SUBMITTING` dan mengirim ulang dengan referensi yang sama.
+- **Pembayaran:** selalu di gateway aktif node penjual. Node pembeli mengarahkan owner-nya ke `payment_url`; gateway mengembalikannya ke `returnUrl`.
+- **Status balik ke pembeli (pull):** node pembeli membaca `GET status_url` yang ditandatangani (`(request-target) host date`); hanya actor yang memesan yang bisa membacanya. Pembacaan dilakukan saat owner membuka halaman atau menekan perbarui, dan tiap 15 menit lewat `scripts/sync-purchases.php`. Belum ada push dari penjual.
+- **Produk digital:** setelah dibayar, respons status mencantumkan unduhan: link https milik produk, dan file yang diunggah sebagai link berlaku 15 menit (`…/downloads/{productId}/{kind}?expires=&token=`, HMAC-SHA256 dengan `APP_KEY`, terikat ke order, produk, dan jenis file itu).
+- **Data pribadi (ISO/IEC 27001:2022 A.5.34):** yang dikirim ke penjual hanya nama, email, alamat (barang fisik), dan catatan, dan ditampilkan ke owner sebelum dikirim; respons status tidak memuat alamat, email, atau referensi pembayaran. Node pembeli menyimpan salinannya di `federated_purchases`. Audit trail penjual mencatat actor pembeli dan nominal, tidak pernah alamat atau email. Retensi/penghapusan salinan pembelian belum ditetapkan.
+- **Dashboard penjual:** order muncul di *Pesanan* dengan label actor pembeli.
 
 ## 12. API dan service boundary yang disarankan
 

@@ -98,9 +98,13 @@ details.profile-bio > summary::after{margin-left:4px;}
 .mfa-dialog::backdrop{background:rgba(23,33,27,.45);}
 .mfa-dialog h2{margin:0 0 8px;font:700 1.25rem Georgia,serif;}
 .mfa-dialog-form{display:grid;gap:12px;}.mfa-dialog-help{margin:0;color:var(--muted);font-size:.9rem;}
-.mfa-dialog input{font-family:ui-monospace,monospace;font-size:1.2rem;letter-spacing:.12em;}
+.mfa-dialog input[name=code]{font-family:ui-monospace,monospace;font-size:1.2rem;letter-spacing:.12em;}
+.mfa-dialog{max-height:calc(100dvh - 32px);overflow-y:auto;}
 .mfa-dialog-error{margin:0;color:#a13d37;}.mfa-dialog-actions{display:flex;justify-content:flex-end;gap:10px;}
 .twofa-qr{display:inline-block;padding:10px;background:#fff;border:1px solid var(--line);border-radius:10px;line-height:0;}.twofa-qr svg,.twofa-qr img{width:200px;height:200px;}
 .twofa-secret{font-family:ui-monospace,monospace;word-break:break-all;background:#f0eee6;padding:8px 10px;border-radius:8px;}
 .recovery-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px;margin:0;padding:14px 16px;list-style:none;font-family:ui-monospace,monospace;font-size:1rem;background:#f0eee6;border-radius:10px;}
 @media (max-width:420px){.recovery-codes{grid-template-columns:1fr;}}
+
+/* Belanja (node-to-node purchases): status badges wrap on narrow cards. */
+#purchase-list .gateway-card-head{flex-wrap:wrap;}

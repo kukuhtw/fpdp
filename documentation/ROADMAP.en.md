@@ -286,7 +286,9 @@ Exit criteria:
 
 Depends on Phase 5 (online shop and payments) and Phase 6 (federation). Estimate: 4–6 weeks.
 
-> **Status September 27, 2026 — approach chosen: link checkout.** Structured products (`fpdp:product`), the Create/Update/Delete lifecycle, product cards with a "Buy on {seller}" link on receiving FPDP nodes, and ownership validation are implemented (tasks 1, 2, 7, 9, part of 10). Every buyer checks out as a visitor on the seller's node. Native cross-node orders (tasks 3–6, 8) are **deliberately deferred** by the product owner's decision. See [FEDERATION-CONCEPT §11a](FEDERATION-CONCEPT.en.md).
+> **Status September 27, 2026 — approach chosen: link checkout.** Structured products (`fpdp:product`), the Create/Update/Delete lifecycle, product cards with a "Buy on {seller}" link on receiving FPDP nodes, and ownership validation are implemented (tasks 1, 2, 7, 9, part of 10). Every buyer checks out as a visitor on the seller's node. Native cross-node orders (tasks 3–6, 8) were deferred at first.
+>
+> **Update September 27, 2026 — node-to-node orders implemented** (tasks 3, 4, 6, most of 8 and 9): the owner of another FPDP node orders from their own dashboard with an HTTP-signed `fpdp:OrderRequest`; the seller prices it and charges its own gateway; retries never double-order; the order shows in both dashboards; digital goods come as 15-minute signed links. **Differences and gaps:** status goes back by **signed pull** (the buyer node reads it on open, on refresh, and every 15 minutes), not as pushed activities (task 5); retention/deletion of purchase copies is not defined yet (task 8); the two-domain interop run on real servers (task 10) is still to do. See [FEDERATION-CONCEPT §11a–11b](FEDERATION-CONCEPT.en.md).
 
 Tasks, in order:
 

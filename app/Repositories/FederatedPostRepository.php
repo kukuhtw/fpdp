@@ -211,6 +211,45 @@ final class FederatedPostRepository
      *
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Products from accounts the owner follows (federated posts carrying an
+     * fpdp:product block), newest first, or one of them by public id — the
+     * owner's "shop the fediverse" list.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listProductsForProfile(int $profileId, int $limit, ?string $postPublicId = null): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT fp.public_id, fp.object_uri, fp.title, fp.content, fp.attachments, fp.product_data, fp.canonical_url, fp.published_at,
+                    ra.actor_uri, ra.display_name AS actor_display_name, ra.federated_address, ra.avatar_url AS actor_avatar_url
+             FROM federated_posts fp
+             INNER JOIN federated_connections fc ON fc.remote_actor_id = fp.remote_actor_id
+             INNER JOIN remote_actors ra ON ra.id = fp.remote_actor_id
+             WHERE fc.profile_id = :profile_id
+               AND fc.relationship_status IN (\'FOLLOWING\', \'CONNECTED\')
+               AND fp.deleted_at IS NULL
+               AND fp.product_data IS NOT NULL'
+            . ($postPublicId !== null ? ' AND fp.public_id = :post_id' : '')
+            . ' ORDER BY fp.published_at DESC, fp.id DESC LIMIT ' . max(1, $limit),
+        );
+        $statement->execute(['profile_id' => $profileId] + ($postPublicId !== null ? ['post_id' => $postPublicId] : []));
+
+        $rows = [];
+        foreach ($statement->fetchAll() as $row) {
+            $product = is_string($row['product_data'] ?? null) ? json_decode($row['product_data'], true) : null;
+            if (!is_array($product)) {
+                continue;
+            }
+            $attachments = is_string($row['attachments'] ?? null) ? json_decode($row['attachments'], true) : null;
+            $row['attachments'] = is_array($attachments) ? $attachments : [];
+            $row['product_data'] = $product;
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
     public function listForProfile(int $profileId, int $limit, ?string $beforePublishedAt = null): array
     {
         $where = [

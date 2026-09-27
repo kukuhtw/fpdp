@@ -354,10 +354,39 @@ FPDP federates a promoted product as an ordinary ActivityStreams `Note` (so Mast
 ```
 
 - **Lifecycle:** `Create` when a product becomes promoted, `ACTIVE`, and not `PRIVATE`; `Update` while it stays so; `Delete` with a `Tombstone` when it is archived, made private, or no longer promoted. A later `Create` for the same id restores it.
-- **Buying is link checkout.** There is no cross-node order protocol: every buyer, including the owner of another FPDP node, checks out as a visitor on the seller's node, where payment and fulfilment happen. A receiving FPDP node shows the product card with a "Buy on {seller}" link.
+- **Buying:** any fediverse user buys through the checkout link, as a visitor on the seller's node, where payment and fulfilment happen; a receiving FPDP node shows the product card with a "Buy on {seller}" link. The owner of another FPDP node can also order from their own dashboard (§11b), for which the block carries `productId` and `orderEndpoint`.
 - **Receiving side validation:** `price` numeric and ≥ 0, `currency` three uppercase letters, `productType` one of `PHYSICAL`/`DIGITAL`/`SERVICE` (else `PHYSICAL`), `checkoutUrl` https **on the actor's own host**. A block that fails any check is dropped and the Note is kept as an ordinary post.
 - **Ownership:** an object is only accepted from its author (id on the actor's host, `attributedTo` equal to the actor), and `Update`/`Delete` only apply to objects the sending actor created; a late `Update` never revives a deleted object. All inbox activities must be HTTP-signed by the actor itself (§14).
-- **Not included:** stock/availability (products have no inventory yet), and native cross-node orders (explicitly deferred).
+- **Not included:** stock/availability (products have no inventory yet).
+
+## 11b. Node-to-node orders — federated commerce
+
+The owner of one FPDP node can order a product from another FPDP node **from their own dashboard** (page *Belanja*, `/dashboard/purchases`), without signing in on the seller's node. Implemented September 27, 2026. Non-FPDP fediverse users keep buying through the checkout link (§11a).
+
+- **Discovery:** the `fpdp:product` block carries two more terms, `productId` and `orderEndpoint` (`https://{seller}/api/v1/federation/orders`). The receiver keeps them only if `productId` is a UUID and the endpoint is https on the actor's own host; otherwise the product stays link-checkout only.
+- **Order request:** the buyer node POSTs to `orderEndpoint`, HTTP-signed as its owner actor (`(request-target) host date digest`, same keys as ActivityPub):
+
+```json
+{
+  "@context": ["https://www.w3.org/ns/activitystreams", {"fpdp": "https://github.com/kukuhtw/fpdp/ns#"}],
+  "type": "fpdp:OrderRequest",
+  "actor": "https://buyer.example/@ari",
+  "clientReference": "{uuid of the buyer's purchase}",
+  "items": [{"productId": "{uuid}", "quantity": 2}],
+  "buyer": {"name": "Ari", "email": "ari@example.com"},
+  "shippingAddress": "…",
+  "notes": "…",
+  "returnUrl": "https://buyer.example/dashboard/purchases?ref={clientReference}"
+}
+```
+
+- **Seller checks:** the signature must be the actor's own key and fresh (±300 s, digest matches); blocked domains and self-orders are refused; rate limit 30 requests per hour per sending domain; the same rules as a visitor checkout (active, non-private products, one currency, address for physical goods); **prices, total, and status come from the seller**, anything else in the request is ignored; `returnUrl` must be https on the actor's host. The seller answers `201 {order: {id, status, total_amount, currency, items, downloads, status_url, payment: {status, payment_url, instructions}}}`.
+- **Idempotency:** `clientReference` is unique. A retry with the same reference by the same actor returns the same order (`200`), with the still-open payment page if unpaid; another actor reusing it gets `409`. The buyer node keeps a request whose outcome is unknown (network error, 5xx) as `SUBMITTING` and re-sends it with the same reference.
+- **Payment:** always on the seller node's active gateway. The buyer node sends its owner to `payment_url`; the gateway returns them to `returnUrl`.
+- **Status back to the buyer (pull):** the buyer node reads `GET status_url`, HTTP-signed (`(request-target) host date`); only the actor that placed the order can read it. It does so when the owner opens the page or presses refresh, and every 15 minutes from `scripts/sync-purchases.php`. There is no push from the seller yet.
+- **Digital goods:** once paid, the status response lists downloads: the product's own https link, and uploaded files as links valid for 15 minutes (`…/downloads/{productId}/{kind}?expires=&token=`, HMAC-SHA256 with `APP_KEY`, bound to that order, product, and file kind).
+- **Personal data (ISO/IEC 27001:2022 A.5.34):** only name, email, shipping address (physical goods), and notes go to the seller, shown to the owner before sending; the status response carries no address, email, or payment reference. The buyer node keeps its copy in `federated_purchases`. The seller's audit trail records the buyer actor and amount, never the address or email. Retention/deletion of purchase copies is not defined yet.
+- **Seller dashboard:** the order appears in *Pesanan* labelled with the buyer's actor.
 
 ## 12. Suggested API and service boundaries
 
