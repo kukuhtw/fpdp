@@ -23,7 +23,7 @@ file_put_contents($envPath, "APP_ENV=testing\nDB_CONNECTION=sqlite\nDB_DATABASE=
 Config::load($envPath);
 Database::reset();
 $db = Database::connection();
-$db->exec('CREATE TABLE analytics_events (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, event_type TEXT NOT NULL, subject_type TEXT, subject_public_id TEXT, visitor_hash TEXT, occurred_on TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
+$db->exec('CREATE TABLE analytics_events (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, event_type TEXT NOT NULL, subject_type TEXT, subject_public_id TEXT, visitor_hash TEXT, referrer_host TEXT, occurred_on TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
 
 $repo = new AnalyticsEventRepository($db);
 $service = new AnalyticsService($repo);

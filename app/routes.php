@@ -569,6 +569,10 @@ $router->get('/dashboard/orders', function (Request $request, array $params) use
     return Response::html($buildContentPageController()->ordersManager());
 });
 
+$router->get('/dashboard/analytics', function (Request $request, array $params) use ($buildContentPageController): Response {
+    return Response::html($buildContentPageController()->analyticsManager());
+});
+
 $router->get('/dashboard/payments', function (Request $request, array $params) use ($buildContentPageController): Response {
     return Response::html($buildContentPageController()->paymentsManager());
 });

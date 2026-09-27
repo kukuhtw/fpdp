@@ -32,6 +32,7 @@ $languages = View::languageLinks();
     <a href="/dashboard/products" class="owner-nav hidden"><?= View::te('nav.products') ?></a>
     <a href="/dashboard/orders" class="owner-nav hidden"><?= View::te('nav.orders') ?></a>
     <a href="/dashboard/payments" class="owner-nav hidden"><?= View::te('nav.payments') ?></a>
+    <a href="/dashboard/analytics" class="owner-nav hidden"><?= View::te('nav.analytics') ?></a>
     <a href="/dashboard/integrations" class="owner-nav hidden"><?= View::te('nav.integrations') ?></a>
     <a href="/dashboard/settings" class="owner-nav hidden"><?= View::te('nav.settings') ?></a>
     <a href="/dashboard/federation" class="owner-nav hidden"><?= View::te('nav.federation') ?></a>

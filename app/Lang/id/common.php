@@ -18,6 +18,7 @@ return [
     'nav.products' => 'Produk',
     'nav.orders' => 'Pesanan',
     'nav.payments' => 'Pembayaran',
+    'nav.analytics' => 'Analytics',
     'nav.integrations' => 'Integrasi',
     'nav.settings' => 'Pengaturan',
     'nav.federation' => 'Federasi',

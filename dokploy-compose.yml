@@ -71,7 +71,7 @@ services:
       db:
         condition: service_healthy
     entrypoint: ["fpdp-entrypoint"]
-    command: ["sh", "-c", "while true; do php sync-external.php --max=20; php scripts/reconcile-payments.php; sleep 900; done"]
+    command: ["sh", "-c", "while true; do php sync-external.php --max=20; php scripts/reconcile-payments.php; php scripts/prune-analytics.php; sleep 900; done"]
 
   db:
     image: mysql:8.4

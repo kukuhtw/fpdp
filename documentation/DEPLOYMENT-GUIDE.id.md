@@ -131,7 +131,7 @@ sudo chmod 600 /var/www/fpdp/.env
 
 ### 4.8 Job latar belakang
 
-Tiga job wajib berjalan terjadwal; tanpa itu federasi, feed, dan pembayaran diam-diam macet: mengirim aktivitas ActivityPub yang mengantre (tiap menit), sinkronisasi feed eksternal, dan rekonsiliasi pembayaran dengan gateway (masing-masing tiap 15 menit). [`deploy/ubuntu/fpdp.cron`](../deploy/ubuntu/fpdp.cron) menjalankannya sebagai `www-data`, dengan `flock` agar run yang lambat tidak tumpang tindih dengan run berikutnya, plus backup malam hari:
+Tiga job wajib berjalan terjadwal; tanpa itu federasi, feed, dan pembayaran diam-diam macet: mengirim aktivitas ActivityPub yang mengantre (tiap menit), sinkronisasi feed eksternal, dan rekonsiliasi pembayaran dengan gateway (masing-masing tiap 15 menit) dan penghapusan event analytics lama (harian). [`deploy/ubuntu/fpdp.cron`](../deploy/ubuntu/fpdp.cron) menjalankannya sebagai `www-data`, dengan `flock` agar run yang lambat tidak tumpang tindih dengan run berikutnya, plus backup malam hari:
 
 ```bash
 sudo mkdir -p /var/log/fpdp && sudo chown www-data:www-data /var/log/fpdp

@@ -18,6 +18,7 @@ return [
     'nav.products' => 'Products',
     'nav.orders' => 'Orders',
     'nav.payments' => 'Payments',
+    'nav.analytics' => 'Analytics',
     'nav.integrations' => 'Integrations',
     'nav.settings' => 'Settings',
     'nav.federation' => 'Federation',

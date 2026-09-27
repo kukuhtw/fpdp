@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title><?= \App\Core\View::themeStylesheetTag() ?>
 <style>
-  .range-filter{display:inline-flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;}
+  .range-filter{justify-self:start;display:inline-flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;}
   .range-filter button{background:transparent;color:var(--muted);padding:7px 14px;font-size:.88rem;}
   .range-filter button[aria-pressed="true"]{background:var(--accent);color:#fff;}
   .kpi-delta{margin:6px 0 0;font-size:.82rem;color:var(--muted);}
