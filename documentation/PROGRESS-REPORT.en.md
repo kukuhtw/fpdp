@@ -10,7 +10,7 @@ FPDP is past its core MVP. Since the September 21 report, visitor commerce flows
 Repository snapshot:
 
 - **59 MySQL migrations** (`0001`–`0059`);
-- **51 test scripts**, all passing (see Section 8);
+- **52 test scripts**, all passing (see Section 8);
 - REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, personal online shop (including visitor checkout and digital assets), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, themes, and media upload;
 - real UI: home, unified timeline (local + federated + promoted products), profile, post, shop, product page, public CV, "coretan" wall, YouTube page, payment thank-you page, and 12 owner dashboard pages;
 - 3 public themes: `default`, `editorial`, `minimal`;
@@ -178,7 +178,8 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 
 - The analytics API exists, but there is no standalone `/dashboard/analytics` page beyond the Overview summary.
 - Node settings are incomplete: default/enabled languages, custom CSS/layout, and general node config (themes are available).
-- Security settings are missing: 2FA and session management.
+- **Session management done (September 27, 2026):** an *Account security* section in Settings lists the devices signed in (device label, IP truncated to /24 or /48, sign-in and last-active times, this-device marker), logs out one device or all others, and **changes the password** (previously impossible) — the current password is required, 12–128 characters, and every other device is logged out. All of it is audited without passwords or full IPs; tokens expired/revoked for over 30 days are deleted at login. Migration `0061`.
+- Remaining security settings: 2FA.
 
 ### 4.4 Federation production
 
@@ -233,7 +234,7 @@ flowchart LR
 1. ~~Fix the `PostEndpointsTest` fixture (`slug` column) and make RSA-based tests independent of local OpenSSL configuration.~~ **Done** (September 26, 2026) — 47/47 tests pass.
 2. **Partly done** (September 26, 2026): owner refund/cancel, applying refunds from webhooks, a reconciliation job, and aligning the Paywuz adapter with its official docs are in place. Remaining: testing Paywuz, Midtrans, PayPal, and iPaymu against real sandboxes (needs the owner's credentials) and scheduling the reconciliation cron in Dokploy.
 3. ~~Add credential changes, gateway activation, manual confirmation, wallet grants, and remote-node trust to the audit trail; add RBAC middleware.~~ **Done** (September 26, 2026) — the audit trail is wired in and covers every sensitive action; owner-only dashboard access is enforced centrally (no admin role).
-4. Implement 2FA/session management, language settings, and an Analytics page.
+4. Implement 2FA, language settings, and an Analytics page (session management and password change were done September 27, 2026).
 5. Document a two-domain federation interop test and add a nonce cache.
 6. Start Phase 7 Federated Commerce: ActivityPub product representation, cross-node order requests, payment on the seller node, and order status sent back to the buyer node.
 7. Add an analytics retention job and an outbound-click rate limit.
@@ -254,7 +255,7 @@ flowchart LR
 
 Run on September 26, 2026 in the development workspace (PHP 8.5.8 CLI, Windows), using the same loop as CI (`php tests/*Test.php`):
 
-- **51 of 51 tests pass**, with no `OPENSSL_CONF` needed. New `HttpClientSsrfTest` (non-public addresses, redirect to cloud metadata, legitimate cross-host redirects, redirect loops, 303) and `FediverseDiscoveryTest` (preview, HTML/`javascript:` sanitized, cross-host outbox paging not fetched, suggestions, directory, hashtag, input validation). Directory and hashtag were also tried live against `mastodon.social`. The new `OwnerAccessAuditTest` checks owner-only access (suspended accounts and other roles are refused even with a valid token), auditing of failed logins, gateway and LLM configuration, confirmation, refund, and cancellation, that secrets and buyer personal data never reach the audit trail, and that login still works when the audit table is broken. The new `PaymentRefundCancelReconcileTest` covers cancellation, full/partial/manual refunds, refunding an already-spent top-up, a Midtrans refund webhook after settlement, reconciliation (provider status, minimum age, gateways without a status API, errors, mismatches), and the dashboard summary. `PaywuzGatewayTest` used to silently send real requests to `api.paywuz.id`; it now uses a fake requester.
+- **52 of 52 tests pass**, including the new `SessionManagementTest` (session list, logging out one/all other devices, another user's session unreachable, password change and its rules, audit without secrets), with no `OPENSSL_CONF` needed. New `HttpClientSsrfTest` (non-public addresses, redirect to cloud metadata, legitimate cross-host redirects, redirect loops, 303) and `FediverseDiscoveryTest` (preview, HTML/`javascript:` sanitized, cross-host outbox paging not fetched, suggestions, directory, hashtag, input validation). Directory and hashtag were also tried live against `mastodon.social`. The new `OwnerAccessAuditTest` checks owner-only access (suspended accounts and other roles are refused even with a valid token), auditing of failed logins, gateway and LLM configuration, confirmation, refund, and cancellation, that secrets and buyer personal data never reach the audit trail, and that login still works when the audit table is broken. The new `PaymentRefundCancelReconcileTest` covers cancellation, full/partial/manual refunds, refunding an already-spent top-up, a Midtrans refund webhook after settlement, reconciliation (provider status, minimum age, gateways without a status API, errors, mismatches), and the dashboard summary. `PaywuzGatewayTest` used to silently send real requests to `api.paywuz.id`; it now uses a fake requester.
 - Fixed in this round:
   - `PostEndpointsTest`: the SQLite fixture now has the `posts.slug` column, and the canonical URL assertion follows the `/posts/{id}-{slug}` format introduced in commit `24ab57b`.
   - `FederationInboxTest`, `FederatedPostIngestionTest`, `MutualFollowTest`: previously failed because Windows/XAMPP PHP could not find `openssl.cnf`, so `openssl_pkey_new()` failed (`error:80000003`). The same issue would also break node federation key generation on Windows deployments. `NodeKeyService::createRsaKeyPair()` now tries OpenSSL's default config first, then falls back to `app/Services/Federation/openssl-fallback.cnf`; all three tests use the same helper.

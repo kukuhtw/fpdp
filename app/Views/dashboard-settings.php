@@ -65,6 +65,24 @@
             <p id="llm-status" class="status" role="status" aria-live="polite"></p>
         </section>
 
+        <section class="panel" id="security-panel">
+            <h2>Keamanan akun</h2>
+            <p class="muted">Perangkat tempat Anda sedang masuk. Keluarkan yang tidak Anda kenali, lalu ganti password. IP hanya disimpan sebagian (mis. <code>203.0.113.x</code>).</p>
+            <div id="session-list" class="stack"><p class="muted">Memuat sesi…</p></div>
+            <p><button type="button" id="revoke-others" class="secondary">Keluarkan semua perangkat lain</button></p>
+            <p id="session-status" class="status" role="status" aria-live="polite"></p>
+
+            <h3>Ganti password</h3>
+            <form id="password-form" class="stack">
+                <label>Password saat ini<input name="current_password" type="password" autocomplete="current-password" required></label>
+                <label>Password baru (12–128 karakter)<input name="new_password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+                <label>Ulangi password baru<input name="confirm_password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+                <button type="submit">Ganti password</button>
+            </form>
+            <p class="muted">Mengganti password juga mengeluarkan semua perangkat lain.</p>
+            <p id="password-status" class="status" role="status" aria-live="polite"></p>
+        </section>
+
         <section class="panel">
             <h2>Install another gateway (plugin)</h2>
             <p class="muted">Beyond the built-in gateways above, you can add your own by copying a folder to <code>/gateways/&lt;slug&gt;/</code> on the server — the same no-upload-from-browser model as Template. No restart needed; reload this page and it appears in the list above, ready to configure and activate. Full guide: <code>documentation/PAYMENT-GATEWAY-PLUGIN-GUIDE.id.md</code>. A working example ships at <code>gateways/manual-transfer/</code>.</p>
@@ -72,5 +90,6 @@
     </section>
 </main>
 <script src="/assets/dashboard-settings.js" defer></script>
+<script src="/assets/dashboard-security.js" defer></script>
 </body>
 </html>

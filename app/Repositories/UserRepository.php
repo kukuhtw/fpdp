@@ -62,6 +62,12 @@ final class UserRepository
         return $row === false ? null : $row;
     }
 
+    public function updatePasswordHash(int $id, string $passwordHash): void
+    {
+        $statement = $this->connection->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id');
+        $statement->execute(['password_hash' => $passwordHash, 'id' => $id]);
+    }
+
     public function emailExists(string $email): bool
     {
         $statement = $this->connection->prepare('SELECT 1 FROM users WHERE email = :email');

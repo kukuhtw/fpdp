@@ -24,7 +24,7 @@ foreach ([
     'CREATE TABLE nodes (id INTEGER PRIMARY KEY, public_id TEXT, domain TEXT, name TEXT, default_locale TEXT, timezone TEXT, status TEXT, created_at TIMESTAMP)',
     'CREATE TABLE users (id INTEGER PRIMARY KEY, public_id TEXT, node_id INTEGER, email TEXT, password_hash TEXT, role TEXT, status TEXT, created_at TIMESTAMP)',
     'CREATE TABLE profiles (id INTEGER PRIMARY KEY, public_id TEXT, user_id INTEGER, handle TEXT, display_name TEXT, bio TEXT, avatar_url TEXT, visibility TEXT, links TEXT, created_at TIMESTAMP, updated_at TIMESTAMP)',
-    'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY, user_id INTEGER, token_hash TEXT, token_type TEXT, scopes TEXT, expires_at TIMESTAMP, revoked_at TIMESTAMP, created_at TIMESTAMP)',
+    'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY, user_id INTEGER, token_hash TEXT, token_type TEXT, scopes TEXT, expires_at TIMESTAMP, revoked_at TIMESTAMP, public_id TEXT UNIQUE, user_agent TEXT, ip_hint TEXT, last_used_at TIMESTAMP, created_at TIMESTAMP)',
     'CREATE TABLE posts (id INTEGER PRIMARY KEY, public_id TEXT, user_id INTEGER, profile_id INTEGER, title TEXT, slug TEXT, content TEXT, post_type TEXT, visibility TEXT, published_at TIMESTAMP, deleted_at TIMESTAMP, created_at TIMESTAMP, updated_at TIMESTAMP)',
     'CREATE TABLE post_media (id INTEGER PRIMARY KEY, post_id INTEGER, media_type TEXT, url TEXT, alt_text TEXT, sort_order INTEGER, created_at TIMESTAMP)',
     'CREATE TABLE external_feed_sources (id INTEGER PRIMARY KEY, user_id INTEGER, provider TEXT, source_type TEXT, source_url TEXT, external_account_id INTEGER, sync_enabled INTEGER, sync_interval INTEGER, last_sync_at TIMESTAMP, next_sync_at TIMESTAMP, status TEXT, last_error TEXT, created_at TIMESTAMP, updated_at TIMESTAMP)',

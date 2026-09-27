@@ -54,6 +54,10 @@ Envelope error standar:
 | POST | `/auth/login` | Publik | Menukar credential dengan access token |
 | POST | `/auth/logout` | Bearer | Mencabut token aktif |
 | GET | `/me` | Bearer | Mengambil user dan konteks node aktif |
+| GET | `/me/sessions` | Bearer | Perangkat yang sedang masuk (id, perangkat, IP terpotong, waktu masuk/terakhir aktif, `current`) |
+| DELETE | `/me/sessions/{id}` | Bearer | Keluarkan satu perangkat lain (perangkat ini: pakai logout) |
+| POST | `/me/sessions/revoke-others` | Bearer | Keluarkan semua perangkat lain; mengembalikan `revoked` |
+| POST | `/me/password` | Bearer | `{current_password, new_password}`; mengeluarkan semua perangkat lain |
 
 ### Profil dan konten
 

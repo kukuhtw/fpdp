@@ -604,6 +604,22 @@ $router->get('/api/v1/me', function (Request $request, array $params) use ($buil
     return (new AuthController($buildAuthService(), $buildRateLimiter()))->me($request);
 });
 
+$router->get('/api/v1/me/sessions', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->sessions($request);
+});
+
+$router->post('/api/v1/me/sessions/revoke-others', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->revokeOtherSessions($request);
+});
+
+$router->delete('/api/v1/me/sessions/{sessionId}', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->revokeSession($request, $params);
+});
+
+$router->post('/api/v1/me/password', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->changePassword($request);
+});
+
 $router->get('/api/v1/profiles/{handle}', function (Request $request, array $params) use ($buildAuthService, $buildProfileService, $buildAnalyticsService): Response {
     return (new ProfileController($buildAuthService(), $buildProfileService(), $buildAnalyticsService()))->show($request, $params);
 });

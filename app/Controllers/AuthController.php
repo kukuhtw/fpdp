@@ -30,7 +30,7 @@ final class AuthController
             (int) Config::get('RATE_LIMIT_REGISTER_WINDOW', '3600'),
         );
 
-        $result = $this->auth->register($request->json() ?? []);
+        $result = $this->auth->register($request->json() ?? [], self::client($request));
 
         return JsonEnvelope::success(self::authPayload($result), 201);
     }
@@ -44,7 +44,7 @@ final class AuthController
             (int) Config::get('RATE_LIMIT_LOGIN_WINDOW', '900'),
         );
 
-        $result = $this->auth->login($request->json() ?? []);
+        $result = $this->auth->login($request->json() ?? [], self::client($request));
 
         return JsonEnvelope::success(self::authPayload($result));
     }
@@ -71,6 +71,73 @@ final class AuthController
             'node' => ResourcePresenter::node($context['node']),
             'profile' => ResourcePresenter::profile($context['profile']),
         ]);
+    }
+
+    /**
+     * GET /api/v1/me/sessions — devices where the owner is logged in.
+     */
+    public function sessions(Request $request): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+
+        return JsonEnvelope::success(['sessions' => $this->auth->listSessions($context)]);
+    }
+
+    /**
+     * DELETE /api/v1/me/sessions/{sessionId} — log one other device out.
+     *
+     * @param array<string, string> $params
+     */
+    public function revokeSession(Request $request, array $params): Response
+    {
+        $context = $this->auth->authenticate($request->bearerToken());
+        $this->auth->revokeSession($context, (string) ($params['sessionId'] ?? ''));
+
+        return Response::noContent();
+    }
+
+    /**
+     * POST /api/v1/me/sessions/revoke-others — log every other device out.
+     */
+    public function revokeOtherSessions(Request $request): Response
+    {
+        $token = (string) $request->bearerToken();
+        $context = $this->auth->authenticate($token);
+
+        return JsonEnvelope::success(['revoked' => $this->auth->revokeOtherSessions($context, $token)]);
+    }
+
+    /**
+     * POST /api/v1/me/password — {"current_password": "...", "new_password": "..."}.
+     * Logs every other device out. Rate-limited per account, like login.
+     */
+    public function changePassword(Request $request): Response
+    {
+        $token = (string) $request->bearerToken();
+        $context = $this->auth->authenticate($token);
+        $this->rateLimiter->hit(
+            'auth_password_change',
+            (string) $context['user']['id'],
+            (int) Config::get('RATE_LIMIT_LOGIN_MAX', '5'),
+            (int) Config::get('RATE_LIMIT_LOGIN_WINDOW', '900'),
+        );
+
+        $input = $request->json() ?? [];
+
+        return JsonEnvelope::success($this->auth->changePassword(
+            $context,
+            $token,
+            (string) ($input['current_password'] ?? ''),
+            (string) ($input['new_password'] ?? ''),
+        ));
+    }
+
+    /**
+     * @return array{user_agent: string|null, ip: string}
+     */
+    private static function client(Request $request): array
+    {
+        return ['user_agent' => $request->headers['user-agent'] ?? null, 'ip' => $request->ipAddress];
     }
 
     /**

@@ -54,6 +54,10 @@ Standard error envelope:
 | POST | `/auth/login` | Public | Exchange credentials for access token |
 | POST | `/auth/logout` | Bearer | Revoke the current token |
 | GET | `/me` | Bearer | Return authenticated user and node context |
+| GET | `/me/sessions` | Bearer | Devices signed in (id, device, truncated IP, created/last used, `current`) |
+| DELETE | `/me/sessions/{id}` | Bearer | Log one other device out (the current one: use logout) |
+| POST | `/me/sessions/revoke-others` | Bearer | Log every other device out; returns `revoked` |
+| POST | `/me/password` | Bearer | `{current_password, new_password}`; logs every other device out |
 
 ### Profiles and content
 

@@ -7,6 +7,7 @@ namespace App\Services\Auth;
 use App\Core\Config;
 use App\Core\Exceptions\ConflictException;
 use App\Core\Exceptions\ForbiddenException;
+use App\Core\Exceptions\NotFoundException;
 use App\Core\Exceptions\UnauthorizedException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
@@ -21,6 +22,10 @@ use PDOException;
 final class AuthService
 {
     private const OWNER_ROLE = 'OWNER';
+    /** last_used_at is refreshed at most this often, not on every request. */
+    private const TOUCH_INTERVAL_SECONDS = 300;
+    /** Expired/revoked tokens older than this are deleted at the next login. */
+    private const STALE_TOKEN_DAYS = 30;
 
     public function __construct(
         private readonly NodeRepository $nodes,
@@ -35,7 +40,7 @@ final class AuthService
      * @param array<string, mixed> $input
      * @return array<string, mixed>
      */
-    public function register(array $input): array
+    public function register(array $input, array $client = []): array
     {
         $email = self::normalizeEmail((string) ($input['email'] ?? ''));
         $password = (string) ($input['password'] ?? '');
@@ -111,7 +116,7 @@ final class AuthService
             'user' => $this->users->findById($userId),
             'node' => $this->nodes->findById($nodeId),
             'profile' => $this->profiles->findByUserId($userId),
-            'token' => $this->issueToken($userId),
+            'token' => $this->issueToken($userId, $client),
         ];
 
         $this->audit?->record($result, 'user.registered', 'user', $result['user']['public_id'], [
@@ -124,9 +129,10 @@ final class AuthService
 
     /**
      * @param array<string, mixed> $input
+     * @param array{user_agent?: string|null, ip?: string|null} $client The device logging in, shown in the session list.
      * @return array<string, mixed>
      */
-    public function login(array $input): array
+    public function login(array $input, array $client = []): array
     {
         $email = self::normalizeEmail((string) ($input['email'] ?? ''));
         $password = (string) ($input['password'] ?? '');
@@ -154,10 +160,12 @@ final class AuthService
         $result = [
             'user' => $user,
             'node' => $this->nodes->findById((int) $user['node_id']),
-            'token' => $this->issueToken((int) $user['id']),
+            'token' => $this->issueToken((int) $user['id'], $client),
         ];
 
-        $this->audit?->record($result, 'user.login', 'user', $user['public_id']);
+        $this->audit?->record($result, 'user.login', 'user', $user['public_id'], [
+            'ip_hint' => self::ipHint($client['ip'] ?? null),
+        ]);
 
         return $result;
     }
@@ -192,11 +200,160 @@ final class AuthService
         }
         $this->assertOwnerAccess($user);
 
+        $lastUsed = strtotime((string) ($tokenRow['last_used_at'] ?? ''));
+        if ($lastUsed === false || time() - $lastUsed > self::TOUCH_INTERVAL_SECONDS) {
+            $this->tokens->touchLastUsed((string) $tokenRow['token_hash'], date('Y-m-d H:i:s'));
+        }
+
         return [
             'user' => $user,
             'node' => $this->nodes->findById((int) $user['node_id']),
             'profile' => $this->profiles->findByUserId((int) $user['id']),
+            // Which session this request is, so the session list can mark it.
+            'session_id' => $tokenRow['public_id'] ?? null,
         ];
+    }
+
+    /**
+     * The owner's active sessions (devices still logged in), newest first,
+     * with the one making this request marked `current`.
+     *
+     * @param array<string, mixed> $context from authenticate()
+     * @return array<int, array<string, mixed>>
+     */
+    public function listSessions(array $context): array
+    {
+        return array_map(static fn (array $row): array => [
+            'id' => $row['public_id'],
+            'current' => $row['public_id'] !== null && $row['public_id'] === ($context['session_id'] ?? null),
+            'device' => self::describeUserAgent($row['user_agent'] ?? null),
+            'user_agent' => $row['user_agent'],
+            'ip_hint' => $row['ip_hint'],
+            'created_at' => $row['created_at'],
+            'last_used_at' => $row['last_used_at'],
+            'expires_at' => $row['expires_at'],
+        ], $this->tokens->findActiveByUserId((int) $context['user']['id'], date('Y-m-d H:i:s')));
+    }
+
+    /**
+     * Logs one other device out. The current session is ended with logout
+     * instead, so a click here can never lock the owner out mid-page.
+     *
+     * @param array<string, mixed> $context from authenticate()
+     */
+    public function revokeSession(array $context, string $sessionId): void
+    {
+        if ($sessionId !== '' && $sessionId === ($context['session_id'] ?? null)) {
+            throw new ValidationException([['field' => 'session', 'reason' => 'is_current']], 'This is the session you are using; log out instead.');
+        }
+        if (!$this->tokens->revokeByPublicId((int) $context['user']['id'], $sessionId, date('Y-m-d H:i:s'))) {
+            throw new NotFoundException('Session not found.');
+        }
+
+        $this->audit?->record($context, 'session.revoked', 'user', (string) $context['user']['public_id'], ['session_id' => $sessionId]);
+    }
+
+    /**
+     * Logs every other device out, keeping only this one.
+     *
+     * @param array<string, mixed> $context from authenticate()
+     * @return int how many sessions were ended
+     */
+    public function revokeOtherSessions(array $context, string $rawToken): int
+    {
+        $count = $this->tokens->revokeAllExcept((int) $context['user']['id'], hash('sha256', $rawToken), date('Y-m-d H:i:s'));
+        $this->audit?->record($context, 'session.revoked_others', 'user', (string) $context['user']['public_id'], ['count' => $count]);
+
+        return $count;
+    }
+
+    /**
+     * Changes the owner's password. The current password is required (a
+     * stolen, still-valid token alone is not enough), the new one follows
+     * the registration rules, and every other session is logged out — the
+     * usual reason to change a password is that someone else may have it.
+     *
+     * @param array<string, mixed> $context from authenticate()
+     * @return array{other_sessions_revoked: int}
+     */
+    public function changePassword(array $context, string $rawToken, string $currentPassword, string $newPassword): array
+    {
+        $user = $this->users->findById((int) $context['user']['id']);
+        if ($user === null || !password_verify($currentPassword, (string) $user['password_hash'])) {
+            $this->audit?->record($context, 'user.password_change_failed', 'user', (string) $context['user']['public_id']);
+            throw new ValidationException([['field' => 'current_password', 'reason' => 'incorrect']], 'The current password is incorrect.');
+        }
+        if (strlen($newPassword) < 12 || strlen($newPassword) > 128) {
+            throw new ValidationException([['field' => 'new_password', 'reason' => 'invalid_length']], 'The new password must be 12 to 128 characters.');
+        }
+        if (hash_equals($currentPassword, $newPassword)) {
+            throw new ValidationException([['field' => 'new_password', 'reason' => 'unchanged']], 'The new password must differ from the current one.');
+        }
+
+        $this->users->updatePasswordHash((int) $user['id'], password_hash($newPassword, PASSWORD_DEFAULT));
+        $revoked = $this->tokens->revokeAllExcept((int) $user['id'], hash('sha256', $rawToken), date('Y-m-d H:i:s'));
+        $this->audit?->record($context, 'user.password_changed', 'user', (string) $user['public_id'], ['other_sessions_revoked' => $revoked]);
+
+        return ['other_sessions_revoked' => $revoked];
+    }
+
+    /**
+     * Keeps the network, not the person: IPv4 to its /24 ("203.0.113.x"),
+     * IPv6 to its /48. Enough to tell "my home connection" from "somewhere
+     * else" in the session list.
+     */
+    public static function ipHint(?string $ip): ?string
+    {
+        if ($ip === null || $ip === '') {
+            return null;
+        }
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+            $parts = explode('.', $ip);
+
+            return "{$parts[0]}.{$parts[1]}.{$parts[2]}.x";
+        }
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            $expanded = unpack('n8', (string) inet_pton($ip));
+
+            return sprintf('%x:%x:%x::/48', $expanded[1], $expanded[2], $expanded[3]);
+        }
+
+        return null;
+    }
+
+    /**
+     * A short "Chrome on Windows" style label; the raw user agent is kept
+     * alongside it for anything this doesn't recognise.
+     */
+    private static function describeUserAgent(?string $userAgent): string
+    {
+        if ($userAgent === null || $userAgent === '') {
+            return 'Unknown device';
+        }
+        $browser = match (true) {
+            str_contains($userAgent, 'Edg/') => 'Edge',
+            str_contains($userAgent, 'OPR/') => 'Opera',
+            str_contains($userAgent, 'Firefox/') => 'Firefox',
+            str_contains($userAgent, 'Chrome/') => 'Chrome',
+            str_contains($userAgent, 'Safari/') => 'Safari',
+            str_starts_with($userAgent, 'curl/') => 'curl',
+            default => null,
+        };
+        $os = match (true) {
+            str_contains($userAgent, 'Android') => 'Android',
+            str_contains($userAgent, 'iPhone') || str_contains($userAgent, 'iPad') => 'iOS',
+            str_contains($userAgent, 'Windows') => 'Windows',
+            str_contains($userAgent, 'Mac OS X') => 'macOS',
+            str_contains($userAgent, 'Linux') => 'Linux',
+            default => null,
+        };
+
+        return match (true) {
+            $browser !== null && $os !== null => "{$browser} on {$os}",
+            $browser !== null => $browser,
+            $os !== null => $os,
+            default => 'Unknown device',
+        };
     }
 
     /**
@@ -244,13 +401,23 @@ final class AuthService
     /**
      * @return array{access_token: string, token_type: string, expires_in: int}
      */
-    private function issueToken(int $userId): array
+    private function issueToken(int $userId, array $client = []): array
     {
         $rawToken = bin2hex(random_bytes(32));
         $ttl = (int) Config::get('AUTH_TOKEN_TTL', '604800');
         $expiresAt = (new DateTimeImmutable())->modify("+{$ttl} seconds")->format('Y-m-d H:i:s');
 
-        $this->tokens->create($userId, hash('sha256', $rawToken), $expiresAt);
+        $userAgent = trim((string) ($client['user_agent'] ?? ''));
+        $this->tokens->create(
+            $userId,
+            hash('sha256', $rawToken),
+            $expiresAt,
+            'ACCESS',
+            Uuid::v4(),
+            $userAgent !== '' ? mb_substr($userAgent, 0, 255) : null,
+            self::ipHint($client['ip'] ?? null),
+        );
+        $this->tokens->deleteStale($userId, date('Y-m-d H:i:s', time() - self::STALE_TOKEN_DAYS * 86400));
 
         return [
             'access_token' => $rawToken,

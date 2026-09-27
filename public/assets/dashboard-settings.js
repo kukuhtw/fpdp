@@ -306,6 +306,8 @@
     try {
       const result = await api('/api/v1/me');
       setAuthenticated(true, result.data.profile.handle);
+      // Lets the account-security panel (dashboard-security.js) load its data.
+      document.dispatchEvent(new CustomEvent('fpdp:owner-authenticated'));
       return true;
     } catch (error) {
       sessionStorage.removeItem(tokenKey);

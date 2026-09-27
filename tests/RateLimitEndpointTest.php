@@ -73,7 +73,7 @@ Database::connection()->exec('
         token_type TEXT NOT NULL DEFAULT "ACCESS",
         scopes TEXT,
         expires_at TIMESTAMP NOT NULL,
-        revoked_at TIMESTAMP,
+        revoked_at TIMESTAMP, public_id TEXT UNIQUE, user_agent TEXT, ip_hint TEXT, last_used_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 ');
