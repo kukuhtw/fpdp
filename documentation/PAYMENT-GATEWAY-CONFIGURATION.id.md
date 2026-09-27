@@ -69,7 +69,7 @@ Key yang diterima:
 
 ### `nodes.active_gateway`
 
-Nilainya adalah kode gateway default node, misalnya `PAYPAL`. Field inilah yang menentukan gateway checkout, termasuk pembayaran akses CV/resume. Pemilihan ini dilakukan dengan tombol **Activate** atau endpoint aktivasi, bukan dengan mengubah `.env`.
+Nilainya adalah kode gateway default node, misalnya `PAYPAL`. Field inilah yang menentukan gateway checkout, termasuk checkout toko dan top-up saldo chatbot. Pemilihan ini dilakukan dengan tombol **Activate** atau endpoint aktivasi, bukan dengan mengubah `.env`.
 
 ## Prioritas `.env` dan database
 

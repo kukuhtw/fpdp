@@ -18,7 +18,6 @@ themes/
       youtube.php
       wall-coretan.php
       post.php
-      public-cv.php
       about.php
       timeline.php
     assets/              (opsional)
@@ -53,7 +52,6 @@ Hanya nama file berikut yang dikenali sebagai override halaman publik. File lain
 | `youtube.php` | Halaman video YouTube |
 | `wall-coretan.php` | Halaman coretan/wall publik |
 | `post.php` | Halaman satu post |
-| `public-cv.php` | Halaman CV publik |
 | `about.php` | Halaman About FPDP (`/about`) |
 | `timeline.php` | Timeline lokal (`/timeline`) |
 

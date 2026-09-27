@@ -1,5 +1,7 @@
 # Product Requirements Document (PRD)
 
+> **Catatan (27 September 2026):** fitur download CV/resume berbayar yang disebut di dokumen ini sudah dihapus dari aplikasi atas keputusan pemilik produk. File dijual sebagai produk digital di toko. Penyebutan CV di bawah dipertahankan sebagai konteks historis.
+
 ## 1. Ringkasan Produk
 FPDP adalah platform personal digital home yang memungkinkan setiap pengguna memiliki domain pribadi, profil, feed sosial, toko online pribadi, dan payment endpoint. Produk ini dirancang untuk bekerja di node-node independen yang saling berhubungan melalui federasi, sehingga produk dari toko setiap node dapat tersebar ke fediverse dan dipesan dari node lain (federated commerce).
 

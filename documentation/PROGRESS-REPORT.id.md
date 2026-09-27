@@ -5,14 +5,14 @@
 **Tanggal verifikasi:** 26 September 2026
 **Dasar verifikasi:** route, controller, service, repository, migration, view, gateway plugin, test, dan konfigurasi deployment pada repository—bukan hanya dokumen rencana. Test suite dijalankan ulang pada tanggal yang sama (lihat Bagian 8).
 
-FPDP sudah melewati tahap MVP inti. Sejak laporan 21 September, flow komersial visitor sudah tersambung (checkout produk publik, pembayaran akses CV, top-up wallet, konfirmasi pembayaran manual), chatbot visitor berbayar berbasis LLM + RAG sudah live, dashboard owner sudah punya panel untuk hampir semua domain, dan federasi sudah berbicara ActivityPub (WebFinger, actor, inbox/outbox, post federasi masuk/keluar). Refund, pembatalan, dan rekonsiliasi pembayaran kini juga tersedia. Fokus berikutnya adalah validasi terhadap sandbox/server nyata, audit aksi sensitif, security settings, serta hardening operasional.
+FPDP sudah melewati tahap MVP inti. Sejak laporan 21 September, flow komersial visitor sudah tersambung (checkout produk publik, top-up wallet, konfirmasi pembayaran manual), chatbot visitor berbayar berbasis LLM + RAG sudah live, dashboard owner sudah punya panel untuk hampir semua domain, dan federasi sudah berbicara ActivityPub (WebFinger, actor, inbox/outbox, post federasi masuk/keluar). Refund, pembatalan, dan rekonsiliasi pembayaran kini juga tersedia. Fokus berikutnya adalah validasi terhadap sandbox/server nyata, audit aksi sensitif, security settings, serta hardening operasional.
 
 Ringkasan repository saat laporan ini dibuat:
 
 - **59 migration MySQL** (`0001`–`0059`);
 - **57 test script**, semuanya lulus (lihat Bagian 8);
-- REST API untuk identity, profile, posts, timeline, external feeds, CV, payments, toko online pribadi (termasuk checkout visitor dan aset digital), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, theme, dan upload media;
-- UI nyata: home, timeline terpadu (lokal + federasi + produk promosi), profil, post, shop, halaman produk, CV publik, wall "coretan", halaman YouTube, halaman terima kasih pembayaran, serta 12 halaman dashboard owner;
+- REST API untuk identity, profile, posts, timeline, external feeds, payments, toko online pribadi (termasuk checkout visitor dan aset digital), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, theme, dan upload media;
+- UI nyata: home, timeline terpadu (lokal + federasi + produk promosi), profil, post, shop, halaman produk, wall "coretan", halaman YouTube, halaman terima kasih pembayaran, serta 12 halaman dashboard owner;
 - 3 theme publik: `default`, `editorial`, `minimal`;
 - 6 payment gateway: Dummy, Paywuz, Midtrans, PayPal (built-in) + iPaymu dan Manual Transfer (plugin di `gateways/`);
 - Dockerfile serta Docker Compose Dokploy — staging live dan tervalidasi;
@@ -90,11 +90,10 @@ flowchart LR
 
 > Catatan koreksi: integrasi **Facebook Pages** dan connector **Instagram litescrap** yang tercatat di laporan sebelumnya sudah **dihapus** dari repository (commit `629c807`). Keduanya tidak lagi tersedia.
 
-### 3.5 CV dan monetisasi visitor
+### 3.5 Download CV/Resume — dihapus
 
-- Owner upload CV ke `storage/` di luar webroot; mengganti dokumen membatalkan grant lama.
-- Halaman CV publik dengan foto profil asli, access request, paywall, grant setelah pembayaran, dan download terlindungi.
-- Grant akses kini menyimpan identitas pembeli (nama, email, dsb.) dan pilihan akses CV yang diperluas.
+- **Dihapus 27 September 2026** atas keputusan pemilik produk: halaman `/cv` dan `/@handle/cv`, dashboard *CV & Resume*, API `/api/v1/me/cv` dan `/api/v1/profiles/{handle}/cv…`, pembayaran akses CV, serta langkah "Download CV" di halaman terima kasih. Produk digital di toko adalah cara menjual file.
+- Tabel `cv_documents`/`cv_access_grants` dan file lama di `storage/cv/` **tidak** dihapus otomatis (berisi data; lihat Bagian 7). Payment lama dengan purpose `cv_access` tetap tampil di dashboard Payments dengan label "fitur lama" dan tidak memicu apa pun lagi.
 
 ### 3.6 Toko online pribadi dan payment
 
@@ -109,13 +108,14 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 - Credential per environment (Sandbox/Live) terenkripsi AES-256-GCM di `payment_gateway_configs`; nilai non-secret yang tersimpan ditampilkan kembali di Settings, secret tidak.
 - Penyimpanan gateway memverifikasi credential ke provider (PayPal OAuth, Midtrans request berautentikasi); aktivasi menolak konfigurasi tidak lengkap.
 - Environment PayPal dibaca dari konfigurasi database dengan fallback `PAYPAL_ENVIRONMENT`; iPaymu mengikuti dropdown environment yang sama.
-- Gateway code di-resolve sebelum validasi pembayaran (produk, CV, dan top-up wallet).
+- Gateway code di-resolve sebelum validasi pembayaran (produk dan top-up wallet).
+- **Perbaikan download produk digital (27 September 2026):** tombol download file setelah pembayaran sebelumnya mengambil file lewat JavaScript lalu menyimpannya sebagai *blob*, yang di banyak ponsel dan in-app browser (WhatsApp, Instagram, Facebook) tidak melakukan apa-apa. Kini setiap file mendapat link bertanda tangan berlaku 15 menit (`/api/v1/products/{id}/digital-assets/{kind}/file?visitor=&expires=&token=`, HMAC dengan `APP_KEY`, terikat ke pembeli dan jenis file, pembelian diperiksa ulang saat diunduh) yang diunduh browser secara langsung, di halaman produk dan halaman terima kasih. Nama file non-ASCII dikirim dengan `filename*`. Test baru `DigitalDownloadTest`.
 - Webhook verification dan duplicate-event handling.
-- **Halaman konfirmasi pembayaran** untuk produk/CV/wallet, link konfirmasi di semua theme, dan halaman terima kasih (`/payment/thank-you`).
+- **Halaman konfirmasi pembayaran** untuk produk/wallet, link konfirmasi di semua theme, dan halaman terima kasih (`/payment/thank-you`).
 - **Konfirmasi manual pembayaran pending** oleh owner (`/api/v1/me/payments/pending`, `.../{uuid}/confirm`).
 - Dashboard Payments: saldo/perkiraan settlement, success rate, total refund, transaksi terbaru, dan detail pembeli.
 - **Pembatalan oleh owner** (`POST /api/v1/me/payments/{uuid}/cancel`): membatalkan di gateway bila ada API-nya (Midtrans, Paywuz, Dummy, Manual Transfer), dan tetap membatalkan lokal bila gateway menolak atau tidak punya API (PayPal, iPaymu), dengan pesan provider ditampilkan ke owner. Order terkait ikut ditutup.
-- **Refund oleh owner** (`POST /api/v1/me/payments/{uuid}/refund`): penuh atau sebagian (`refunded_amount`, status `PARTIALLY_REFUNDED`/`REFUNDED`, migration `0059`). Gateway tanpa API refund (Paywuz, iPaymu) memakai opsi refund manual. Refund penuh membatalkan fulfillment lewat `PaymentFulfillmentService`: grant CV dicabut, order menjadi `REFUNDED`, saldo top-up ditarik kembali. Refund top-up yang sebagian sudah dipakai untuk chat ditolak.
+- **Refund oleh owner** (`POST /api/v1/me/payments/{uuid}/refund`): penuh atau sebagian (`refunded_amount`, status `PARTIALLY_REFUNDED`/`REFUNDED`, migration `0059`). Gateway tanpa API refund (Paywuz, iPaymu) memakai opsi refund manual. Refund penuh membatalkan fulfillment lewat `PaymentFulfillmentService`: order menjadi `REFUNDED`, saldo top-up ditarik kembali. Refund top-up yang sebagian sudah dipakai untuk chat ditolak.
 - **Refund dari dashboard provider** kini diterapkan: webhook `refund`/`partial_refund` Midtrans memindahkan payment `PAID` ke `REFUNDED`/`PARTIALLY_REFUNDED`. Sebelumnya notifikasi refund terbuang sebagai duplikat karena Midtrans memakai `transaction_id` yang sama untuk semua notifikasi satu transaksi.
 - **Rekonsiliasi** (`scripts/reconcile-payments.php` untuk cron, dan tombol "Cek status ke gateway" / `POST /api/v1/me/payments/reconcile`): menanyakan status payment `PENDING` yang lebih tua dari 15 menit ke provider, menerapkan status final, dan menjalankan fulfillment. Payment yang dibatalkan/gagal lokal dalam 7 hari terakhir tetapi `PAID` di provider dipindah ke `PAID`, difulfill, dan dilaporkan sebagai mismatch. Exit code 1 bila ada error atau mismatch.
 - **Adapter Paywuz diselaraskan dengan dokumentasi resmi Merchant API v1**: `getPaymentStatus()` memakai `GET /transactions/{orderId}` dan `cancelPayment()` memakai `POST /transactions/{orderId}/cancel` (sebelumnya melempar error karena dianggap tidak ada). Event `transaction.settlement` tetap `PENDING`. Verifikasi credential kini memakai `GET /payment-methods` dan menolak key `pk_live_` yang disimpan di Sandbox atau sebaliknya.
@@ -148,7 +148,7 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 
 - Visitor hashing harian berbasis HMAC + `APP_KEY`; IP mentah tidak disimpan.
 - Event profile view, post view, outbound click, dan shop conversion; API analytics dashboard.
-- Halaman dashboard live: Overview, Posts (editor + daftar), About Me, CV, Products, Orders (dengan info pembeli dan filter), Payments, Integrations, Federation, RAG, Themes, Settings (gateway, LLM, chatbot), dan Coretan.
+- Halaman dashboard live: Overview, Posts (editor + daftar), About Me, Products, Orders (dengan info pembeli dan filter), Payments, Integrations, Federation, RAG, Themes, Settings (gateway, LLM, chatbot), dan Coretan.
 - Pemilihan theme dari dashboard; navigasi situs disatukan dalam satu sumber untuk semua theme.
 
 ### 3.10 Deployment
@@ -178,7 +178,7 @@ Cakupan: toko online milik pemilik website (satu penjual per node, bukan marketp
 
 - **Halaman Analytics selesai (27 September 2026)** di `/dashboard/analytics`: rentang 7/30/90 hari, empat stat tile (kunjungan, tayangan halaman, klik link keluar, pesanan toko) dengan perubahan dibanding periode sebelumnya, grafik garis harian (tooltip crosshair, bisa dipakai dengan keyboard, responsif sampai layar ponsel) plus tampilan tabel, halaman teratas dengan judul post/produk, asal pengunjung (domain referrer saja), dan link keluar yang diklik. API `GET /api/v1/me/analytics?days=`.
 - **Koreksi:** sebelumnya kunjungan hanya dicatat dari endpoint JSON API, bukan dari halaman HTML yang dibuka pengunjung, sehingga analytics hampir selalu kosong; klik link keluar juga tidak pernah dikirim. Kini front controller mencatat setiap GET halaman publik yang berhasil (setelah respons terkirim), mengecualikan bot, crawler, pratinjau link server fediverse, prefetch, dashboard, dan API; klik link keluar dikirim lewat `sendBeacon` ke `POST /api/v1/track/outbound-click`. Migration `0063` menambah `referrer_host`.
-- **Pengaturan bahasa selesai (27 September 2026):** semua halaman publik (beranda, profil, tentang saya, coretan, timeline, post, YouTube, toko, produk, CV, checkout, halaman terima kasih, widget chatbot, navigasi, halaman About FPDP) tersedia dalam **Bahasa Indonesia dan English** di ketiga tema. Owner memilih bahasa aktif dan bahasa default di Settings (`GET/PATCH /api/v1/me/locale-settings`, migration `0062`). Bahasa pengunjung ditentukan oleh `?lang=` (diingat lewat cookie `fpdp_lang`), lalu cookie, lalu `Accept-Language` browser, lalu default node — selalu terbatas pada bahasa aktif. Ada tombol ganti bahasa di navigasi, `<html lang>`, dan tag `hreflang`. Katalog di `app/Lang/{id,en}/`; kunci yang hilang jatuh ke bahasa lain, file katalog yang rusak dilewati. Isi yang ditulis owner tidak diterjemahkan. Dashboard owner belum diterjemahkan (di luar cakupan).
+- **Pengaturan bahasa selesai (27 September 2026):** semua halaman publik (beranda, profil, tentang saya, coretan, timeline, post, YouTube, toko, produk, checkout, halaman terima kasih, widget chatbot, navigasi, halaman About FPDP) tersedia dalam **Bahasa Indonesia dan English** di ketiga tema. Owner memilih bahasa aktif dan bahasa default di Settings (`GET/PATCH /api/v1/me/locale-settings`, migration `0062`). Bahasa pengunjung ditentukan oleh `?lang=` (diingat lewat cookie `fpdp_lang`), lalu cookie, lalu `Accept-Language` browser, lalu default node — selalu terbatas pada bahasa aktif. Ada tombol ganti bahasa di navigasi, `<html lang>`, dan tag `hreflang`. Katalog di `app/Lang/{id,en}/`; kunci yang hilang jatuh ke bahasa lain, file katalog yang rusak dilewati. Isi yang ditulis owner tidak diterjemahkan. Dashboard owner belum diterjemahkan (di luar cakupan).
 - Node settings yang belum ada: custom CSS/layout dan node config umum (theme dan bahasa sudah tersedia).
 - **Manajemen sesi selesai (27 September 2026):** bagian *Keamanan akun* di Settings menampilkan perangkat yang sedang masuk (label perangkat, IP yang dipotong ke /24 atau /48, kapan masuk dan terakhir aktif, penanda perangkat ini), bisa mengeluarkan satu perangkat atau semua perangkat lain, dan **mengganti password** (sebelumnya tidak ada sama sekali) — wajib password lama, 12–128 karakter, dan otomatis mengeluarkan semua perangkat lain. Semua aksi diaudit tanpa password maupun IP lengkap; token kedaluwarsa/dicabut lebih dari 30 hari dihapus saat login. Migration `0061`.
 - **2FA selesai (27 September 2026)**, opsional untuk akun owner: TOTP (RFC 6238) yang bekerja dengan Google Authenticator, Microsoft Authenticator, Authy, 1Password, Bitwarden, Aegis, dan sejenisnya. Diaktifkan di Settings → *Keamanan akun*: pindai kode QR (digambar di browser dengan library MIT `qrcode-generator` yang disertakan di repo, jadi secret tidak dikirim ke layanan pihak ketiga) atau masukkan kunci manual, lalu konfirmasi dengan kode pertama. Setelah itu tampil **10 kode pemulihan sekali pakai** (hanya sekali, disimpan sebagai hash password). Dengan 2FA aktif, password yang benar hanya menghasilkan tantangan berumur 5 menit (maksimal 5 percobaan). Sesi baru terbit setelah kode 6 digit atau kode pemulihan diverifikasi. Setiap kode hanya bisa dipakai sekali. Secret dienkripsi dengan `APP_KEY` (ikut `rotate-app-key.php`). Mengaktifkan 2FA mengeluarkan perangkat lain; menonaktifkannya butuh password dan kode. Semua langkah diaudit tanpa secret maupun kode. Jalan darurat bila ponsel dan kode pemulihan hilang: `php scripts/disable-2fa.php --email=…` di server. `check-requirements.php` kini memeriksa sinkronisasi jam (NTP). Migration `0064`. Ke-15 form login dashboard tidak perlu diubah: `owner-login-mfa.js` menyisipkan langkah kode.
@@ -244,13 +244,14 @@ flowchart LR
 
 ## 7. Risiko dan keputusan operasional
 
+- **Data CV lama (menunggu keputusan owner):** fitur CV sudah dihapus, tetapi tabel `cv_documents`/`cv_access_grants` (berisi identitas pembeli) dan file di `storage/cv/` masih ada di server yang pernah memakainya. Sesuai ISO/IEC 27001:2022 A.8.10 (penghapusan informasi), putuskan apakah diarsipkan lalu dihapus; penghapusan tidak bisa dibatalkan.
 - Deployment diasumsikan **satu owner dan satu app replica per node**; jangan scale sebelum migration locking dan shared storage tersedia.
-- MySQL dan `storage/` (CV, media, aset digital, dokumen RAG) harus dipulihkan dari recovery point yang konsisten.
+- MySQL dan `storage/` (media, aset digital, dokumen RAG) harus dipulihkan dari recovery point yang konsisten.
 - Code rollback tidak membalikkan forward migration.
 - `APP_KEY` melindungi OAuth state, analytics HMAC, credential gateway, dan token OAuth; rotasi wajib memakai `scripts/rotate-app-key.php`.
 - Konfirmasi pembayaran manual memberi akses/fulfillment tanpa bukti dari provider; kini tercatat di audit trail (siapa, kapan, payment mana), tetapi bukti transfer tetap berada di luar sistem.
 - Chatbot memakai API key LLM milik owner; tanpa plafon biaya, penyalahgunaan dapat menimbulkan tagihan provider.
-- **Data pribadi pembeli** (nama, email, telepon, alamat pengiriman) kini disimpan di order, payment metadata, dan grant CV. Sesuai kontrol ISO/IEC 27001:2022 (A.5.34 Privasi & perlindungan PII, A.8.10 Penghapusan informasi, A.8.15 Logging), perlu ditetapkan: dasar pemrosesan dan pemberitahuan privasi kepada pembeli, periode retensi dan penghapusan, pembatasan akses dashboard, serta audit akses data pembeli.
+- **Data pribadi pembeli** (nama, email, telepon, alamat pengiriman) kini disimpan di order dan payment metadata (juga di grant CV lama, bila tabelnya masih ada). Sesuai kontrol ISO/IEC 27001:2022 (A.5.34 Privasi & perlindungan PII, A.8.10 Penghapusan informasi, A.8.15 Logging), perlu ditetapkan: dasar pemrosesan dan pemberitahuan privasi kepada pembeli, periode retensi dan penghapusan, pembatasan akses dashboard, serta audit akses data pembeli.
 - Payment dan federasi wajib diuji dengan sistem remote nyata sebelum diklaim production-ready.
 
 ## 8. Validasi terakhir

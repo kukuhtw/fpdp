@@ -1,5 +1,7 @@
 # Strategi Interaksi AI dan Monetisasi FPDP — Bahasa Indonesia
 
+> **Catatan (27 September 2026):** fitur download CV/resume berbayar yang disebut di dokumen ini sudah dihapus dari aplikasi atas keputusan pemilik produk. File dijual sebagai produk digital di toko. Penyebutan CV di bawah dipertahankan sebagai konteks historis.
+
 ## 1. Tujuan dan Status Implementasi
 
 Dokumen ini mendefinisikan **desain target** untuk enam penambahan yang diminta sebagai addendum BRD/PRD: LLM provider yang dapat dikonfigurasi owner, akses CV/resume berbayar, chatbot profil berbayar, Google OAuth wajib untuk interaksi visitor apa pun, analitik traffic harian, dan marketplace ad banner.

@@ -55,7 +55,7 @@ i18n_assert(I18n::locale() === 'id' && I18n::enabledLocales() === ['id', 'en'], 
 
 // ---- 3. Translation, fallback, placeholders, JS catalog ----
 I18n::setLocale('en');
-i18n_assert(View::t('nav.shop') === 'Shop' && View::te('nav.cv') === 'CV &amp; Resume', 'English strings, escaped by te()');
+i18n_assert(View::t('nav.shop') === 'Shop' && str_contains(View::te('about.status.row_native_order'), 'node&#039;s dashboard'), 'English strings, escaped by te()');
 i18n_assert(View::t('js.common.request_failed', ['status' => 404]) === 'Request failed (404)', 'placeholders are filled');
 i18n_assert(View::t('no.such.key') === 'no.such.key', 'a missing key prints the key instead of breaking the page');
 I18n::setLocale('id');

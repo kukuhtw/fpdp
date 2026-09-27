@@ -34,7 +34,6 @@ function tn_dataFor(string $view): array
         'wall-coretan' => ['title' => 't', 'profile' => $profile, 'coretanPosts' => []],
         'post' => ['title' => 't', 'profile' => $profile, 'post' => ['title' => 'T', 'content' => 'C', 'slug' => null, 'id' => 1, 'published_at' => null, 'handle' => 'alice', 'display_name' => 'Alice']],
         'profile' => ['title' => 't', 'profile' => $profile, 'posts' => []],
-        'public-cv' => ['title' => 't', 'profile' => $profile],
         'shop' => ['title' => 't', 'profile' => $profile],
         'product' => ['title' => 't', 'profile' => $profile, 'productId' => 'prod-1'],
         'timeline' => ['title' => 't', 'posts' => [], 'nextCursor' => null],
@@ -43,12 +42,12 @@ function tn_dataFor(string $view): array
     };
 }
 
-$views = ['youtube', 'about-me', 'wall-coretan', 'post', 'profile', 'public-cv', 'shop', 'product', 'timeline', 'about'];
+$views = ['youtube', 'about-me', 'wall-coretan', 'post', 'profile', 'shop', 'product', 'timeline', 'about'];
 $themes = [
     'editorial' => ['navClass' => 'ed-nav', 'brandClass' => 'ed-brand'],
     'minimal' => ['navClass' => 'mn-nav', 'brandClass' => 'mn-brand'],
 ];
-$canonicalLinks = ['/shop', '/dashboard/payments', '/dashboard/rag', '/dashboard/products', '/cv'];
+$canonicalLinks = ['/shop', '/dashboard/payments', '/dashboard/rag', '/dashboard/products'];
 
 foreach ($themes as $themeSlug => $classes) {
     foreach ($views as $view) {

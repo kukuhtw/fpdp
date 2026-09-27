@@ -1,5 +1,7 @@
 # Business Requirements Document (BRD)
 
+> **Note (September 27, 2026):** the paid CV/resume download described in this document was removed from the application by product decision. Files are sold as digital products in the shop. Mentions of CV below are kept as historical context.
+
 ## 1. Background
 
 The Federated Personal Digital Platform (FPDP) is a personal digital home that gives each individual their own domain, digital identity, content, and social channels connected to external platforms. Its main purpose is to give users control over their data, identity, content, and payment choices.

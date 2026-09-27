@@ -143,7 +143,7 @@ tail -f /var/log/fpdp/federation.log   # satu baris per menit setelah berjalan
 
 ### 4.9 Backup dan restore
 
-[`deploy/ubuntu/backup.sh`](../deploy/ubuntu/backup.sh) menulis satu recovery point yang konsisten — `mysqldump --single-transaction`, `storage/` (CV, media, file produk), dan `.env` — ke `/var/backups/fpdp/fpdp-<waktu UTC>.tar.gz`, mode 600, disimpan 14 hari. File cron di atas menjalankannya tiap malam; jalankan manual dengan `sudo sh deploy/ubuntu/backup.sh`.
+[`deploy/ubuntu/backup.sh`](../deploy/ubuntu/backup.sh) menulis satu recovery point yang konsisten — `mysqldump --single-transaction`, `storage/` (media, file produk), dan `.env` — ke `/var/backups/fpdp/fpdp-<waktu UTC>.tar.gz`, mode 600, disimpan 14 hari. File cron di atas menjalankannya tiap malam; jalankan manual dengan `sudo sh deploy/ubuntu/backup.sh`.
 
 - **Simpan `.env` bersama database.** `APP_KEY` di dalamnya mendekripsi credential gateway dan OAuth yang tersimpan; database yang dipulihkan dengan key lain tidak bisa memakainya.
 - **Salin backup ke luar VPS** (provider atau region lain) dan enkripsi di sana. Isinya secret dan data pribadi pembeli, jadi perlakukan seperti database production.

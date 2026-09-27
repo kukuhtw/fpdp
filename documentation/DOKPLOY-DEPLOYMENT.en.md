@@ -8,7 +8,7 @@ The repository includes a production-oriented Dokploy Compose deployment:
 - MySQL 8.4 on a private Compose network;
 - automatic, repeatable database migrations before Apache starts;
 - optional idempotent first-owner bootstrap;
-- persistent volumes for MySQL and `storage/` (including CV documents and the install lock);
+- persistent volumes for MySQL and `storage/` (media, product files, and the install lock);
 - app and database health checks;
 - a `federation-worker` service that continuously delivers pending ActivityPub activities (follow, accept, post, etc.) to remote inboxes — without it, follow requests stay queued as PENDING and are never actually sent;
 - a `scheduler` service that every 15 minutes syncs external feeds (`sync-external.php`) and reconciles payments with the gateways (`scripts/reconcile-payments.php`);
@@ -193,7 +193,7 @@ Restore from the pre-deployment backup when a destructive/incompatible migration
 At minimum, back up both named volumes:
 
 - `fpdp_mysql`: database and migration state;
-- `fpdp_storage`: CV documents, runtime files, and install lock.
+- `fpdp_storage`: media, product files, runtime files, and install lock.
 
 A logical database backup can be created from the Dokploy terminal or server shell:
 
@@ -214,7 +214,7 @@ Keep backups outside the same server/volume and encrypt them at rest. Test resto
 | Domain returns 404/502 | Domain must target service `app`, port `80`; redeploy after domain changes and confirm app health check |
 | Migration fails | Inspect the exact migration in logs; do not delete the database volume as a shortcut; restore or correct forward |
 | Owner bootstrap fails | Password must be 12–128 characters; handle must match lowercase letters/numbers/hyphens and be 3–63 characters |
-| CV disappears after redeploy | Confirm `fpdp_storage:/var/www/html/storage` is attached and was not deleted |
+| Uploaded media or product files disappear after redeploy | Confirm `fpdp_storage:/var/www/html/storage` is attached and was not deleted |
 | App exposes debug details | Set `APP_ENV=production` and `APP_DEBUG=false`, then redeploy |
 | Installer is reachable | `DISABLE_WEB_INSTALLER=true` creates the persistent install lock during every startup |
 

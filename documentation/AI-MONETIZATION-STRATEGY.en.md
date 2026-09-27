@@ -1,5 +1,7 @@
 # FPDP AI Interaction and Monetization Strategy (English)
 
+> **Note (September 27, 2026):** the paid CV/resume download described in this document was removed from the application by product decision. Files are sold as digital products in the shop. Mentions of CV below are kept as historical context.
+
 ## 1. Purpose and implementation status
 
 This document defines the **target design** for six additions requested as a BRD/PRD addendum: owner-configurable LLM providers, paid CV/resume access, a paid profile chatbot, mandatory Google OAuth for any visitor interaction, daily traffic analytics, and an ad banner marketplace.

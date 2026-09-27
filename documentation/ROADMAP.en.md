@@ -333,7 +333,7 @@ Tasks, in order (each numbered step below matches the strategy document's Sectio
 
 1. Visitor identity via Google OAuth (`visitor_accounts`, `visitor_tokens`, redirect/callback endpoints).
 2. LLM provider abstraction (`LLMProviderInterface`, `LLMProviderFactory` for OpenAI/Anthropic, `llm_configs`).
-3. Paid CV/resume access (`cv_documents`, `cv_access_grants`).
+3. ~~Paid CV/resume access (`cv_documents`, `cv_access_grants`).~~ Built, then **removed September 27, 2026** by product decision; files are sold as digital products in the shop.
 4. Paid chatbot grounded in the owner's own profile/CV content (`chat_sessions`, `chat_messages`).
 5. Daily traffic and unique-visitor analytics (`page_views`, `analytics_daily`).
 6. Ad banner marketplace with daily/weekly/monthly pricing (`ad_slots`, `ad_bookings`).
@@ -341,7 +341,7 @@ Tasks, in order (each numbered step below matches the strategy document's Sectio
 Exit criteria:
 
 - a visitor can view a public profile without signing in, but is prompted for Google sign-in the moment they attempt a paid or interactive action;
-- CV access and chatbot sessions are billed through the existing `PaymentGatewayInterface`, never a hard-coded provider;
+- chatbot sessions (and, while it existed, CV access) are billed through the existing `PaymentGatewayInterface`, never a hard-coded provider;
 - LLM usage is rate-limited and cost-bounded per node, and fails closed (not to a shared default) when unconfigured;
 - an owner can see yesterday's unique-visitor and page-view counts;
 - an advertiser's booking only goes live after the owner approves the creative, and expires automatically at the end of its paid period.

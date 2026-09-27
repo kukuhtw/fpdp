@@ -26,7 +26,7 @@
   ];
   const PAGE_LABELS = {
     home: 'Beranda', profile: 'Profil', about_me: 'Tentang Saya', coretan: 'Coretan', youtube: 'YouTube',
-    timeline: 'Timeline', about_fpdp: 'Tentang FPDP', shop: 'Toko', cv: 'CV & Resume', post: 'Post', product: 'Produk',
+    timeline: 'Timeline', about_fpdp: 'Tentang FPDP', shop: 'Toko', cv: 'CV (fitur lama)', post: 'Post', product: 'Produk',
   };
 
   const token = () => sessionStorage.getItem(tokenKey);

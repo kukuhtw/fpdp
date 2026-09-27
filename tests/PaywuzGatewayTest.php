@@ -35,7 +35,7 @@ $result = $gateway->createPayment([
     'order_id' => 'ORD-TEST-1',
     'amount' => 50000,
     'redirect_url' => 'https://example.test/return',
-    'metadata' => ['purpose' => 'cv_access', 'document_id' => 1, 'visitor_id' => 2],
+    'metadata' => ['purpose' => 'marketplace_order', 'order_public_id' => 'order-1', 'visitor_id' => 2],
 ]);
 
 paywuz_assert($capturedRequest['method'] === 'POST', 'createPayment should POST');
@@ -45,7 +45,7 @@ $sentPayload = json_decode((string) $capturedRequest['body'], true);
 paywuz_assert($sentPayload['orderId'] === 'ORD-TEST-1', 'Sent payload should carry the order id');
 paywuz_assert($sentPayload['amount'] === 50000, 'Sent payload should carry the integer amount');
 paywuz_assert($sentPayload['paymentMethod'] === 'ALL', 'Sent payload should default paymentMethod to ALL');
-paywuz_assert($sentPayload['metadata']['purpose'] === 'cv_access', 'Sent payload should carry metadata through');
+paywuz_assert($sentPayload['metadata']['purpose'] === 'marketplace_order', 'Sent payload should carry metadata through');
 
 paywuz_assert($result['gateway'] === 'PAYWUZ', 'Result should report gateway PAYWUZ');
 paywuz_assert($result['status'] === 'PENDING', 'A freshly created Paywuz payment should be PENDING');

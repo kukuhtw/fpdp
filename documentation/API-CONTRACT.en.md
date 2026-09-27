@@ -100,6 +100,8 @@ Post writes accept up to 10 ordered media metadata items (`IMAGE`, `VIDEO`, `AUD
 | POST | `/products` | Bearer | Create a local product |
 | GET | `/products/{productId}` | Public | Read product details |
 | PATCH | `/products/{productId}` | Bearer | Update an owned product |
+| GET | `/products/{productId}/download` | Visitor Bearer (a paid order) | Download list: `digital_asset_url` and files, each with a `download_url` valid 15 minutes |
+| GET | `/products/{productId}/digital-assets/{kind}/file` | `?visitor=&expires=&token=` (15 minutes) | The file itself, for a plain link; the purchase is re-checked |
 | POST | `/orders` | Public/optional Bearer | Create an order and immutable total snapshot |
 | GET | `/orders/{orderId}` | Bearer/order token | Read an order |
 | POST | `/orders/{orderId}/payments` | Bearer/order token | Create a payment attempt; requires `Idempotency-Key` |

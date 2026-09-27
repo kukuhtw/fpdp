@@ -44,7 +44,7 @@ a:hover{text-decoration:underline}
 .mn-main-narrow{width:min(560px,calc(100% - 32px))}
 
 /* Core semantic classes reused by shared JS (wall-coretan.js) and
-   the about-me/youtube/CV pages — a theme must restyle these under its own
+   the about-me/youtube pages — a theme must restyle these under its own
    palette rather than rename them, since the JS creates elements with these
    exact class names at runtime. */
 .panel{padding:20px 22px;border:1px solid var(--mn-line);border-radius:2px}
@@ -75,7 +75,6 @@ button:disabled,.button:disabled{opacity:.4;cursor:not-allowed}
 .profile-hero{display:flex;gap:20px;align-items:flex-start}
 .avatar{flex:0 0 56px;height:56px;border-radius:2px;display:grid;place-items:center;background:var(--mn-ink);color:#fff;font-weight:700;font-size:1.4rem}
 .avatar-photo{flex:0 0 56px;width:56px;height:56px;border-radius:2px;object-fit:cover;display:block}
-.cv-price{font-weight:700;color:var(--mn-accent);margin:.3em 0}
 
 .mn-panel{padding:20px 22px;border:1px solid var(--mn-line);border-radius:2px}
 .mn-panel h1{font-size:1.6rem;margin:.2em 0}

@@ -1,6 +1,6 @@
 # Mendapatkan `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`
 
-Dokumen ini menjelaskan konfigurasi Google OAuth untuk login pengunjung FPDP. Login ini dipakai sebelum pengunjung membeli atau mengunduh CV/resume.
+Dokumen ini menjelaskan konfigurasi Google OAuth untuk login pengunjung FPDP. Login ini dipakai sebelum pengunjung membeli produk di toko, mengunduh produk digital yang sudah dibayar, atau top-up saldo chatbot.
 
 FPDP menggunakan OAuth 2.0 tipe **Web application** dan hanya meminta scope identitas dasar:
 
@@ -92,16 +92,16 @@ Jangan menaruh secret asli di `.env.example` atau `.env.dokploy.example`; kedua 
 
 ## 6. Uji konfigurasi
 
-1. Pastikan profile owner dan CV sudah tersedia.
+1. Pastikan profile owner dan minimal satu produk sudah tersedia.
 2. Buka:
 
    ```text
-   https://DOMAIN/@HANDLE/cv
+   https://DOMAIN/shop/PRODUCT_ID
    ```
 
 3. Klik **Masuk dengan Google**.
 4. Pilih akun Google dan selesaikan consent.
-5. Setelah callback, browser harus kembali ke halaman CV dan tombol pembelian/download akan tersedia sesuai hak akses.
+5. Setelah callback, browser harus kembali ke halaman produk dan tombol pembelian/download akan tersedia sesuai hak akses.
 
 ## 7. Troubleshooting
 

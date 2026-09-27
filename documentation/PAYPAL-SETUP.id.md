@@ -104,7 +104,7 @@ PAYPAL_WEBHOOK_ID=WEBHOOK_ID_SANDBOX_ANDA
 PAYPAL_ENVIRONMENT=SANDBOX
 ```
 
-Gateway untuk pembayaran CV/resume mengikuti `nodes.active_gateway`. Aktifkan PayPal dari menu payment gateway dashboard atau endpoint `PUT /api/v1/me/payment-gateways/PAYPAL/activate`. Implementasi saat ini tidak memilih gateway CV dari `CV_PAYMENT_GATEWAY`.
+Gateway untuk checkout toko dan top-up mengikuti `nodes.active_gateway`. Aktifkan PayPal dari menu payment gateway dashboard atau endpoint `PUT /api/v1/me/payment-gateways/PAYPAL/activate`. Implementasi saat ini tidak memilih gateway CV dari `CV_PAYMENT_GATEWAY`.
 
 Untuk Dokploy:
 
@@ -136,8 +136,8 @@ Endpoint memerlukan bearer token owner. Secret disimpan terenkripsi dan tidak di
 
 ## 6. Uji Sandbox
 
-1. Pastikan CV berbayar menggunakan mata uang `USD`.
-2. Buka halaman publik `/@HANDLE/cv`.
+1. Pastikan produk yang diuji menggunakan mata uang `USD`.
+2. Buka halaman publik produk `/shop/PRODUCT_ID`.
 3. Login sebagai visitor lalu pilih pembelian akses.
 4. Pada halaman PayPal Sandbox, login memakai akun **Personal/Buyer Sandbox**, bukan akun PayPal asli.
 5. Selesaikan pembayaran.
@@ -198,9 +198,9 @@ Pastikan Webhook ID berasal dari app dan environment yang mengirim event. Jangan
 
 Pastikan URL memakai HTTPS publik, tidak dilindungi basic auth/firewall, dapat menerima `POST`, dan tidak mengarah ke localhost. Periksa delivery log pada Developer Dashboard. PayPal akan mencoba ulang delivery yang tidak mendapat respons `2xx`.
 
-### Pembayaran CV gagal karena mata uang
+### Pembayaran gagal karena mata uang
 
-PayPal tidak mendukung penerimaan IDR pada adapter FPDP. Atur harga CV dalam USD sebelum mengaktifkan PayPal sebagai gateway node.
+PayPal tidak mendukung penerimaan IDR pada adapter FPDP. Atur harga produk dalam USD sebelum mengaktifkan PayPal sebagai gateway node.
 
 Penjelasan lengkap mengenai prioritas `.env`, database, status dashboard, serta pemilihan Sandbox/Live tersedia di [Konfigurasi Payment Gateway FPDP](PAYMENT-GATEWAY-CONFIGURATION.id.md).
 

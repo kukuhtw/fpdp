@@ -300,13 +300,7 @@ $marketplace = new MarketplaceService(
     new NodeRepository($connection),
 );
 $marketplaceController = new MarketplaceController($authService, $marketplace, null, $profileService, $visitorAuth);
-$paymentController = new PaymentController($authService, $paymentService, new App\Services\Cv\CvAccessService(
-    new App\Repositories\CvDocumentRepository($connection),
-    new App\Repositories\CvAccessGrantRepository($connection),
-    $paymentService,
-    new NodeRepository($connection),
-    sys_get_temp_dir(),
-), $marketplace);
+$paymentController = new PaymentController($authService, $paymentService, $marketplace);
 
 $router = new Router();
 $router->post('/api/v1/products', fn (Request $r, array $p) => $marketplaceController->createProduct($r));
@@ -346,7 +340,7 @@ assert_that($unauthCheckout->status === 401, "Checkout without a visitor token d
 $noGateway = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode(['items' => [['product_id' => $physicalId, 'quantity' => 1]], 'shipping_address' => 'Jl. Contoh No. 1, Jakarta']), bearer($buyerToken)));
 assert_that($noGateway->status === 409, "Checkout with no active gateway did not return 409, got {$noGateway->status}: {$noGateway->body}");
 
-// The owner activates DUMMY (no credentials required for it, same as CV's flow).
+// The owner activates DUMMY (no credentials required for it).
 $activate = $router->dispatch(new Request('PUT', '/api/v1/me/payment-gateways/DUMMY/activate', [], null, bearer($ownerToken)));
 assert_that($activate->status === 200, "Activating DUMMY failed: {$activate->body}");
 
@@ -439,7 +433,7 @@ $connection->exec("UPDATE products SET visibility = 'PUBLIC' WHERE public_id = '
 // back an order_id). The "manual-transfer" gateway plugin (from the
 // payment-gateway-plugin feature) is a genuine async gateway, so use it —
 // this also doubles as proof that a plugin-provided gateway works for
-// marketplace checkout, not just for CV access.
+// marketplace checkout.
 $gatewayList = $router->dispatch(new Request('GET', '/api/v1/me/payment-gateways', [], null, bearer($ownerToken)));
 assert_that($gatewayList->status === 200, "Listing gateways failed: {$gatewayList->body}");
 $manualEntry = null;

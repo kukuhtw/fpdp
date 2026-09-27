@@ -14,8 +14,6 @@ use App\Core\Http\Request;
 use App\Core\Router;
 use App\Repositories\AuditEventRepository;
 use App\Repositories\AuthTokenRepository;
-use App\Repositories\CvAccessGrantRepository;
-use App\Repositories\CvDocumentRepository;
 use App\Repositories\LlmConfigRepository;
 use App\Repositories\NodeRepository;
 use App\Repositories\PaymentGatewayConfigRepository;
@@ -24,7 +22,6 @@ use App\Repositories\ProfileRepository;
 use App\Repositories\UserRepository;
 use App\Services\Auth\AuthService;
 use App\Services\Content\MediaUploadService;
-use App\Services\Cv\CvAccessService;
 use App\Services\Llm\LLMConfigService;
 use App\Services\Payment\PaymentService;
 use App\Services\Security\AuditService;
@@ -55,7 +52,6 @@ foreach ([
     'CREATE TABLE payment_gateway_configs (id INTEGER PRIMARY KEY AUTOINCREMENT, gateway_id INTEGER NOT NULL, config_key TEXT NOT NULL, encrypted_value TEXT NOT NULL, environment TEXT DEFAULT "SANDBOX", is_active INTEGER DEFAULT 1, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (gateway_id, config_key, environment))',
     'CREATE TABLE payments (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT NOT NULL UNIQUE, order_id TEXT NOT NULL, gateway_code TEXT NOT NULL, external_transaction_id TEXT, payment_method TEXT, currency TEXT NOT NULL DEFAULT "IDR", amount REAL NOT NULL DEFAULT 0, fee REAL NOT NULL DEFAULT 0, refunded_amount REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT "PENDING", payment_url TEXT, metadata TEXT, expired_at TIMESTAMP, paid_at TIMESTAMP, refunded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE payment_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, payment_id INTEGER NOT NULL, provider TEXT NOT NULL, external_id TEXT, event_type TEXT NOT NULL, status TEXT NOT NULL, payload TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (provider, external_id))',
-    'CREATE TABLE cv_access_grants (id INTEGER PRIMARY KEY AUTOINCREMENT, cv_document_id INTEGER NOT NULL, visitor_id INTEGER NOT NULL, payment_reference TEXT, granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (cv_document_id, visitor_id))',
     'CREATE TABLE llm_configs (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER UNIQUE, provider_code TEXT, model TEXT, encrypted_api_key TEXT, supports_vision INTEGER DEFAULT 0, status TEXT DEFAULT "ACTIVE", created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
 ] as $sql) {
     $db->exec($sql);
@@ -107,8 +103,7 @@ oaa_assert((int) $auth->authenticate($ownerToken)['user']['id'] === $ownerId, 'a
 
 // ---- 3. Sensitive payment actions are audited, without secrets or buyer data ----
 $payments = new PaymentService(payments: new PaymentRepository($db), gatewayConfigs: new PaymentGatewayConfigRepository($db), nodes: $nodes);
-$cvAccess = new CvAccessService(new CvDocumentRepository($db), new CvAccessGrantRepository($db), $payments, $nodes, sys_get_temp_dir());
-$paymentController = new PaymentController($auth, $payments, $cvAccess, null, null, $audit);
+$paymentController = new PaymentController($auth, $payments, null, null, $audit);
 $llmController = new LlmController(
     $auth,
     new LLMConfigService(new LlmConfigRepository($db), new MediaUploadService(sys_get_temp_dir())),
@@ -138,7 +133,7 @@ oaa_assert(str_contains((string) $configured[0]['metadata'], 'api_key') && !str_
 oaa_assert($call('PUT', '/api/v1/me/payment-gateways/PAYWUZ/activate')['status'] === 200, 'activating Paywuz should succeed');
 oaa_assert(str_contains((string) ($auditRows('payment_gateway.activated')[0]['metadata'] ?? ''), 'PAYWUZ'), 'gateway activation should be audited with the gateway code');
 
-$buyerMeta = json_encode(['purpose' => 'cv_access', 'document_id' => 1, 'visitor_id' => 9, 'buyer_name' => 'Siti Buyer', 'buyer_phone' => '081299990000', 'buyer_email' => 'siti@example.com']);
+$buyerMeta = json_encode(['purpose' => 'marketplace_order', 'order_public_id' => 'no-such-order', 'visitor_id' => 9, 'buyer_name' => 'Siti Buyer', 'buyer_phone' => '081299990000', 'buyer_email' => 'siti@example.com']);
 $insert = $db->prepare("INSERT INTO payments (uuid, order_id, gateway_code, external_transaction_id, amount, status, metadata) VALUES (:uuid, :order, 'DUMMY', :order, 50000, :status, :meta)");
 $insert->execute(['uuid' => '11111111-1111-4111-8111-111111111111', 'order' => 'ORD-A', 'status' => 'PENDING', 'meta' => $buyerMeta]);
 $insert->execute(['uuid' => '22222222-2222-4222-8222-222222222222', 'order' => 'ORD-B', 'status' => 'PENDING', 'meta' => $buyerMeta]);
@@ -173,7 +168,7 @@ oaa_assert(!str_contains((string) $llmAudit[0]['metadata'], $llmKey), 'the LLM A
 $db->exec('DROP TABLE audit_events');
 oaa_assert($threw(fn () => $auth->login(['email' => 'owner@example.com', 'password' => 'correct horse battery']), Throwable::class) === false, 'login must still work when the audit write fails');
 
-unset($router, $llmController, $paymentController, $cvAccess, $payments, $auth, $audit, $nodes, $db);
+unset($router, $llmController, $paymentController, $payments, $auth, $audit, $nodes, $db);
 Database::reset();
 gc_collect_cycles();
 unlink($envPath);

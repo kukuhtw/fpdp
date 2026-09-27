@@ -50,7 +50,7 @@ $chrome = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, 
 $cases = [
     '/' => ['PAGE_VIEW', 'home', null], '/shop' => ['PAGE_VIEW', 'shop', null], '/about' => ['PAGE_VIEW', 'about_fpdp', null],
     '/shop/abc-123' => ['PAGE_VIEW', 'product', 'abc-123'], '/posts/42' => ['POST_VIEW', 'post', '42'],
-    '/posts/42-halo-dunia' => ['POST_VIEW', 'post', '42'], '/@kukuh' => ['PROFILE_VIEW', 'profile', null], '/@kukuh/cv' => ['PAGE_VIEW', 'cv', null],
+    '/posts/42-halo-dunia' => ['POST_VIEW', 'post', '42'], '/@kukuh' => ['PROFILE_VIEW', 'profile', null],
     '/timeline/' => ['PAGE_VIEW', 'timeline', null],
 ];
 foreach ($cases as $path => $expected) {

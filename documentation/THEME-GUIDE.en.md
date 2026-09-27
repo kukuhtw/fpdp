@@ -18,7 +18,6 @@ themes/
       youtube.php
       wall-coretan.php
       post.php
-      public-cv.php
     assets/              (optional)
       theme.css
       (fonts, images, etc. — static files only)
@@ -51,7 +50,6 @@ Only these exact filenames are recognized as public-page overrides. Anything els
 | `youtube.php` | YouTube videos page |
 | `wall-coretan.php` | Public wall/coretan page |
 | `post.php` | Single post page |
-| `public-cv.php` | Public CV page |
 
 **You don't have to provide all of them.** A page with no override file automatically renders with the core template (`app/Views/{name}.php`, the "Default" theme). This means a theme can start small — e.g. override just `profile.php` — and grow incrementally.
 

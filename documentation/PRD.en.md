@@ -1,5 +1,7 @@
 # Product Requirements Document (PRD)
 
+> **Note (September 27, 2026):** the paid CV/resume download described in this document was removed from the application by product decision. Files are sold as digital products in the shop. Mentions of CV below are kept as historical context.
+
 ## 1. Product summary
 
 FPDP is a personal digital home that gives users a private domain, profile, social feed, personal online shop, and payment endpoint. Independent nodes connect through federation, so products from each node's shop spread to the fediverse and can be ordered from other nodes (federated commerce).

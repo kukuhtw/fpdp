@@ -181,7 +181,7 @@ Pulihkan backup sebelum deployment jika migration destruktif tidak dapat diperba
 Minimal backup kedua named volume:
 
 - `fpdp_mysql`: database dan migration state;
-- `fpdp_storage`: dokumen CV, runtime files, dan install lock.
+- `fpdp_storage`: media, file produk, runtime files, dan install lock.
 
 Contoh logical backup dari terminal Dokploy atau shell server:
 
@@ -202,7 +202,7 @@ Simpan backup di luar server/volume yang sama, enkripsi saat disimpan, dan uji r
 | Domain 404/502 | Domain harus menuju service `app`, port `80`; redeploy dan periksa health app |
 | Migration gagal | Periksa migration spesifik pada log; jangan menghapus volume database sebagai jalan pintas |
 | Bootstrap owner gagal | Password 12–128 karakter; handle huruf kecil/angka/hyphen sepanjang 3–63 karakter |
-| CV hilang setelah redeploy | Pastikan volume `fpdp_storage:/var/www/html/storage` tetap terpasang |
+| Media atau file produk hilang setelah redeploy | Pastikan volume `fpdp_storage:/var/www/html/storage` tetap terpasang |
 | Detail debug terlihat | Atur `APP_ENV=production`, `APP_DEBUG=false`, lalu redeploy |
 | Installer dapat dijalankan | `DISABLE_WEB_INSTALLER=true` membuat install lock persisten setiap startup |
 

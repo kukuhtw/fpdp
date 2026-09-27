@@ -100,6 +100,8 @@ Penulisan post menerima maksimal 10 metadata media terurut (`IMAGE`, `VIDEO`, `A
 | POST | `/products` | Bearer | Membuat produk lokal |
 | GET | `/products/{productId}` | Publik | Membaca detail produk |
 | PATCH | `/products/{productId}` | Bearer | Memperbarui produk milik user |
+| GET | `/products/{productId}/download` | Visitor Bearer (order sudah dibayar) | Daftar unduhan: `digital_asset_url` dan file, masing-masing dengan `download_url` berlaku 15 menit |
+| GET | `/products/{productId}/digital-assets/{kind}/file` | `?visitor=&expires=&token=` (15 menit) | File-nya sendiri, untuk link biasa; pembelian diperiksa ulang |
 | POST | `/orders` | Publik/Bearer opsional | Membuat order dan snapshot total immutable |
 | GET | `/orders/{orderId}` | Bearer/order token | Membaca order |
 | POST | `/orders/{orderId}/payments` | Bearer/order token | Membuat payment attempt; wajib `Idempotency-Key` |

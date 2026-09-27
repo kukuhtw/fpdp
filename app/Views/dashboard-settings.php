@@ -67,7 +67,7 @@
 
         <section class="panel" id="language-panel">
             <h2>Bahasa halaman publik</h2>
-            <p class="muted">Bahasa yang dipakai halaman untuk pengunjung (beranda, profil, toko, CV, timeline). Pengunjung bisa berpindah di antara bahasa yang aktif lewat tombol di navigasi; tanpa pilihan, dipakai bahasa browser mereka bila aktif, lalu bahasa default. Isi yang Anda tulis sendiri (bio, post, produk) tidak diterjemahkan.</p>
+            <p class="muted">Bahasa yang dipakai halaman untuk pengunjung (beranda, profil, toko, timeline). Pengunjung bisa berpindah di antara bahasa yang aktif lewat tombol di navigasi; tanpa pilihan, dipakai bahasa browser mereka bila aktif, lalu bahasa default. Isi yang Anda tulis sendiri (bio, post, produk) tidak diterjemahkan.</p>
             <form id="language-form" class="stack">
                 <fieldset class="stack">
                     <legend>Bahasa aktif</legend>

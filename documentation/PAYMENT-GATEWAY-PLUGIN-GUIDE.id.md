@@ -4,7 +4,7 @@
 
 Selain empat gateway bawaan (Dummy, Paywuz, Midtrans, PayPal), FPDP mendukung **plugin payment gateway** berbasis folder — mekanisme yang sama seperti sistem Template (`/themes/`), tapi untuk metode pembayaran. Pemilik akun memasang plugin dengan **menyalin folder ke `/gateways/` di server**, lalu mengonfigurasi dan mengaktifkannya dari **Dashboard → Settings** (`/dashboard/settings`) — persis alur yang sama seperti gateway bawaan, karena plugin memakai API dan mesin konfigurasi/enkripsi yang sama.
 
-Begitu aktif, gateway plugin otomatis terpakai di **semua** alur checkout yang sudah ada — termasuk pembelian akses **CV/Resume** (`POST /api/v1/profiles/{handle}/cv/access`) — tanpa perubahan apa pun di kode CV. Alur itu hanya membaca `nodes.active_gateway` dan memanggil gateway apa pun yang sedang aktif.
+Begitu aktif, gateway plugin otomatis terpakai di **semua** alur checkout yang sudah ada — termasuk checkout **toko** (`POST /api/v1/profiles/{handle}/orders`) dan top-up saldo chatbot — tanpa perubahan apa pun di kode CV. Alur itu hanya membaca `nodes.active_gateway` dan memanggil gateway apa pun yang sedang aktif.
 
 **Peringatan keamanan — baca sebelum memasang plugin apa pun:**
 
@@ -83,10 +83,10 @@ Lihat `gateways/manual-transfer/Gateway.php` di repository ini sebagai contoh ke
 
 ## 3. Cara kerja tiap method
 
-- **`createPayment()`** dipanggil saat pengunjung membeli sesuatu berharga (mis. akses CV). Kembalikan array dengan minimal `status` (`PENDING`/`PAID`/dst.), `order_id`, `amount`, `currency`; opsional `payment_url` (jika gateway Anda mengarahkan pengunjung ke halaman checkout eksternal) atau field bebas lain (mis. `instructions`) yang akan diteruskan apa adanya ke response API dan front-end.
+- **`createPayment()`** dipanggil saat pengunjung membeli sesuatu berharga (mis. produk di toko). Kembalikan array dengan minimal `status` (`PENDING`/`PAID`/dst.), `order_id`, `amount`, `currency`; opsional `payment_url` (jika gateway Anda mengarahkan pengunjung ke halaman checkout eksternal) atau field bebas lain (mis. `instructions`) yang akan diteruskan apa adanya ke response API dan front-end.
 - **`verifyWebhook()`** dipanggil sebelum `handleWebhook()` setiap kali ada request masuk ke `POST /api/v1/payments/webhook/{CODE}` (endpoint publik, tanpa bearer token — inilah yang mengautentikasi request, bukan token). Kembalikan `false` untuk menolak (FPDP membalas 401) jika signature/secret tidak cocok.
 - **`handleWebhook()`** mengembalikan event yang sudah dinormalisasi: `order_id`, `status` (harus salah satu dari `PAID`/`FAILED`/`CANCELLED` agar status payment lokal ikut berubah), `event_id` (untuk deduplikasi).
-- Begitu payment lokal berubah status ke `PAID`, FPDP otomatis menyelesaikan fitur terkait lewat metadata yang disimpan saat `createPayment()` dipanggil (lihat `PaymentController::fulfill()`) — untuk CV, ini berarti akses otomatis diberikan ke pengunjung. **Anda tidak perlu menulis kode apa pun untuk mengintegrasikan ke CV/Resume atau fitur checkout lain** — itu semua sudah generik terhadap kode gateway.
+- Begitu payment lokal berubah status ke `PAID`, FPDP otomatis menyelesaikan fitur terkait lewat metadata yang disimpan saat `createPayment()` dipanggil (lihat `PaymentController::fulfill()`) — untuk order toko, ini berarti order otomatis selesai dan produk digital bisa diunduh pembeli. **Anda tidak perlu menulis kode apa pun untuk mengintegrasikan ke CV/Resume atau fitur checkout lain** — itu semua sudah generik terhadap kode gateway.
 
 ## 4. Cara instalasi plugin (yang dibuat orang lain)
 
@@ -95,7 +95,7 @@ Lihat `gateways/manual-transfer/Gateway.php` di repository ini sebagai contoh ke
 3. Salin folder itu ke `/gateways/` di server FPDP Anda — lewat FTP, file manager hosting, atau `scp`/`rsync` via SSH.
 4. Buka **Dashboard → Settings** (`/dashboard/settings`), muat ulang halaman — gateway baru otomatis muncul di daftar dengan label **PLUGIN**.
 5. Klik **Configure**, isi field kredensial (field-nya otomatis sesuai `config_keys` plugin), simpan.
-6. Klik **Set Active** untuk menjadikannya gateway checkout default node Anda — berlaku langsung untuk pembelian CV dan fitur checkout lain, tanpa restart server.
+6. Klik **Set Active** untuk menjadikannya gateway checkout default node Anda — berlaku langsung untuk checkout toko dan fitur pembayaran lain, tanpa restart server.
 
 Tidak ada langkah upload lewat browser secara sengaja — lihat bagian 1 untuk alasannya.
 

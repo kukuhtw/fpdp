@@ -1,5 +1,7 @@
 # Why FPDP — Professional Product Narrative and Value Proposition
 
+> **Note (September 27, 2026):** the paid CV/resume download described in this document was removed from the application by product decision. Files are sold as digital products in the shop. Mentions of CV below are kept as historical context.
+
 > **One digital home. Your identity, audience, content, relationships, and opportunities—under your control.**
 
 ## 1. The short pitch

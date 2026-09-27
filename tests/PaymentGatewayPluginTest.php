@@ -5,25 +5,25 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Contracts\GoogleOAuthClientInterface;
-use App\Controllers\CvController;
+use App\Controllers\MarketplaceController;
 use App\Controllers\PaymentController;
 use App\Core\Config;
 use App\Core\Database;
 use App\Core\Http\Request;
 use App\Core\Router;
 use App\Repositories\AuthTokenRepository;
-use App\Repositories\CvAccessGrantRepository;
-use App\Repositories\CvDocumentRepository;
 use App\Repositories\NodeRepository;
+use App\Repositories\OrderItemRepository;
+use App\Repositories\OrderRepository;
 use App\Repositories\PaymentGatewayConfigRepository;
 use App\Repositories\PaymentRepository;
+use App\Repositories\ProductRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
 use App\Repositories\VisitorTokenRepository;
 use App\Services\Auth\AuthService;
-use App\Services\Cv\CvAccessService;
-use App\Services\Cv\CvDocumentService;
+use App\Services\Marketplace\MarketplaceService;
 use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
 use App\Services\Visitor\VisitorAuthService;
@@ -62,7 +62,6 @@ DB_DATABASE={$dbPath}
 NODE_DOMAIN=test.local
 AUTH_TOKEN_TTL=3600
 VISITOR_TOKEN_TTL=3600
-CV_MAX_FILE_SIZE_BYTES=1048576
 APP_KEY={$appKey}
 ENV);
 
@@ -146,31 +145,9 @@ $connection->exec('
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 ');
-$connection->exec('
-    CREATE TABLE cv_documents (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        public_id TEXT NOT NULL UNIQUE,
-        node_id INTEGER NOT NULL UNIQUE,
-        title TEXT NOT NULL,
-        storage_key TEXT NOT NULL,
-        content_type TEXT NOT NULL DEFAULT "application/pdf",
-        price_amount TEXT NOT NULL DEFAULT "0.00",
-        price_currency TEXT NOT NULL DEFAULT "IDR",
-        status TEXT NOT NULL DEFAULT "ACTIVE",
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-');
-$connection->exec('
-    CREATE TABLE cv_access_grants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cv_document_id INTEGER NOT NULL,
-        visitor_id INTEGER NOT NULL,
-        payment_reference TEXT,
-        granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (cv_document_id, visitor_id)
-    )
-');
+$connection->exec('CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT NOT NULL UNIQUE, node_id INTEGER NOT NULL, slug TEXT, title TEXT NOT NULL, description TEXT, price TEXT NOT NULL DEFAULT "0", currency TEXT NOT NULL DEFAULT "IDR", product_type TEXT NOT NULL DEFAULT "PHYSICAL", digital_asset_url TEXT, digital_asset_metadata TEXT, status TEXT NOT NULL DEFAULT "ACTIVE", visibility TEXT NOT NULL DEFAULT "PUBLIC", is_promoted INTEGER NOT NULL DEFAULT 0, media TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
+$connection->exec('CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT NOT NULL UNIQUE, node_id INTEGER NOT NULL, visitor_id INTEGER, buyer_email TEXT, buyer_name TEXT, status TEXT NOT NULL DEFAULT "PENDING", total_amount TEXT NOT NULL DEFAULT "0", currency TEXT NOT NULL DEFAULT "IDR", notes TEXT, shipping_address TEXT, payment_reference TEXT, remote_actor_uri TEXT, remote_client_reference TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
+$connection->exec('CREATE TABLE order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, product_id INTEGER NOT NULL, product_snapshot TEXT, quantity INTEGER NOT NULL DEFAULT 1, unit_price TEXT NOT NULL DEFAULT "0", subtotal TEXT NOT NULL DEFAULT "0", created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)');
 $connection->exec('
     CREATE TABLE payment_gateways (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -262,23 +239,15 @@ $visitorAuthService = new VisitorAuthService(
 $visitorToken = $visitorAuthService->handleCallback($nodeId, 'any-code', 'https://example.test/callback')['token']['access_token'];
 
 $profileService = new ProfileService(new ProfileRepository($connection));
-$documentService = new CvDocumentService(new CvDocumentRepository($connection), new CvAccessGrantRepository($connection), $storageDir);
 $paymentService = new PaymentService(gatewayConfigs: new PaymentGatewayConfigRepository($connection), nodes: new NodeRepository($connection));
-$accessService = new CvAccessService(
-    new CvDocumentRepository($connection),
-    new CvAccessGrantRepository($connection),
-    $paymentService,
-    new NodeRepository($connection),
-    $storageDir,
-);
-$cvController = new CvController($authService, $profileService, $visitorAuthService, $documentService, $accessService);
-$paymentController = new PaymentController($authService, $paymentService, $accessService);
+$marketplace = new MarketplaceService(new ProductRepository($connection), new OrderRepository($connection), new OrderItemRepository($connection), $paymentService, new NodeRepository($connection));
+$marketplaceController = new MarketplaceController($authService, $marketplace, null, $profileService, $visitorAuthService);
+$paymentController = new PaymentController($authService, $paymentService, $marketplace);
 
 $router = new Router();
-$router->post('/api/v1/me/cv', fn (Request $r, array $p) => $cvController->upload($r));
-$router->get('/api/v1/profiles/{handle}/cv', fn (Request $r, array $p) => $cvController->show($r, $p));
-$router->post('/api/v1/profiles/{handle}/cv/access', fn (Request $r, array $p) => $cvController->grantAccess($r, $p));
-$router->get('/api/v1/profiles/{handle}/cv/download', fn (Request $r, array $p) => $cvController->download($r, $p));
+$router->post('/api/v1/products', fn (Request $r, array $p) => $marketplaceController->createProduct($r));
+$router->post('/api/v1/profiles/{handle}/orders', fn (Request $r, array $p) => $marketplaceController->checkout($r, $p));
+$router->get('/api/v1/products/{productId}/download', fn (Request $r, array $p) => $marketplaceController->getDigitalDownload($r, $p));
 $router->get('/api/v1/me/payment-gateways', fn (Request $r, array $p) => $paymentController->listGateways($r));
 $router->patch('/api/v1/me/payment-gateways/{code}', fn (Request $r, array $p) => $paymentController->updateGateway($r, $p));
 $router->put('/api/v1/me/payment-gateways/{code}/activate', fn (Request $r, array $p) => $paymentController->activateGateway($r, $p));
@@ -352,33 +321,32 @@ assert_that($liveEnv['values']['account_number'] === '1234567890', 'account_numb
 assert_that($liveEnv['values']['account_holder'] === "Alice O'Brien", 'account_holder should round-trip back to the owner with special characters intact');
 assert_that(!array_key_exists('webhook_secret', $liveEnv['values']), 'webhook_secret must NEVER be returned, even though it was just saved: ' . json_encode($liveEnv['values']));
 
-// 3. Owner uploads a priced CV.
-$fileBytes = 'PDF-ish content for the priced CV.';
-$upload = $router->dispatch(new Request('POST', '/api/v1/me/cv', [], json_encode([
-    'title' => 'Alice Resume',
-    'price_amount' => 50000,
-    'price_currency' => 'IDR',
-    'content_type' => 'application/pdf',
-    'content_base64' => base64_encode($fileBytes),
+// 3. Owner lists a priced digital product.
+$created = $router->dispatch(new Request('POST', '/api/v1/products', [], json_encode([
+    'title' => 'Alice Ebook',
+    'price' => 50000,
+    'currency' => 'IDR',
+    'product_type' => 'DIGITAL',
+    'digital_asset_url' => 'https://files.example.com/alice-ebook.pdf',
 ]), bearer($ownerToken)));
-assert_that($upload->status === 201, "Priced CV upload failed: {$upload->body}");
+assert_that($created->status === 201, "Creating the product failed: {$created->body}");
+$productId = json_decode($created->body, true)['data']['public_id'];
 
-// 4. Visitor requests access: the CV purchase flow (unchanged CV/payment
-// code) resolves MANUAL_TRANSFER purely from nodes.active_gateway and
-// creates a PENDING payment carrying this plugin's own instructions —
-// this is "install and switch payment gateway provider, wired into View
-// CV/Resume" working end to end.
-$access = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], json_encode(['name' => 'Alice Buyer', 'phone' => '081234567890']), bearer($visitorToken)));
-assert_that($access->status === 200, "Requesting CV access failed: {$access->body}");
-$accessData = json_decode($access->body, true)['data'];
-assert_that($accessData['granted'] === false, 'A plugin (async) gateway must not grant access synchronously');
-assert_that($accessData['payment']['gateway'] === 'MANUAL_TRANSFER', 'The created payment was not created via the plugin gateway');
-assert_that($accessData['payment']['status'] === 'PENDING', 'A manual-transfer payment should start PENDING');
-assert_that(str_contains((string) $accessData['payment']['instructions'], 'Bank Contoh'), 'Payment instructions did not include the configured bank name');
-$orderId = $accessData['payment']['order_id'];
+// 4. Visitor checks out: the shop resolves MANUAL_TRANSFER purely from
+// nodes.active_gateway and creates a PENDING payment carrying this plugin's
+// own instructions — installing and switching the payment gateway works
+// end to end with no plugin-specific checkout code.
+$checkout = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/orders', [], json_encode(['items' => [['product_id' => $productId, 'quantity' => 1]]]), bearer($visitorToken)));
+assert_that($checkout->status === 201, "Checkout failed: {$checkout->body}");
+$checkoutData = json_decode($checkout->body, true)['data'];
+assert_that($checkoutData['order']['status'] === 'PENDING', 'A plugin (async) gateway must not complete the order synchronously');
+assert_that($checkoutData['payment']['gateway'] === 'MANUAL_TRANSFER', 'The created payment was not created via the plugin gateway');
+assert_that($checkoutData['payment']['status'] === 'PENDING', 'A manual-transfer payment should start PENDING');
+assert_that(str_contains((string) $checkoutData['payment']['instructions'], 'Bank Contoh'), 'Payment instructions did not include the configured bank name');
+$orderId = $checkoutData['payment']['order_id'];
 
-$deniedDownload = $router->dispatch(new Request('GET', '/api/v1/profiles/alice/cv/download', [], null, bearer($visitorToken)));
-assert_that($deniedDownload->status === 402, "Download before payment confirmation should 402, got {$deniedDownload->status}");
+$deniedDownload = $router->dispatch(new Request('GET', "/api/v1/products/{$productId}/download", [], null, bearer($visitorToken)));
+assert_that($deniedDownload->status === 403, "Download before payment confirmation should 403, got {$deniedDownload->status}");
 
 // 5. A webhook confirmation with the wrong secret is rejected.
 $badWebhook = $router->dispatch(new Request(
@@ -391,7 +359,7 @@ $badWebhook = $router->dispatch(new Request(
 assert_that($badWebhook->status === 401, "Webhook with the wrong secret should be rejected, got {$badWebhook->status}");
 
 // 6. The owner confirms the transfer arrived: a correctly-authenticated
-// webhook call marks the payment PAID and grants CV access — exactly the
+// webhook call marks the payment PAID and completes the order — exactly the
 // same fulfil() dispatch PayPal/Midtrans/Paywuz go through.
 $goodWebhook = $router->dispatch(new Request(
     'POST',
@@ -404,10 +372,11 @@ assert_that($goodWebhook->status === 200, "Webhook confirmation failed: {$goodWe
 $webhookData = json_decode($goodWebhook->body, true)['data'];
 assert_that($webhookData['duplicate'] === false, 'The confirmation webhook was incorrectly treated as a duplicate');
 
-$grantedDownload = $router->dispatch(new Request('GET', '/api/v1/profiles/alice/cv/download', [], null, bearer($visitorToken)));
-assert_that($grantedDownload->status === 200 && $grantedDownload->body === $fileBytes, 'CV download after plugin-gateway payment confirmation did not return the uploaded bytes');
+$grantedDownload = $router->dispatch(new Request('GET', "/api/v1/products/{$productId}/download", [], null, bearer($visitorToken)));
+assert_that($grantedDownload->status === 200, "Download after plugin-gateway payment confirmation failed: {$grantedDownload->body}");
+assert_that(json_decode($grantedDownload->body, true)['data']['digital_asset_url'] === 'https://files.example.com/alice-ebook.pdf', 'The paid download should hand out the product file link');
 
-unset($router, $cvController, $paymentController, $accessService, $paymentService, $documentService, $profileService, $visitorAuthService, $authService, $connection);
+unset($router, $marketplaceController, $paymentController, $marketplace, $paymentService, $profileService, $visitorAuthService, $authService, $connection);
 Database::reset();
 gc_collect_cycles();
 unlink($envPath);

@@ -10,7 +10,7 @@
   const reconcileResult = document.querySelector('#reconcile-result');
 
   const purposeLabels = {
-    cv_access: 'Akses CV/Resume',
+    cv_access: 'Akses CV (fitur lama)',
     marketplace_order: 'Pesanan produk',
     wallet_topup: 'Top up saldo chatbot',
   };

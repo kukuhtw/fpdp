@@ -5,14 +5,14 @@
 **Verification date:** September 26, 2026
 **Evidence:** repository routes, controllers, services, repositories, migrations, views, gateway plugins, tests, and deployment configuration—not planning documents alone. The test suite was re-run on the same date (see Section 8).
 
-FPDP is past its core MVP. Since the September 21 report, visitor commerce flows are connected (public product checkout, paid CV access, wallet top-up, manual payment confirmation), a paid LLM + RAG visitor chatbot is live, the owner dashboard has panels for nearly every domain, and federation speaks ActivityPub (WebFinger, actor, inbox/outbox, inbound and outbound federated posts). Payment refunds, cancellation, and reconciliation are now available too. The next focus is validation against real sandboxes/servers, auditing sensitive actions, security settings, and operational hardening.
+FPDP is past its core MVP. Since the September 21 report, visitor commerce flows are connected (public product checkout, wallet top-up, manual payment confirmation), a paid LLM + RAG visitor chatbot is live, the owner dashboard has panels for nearly every domain, and federation speaks ActivityPub (WebFinger, actor, inbox/outbox, inbound and outbound federated posts). Payment refunds, cancellation, and reconciliation are now available too. The next focus is validation against real sandboxes/servers, auditing sensitive actions, security settings, and operational hardening.
 
 Repository snapshot:
 
 - **59 MySQL migrations** (`0001`–`0059`);
 - **57 test scripts**, all passing (see Section 8);
-- REST APIs for identity, profiles, posts, timeline, external feeds, CV, payments, personal online shop (including visitor checkout and digital assets), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, themes, and media upload;
-- real UI: home, unified timeline (local + federated + promoted products), profile, post, shop, product page, public CV, "coretan" wall, YouTube page, payment thank-you page, and 12 owner dashboard pages;
+- REST APIs for identity, profiles, posts, timeline, external feeds, payments, personal online shop (including visitor checkout and digital assets), analytics, federation, LLM config, RAG, chatbot, wallet, wall comments, themes, and media upload;
+- real UI: home, unified timeline (local + federated + promoted products), profile, post, shop, product page, "coretan" wall, YouTube page, payment thank-you page, and 12 owner dashboard pages;
 - 3 public themes: `default`, `editorial`, `minimal`;
 - 6 payment gateways: Dummy, Paywuz, Midtrans, PayPal (built in) + iPaymu and Manual Transfer (plugins under `gateways/`);
 - a Dockerfile and Dokploy Compose deployment — staging live and validated;
@@ -90,11 +90,10 @@ flowchart LR
 
 > Correction: the **Facebook Pages** integration and the **Instagram litescrap** connector listed in the previous report have been **removed** from the repository (commit `629c807`) and are no longer available.
 
-### 3.5 CV and visitor monetization
+### 3.5 CV/Resume download — removed
 
-- Owners upload a CV to `storage/` outside the webroot; replacing it revokes old grants.
-- Public CV page with the real profile photo, access request, paywall, post-payment grant, and protected download.
-- Access grants now store buyer identity (name, email, etc.) and offer extended CV access options.
+- **Removed September 27, 2026** by product decision: the `/cv` and `/@handle/cv` pages, the *CV & Resume* dashboard, the `/api/v1/me/cv` and `/api/v1/profiles/{handle}/cv…` APIs, paid CV access, and the "Download CV" step on the thank-you page. Digital products in the shop are the way to sell files.
+- The `cv_documents`/`cv_access_grants` tables and old files in `storage/cv/` are **not** deleted automatically (they hold data; see Section 7). Old payments with purpose `cv_access` still show in the Payments dashboard labelled "fitur lama" and no longer trigger anything.
 
 ### 3.6 Personal online shop and payment
 
@@ -109,13 +108,14 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 - Per-environment (Sandbox/Live) credentials encrypted with AES-256-GCM in `payment_gateway_configs`; saved non-secret values are shown in Settings, secrets are not.
 - Saving a gateway verifies credentials with the provider (PayPal OAuth, authenticated Midtrans request); activation rejects incomplete configuration.
 - The PayPal environment is read from database config with a `PAYPAL_ENVIRONMENT` fallback; iPaymu follows the same environment dropdown.
-- The gateway code is resolved before payment validation (products, CV, and wallet top-up).
+- The gateway code is resolved before payment validation (products and wallet top-up).
+- **Digital product download fix (September 27, 2026):** the file download buttons shown after payment used to fetch the file in JavaScript and save it as a *blob*, which does nothing on many phones and in-app browsers (WhatsApp, Instagram, Facebook). Each file now gets a signed link valid for 15 minutes (`/api/v1/products/{id}/digital-assets/{kind}/file?visitor=&expires=&token=`, HMAC with `APP_KEY`, bound to the buyer and the file kind, the purchase re-checked at download time) that the browser downloads directly, on the product page and the thank-you page. Non-ASCII filenames are sent with `filename*`. New `DigitalDownloadTest`.
 - Webhook verification and duplicate-event handling.
-- **Payment confirmation page** for product/CV/wallet, confirmation links across all themes, and a thank-you page (`/payment/thank-you`).
+- **Payment confirmation page** for product/wallet, confirmation links across all themes, and a thank-you page (`/payment/thank-you`).
 - **Manual confirmation of pending payments** by the owner (`/api/v1/me/payments/pending`, `.../{uuid}/confirm`).
 - Payments dashboard: balance/approximate settlement, success rate, total refunded, recent transactions, and buyer details.
 - **Owner cancellation** (`POST /api/v1/me/payments/{uuid}/cancel`): cancels at the gateway when it has an API (Midtrans, Paywuz, Dummy, Manual Transfer) and still cancels locally when the gateway refuses or has none (PayPal, iPaymu), showing the provider message to the owner. The related order is closed too.
-- **Owner refund** (`POST /api/v1/me/payments/{uuid}/refund`): full or partial (`refunded_amount`, `PARTIALLY_REFUNDED`/`REFUNDED` status, migration `0059`). Gateways with no refund API (Paywuz, iPaymu) use the manual-refund option. A full refund undoes fulfillment through `PaymentFulfillmentService`: CV grant revoked, order set to `REFUNDED`, top-up taken back out of the wallet. Refunding a top-up already partly spent on chat is refused.
+- **Owner refund** (`POST /api/v1/me/payments/{uuid}/refund`): full or partial (`refunded_amount`, `PARTIALLY_REFUNDED`/`REFUNDED` status, migration `0059`). Gateways with no refund API (Paywuz, iPaymu) use the manual-refund option. A full refund undoes fulfillment through `PaymentFulfillmentService`: order set to `REFUNDED`, top-up taken back out of the wallet. Refunding a top-up already partly spent on chat is refused.
 - **Refunds made in the provider's dashboard are now applied**: Midtrans `refund`/`partial_refund` webhooks move a `PAID` payment to `REFUNDED`/`PARTIALLY_REFUNDED`. Previously the refund notification was dropped as a duplicate, because Midtrans reuses the same `transaction_id` for every notification about one transaction.
 - **Reconciliation** (`scripts/reconcile-payments.php` for cron, plus the "Cek status ke gateway" button / `POST /api/v1/me/payments/reconcile`): asks the provider for the status of `PENDING` payments older than 15 minutes, applies terminal statuses, and runs fulfillment. Payments cancelled/failed locally in the last 7 days but `PAID` at the provider are moved to `PAID`, fulfilled, and reported as mismatches. Exit code 1 on any error or mismatch.
 - **Paywuz adapter aligned with the official Merchant API v1 docs**: `getPaymentStatus()` uses `GET /transactions/{orderId}` and `cancelPayment()` uses `POST /transactions/{orderId}/cancel` (previously both threw, as if the endpoints did not exist). `transaction.settlement` stays `PENDING`. Credential verification now uses `GET /payment-methods` and rejects a `pk_live_` key saved under Sandbox, or the reverse.
@@ -148,7 +148,7 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 
 - Daily visitor hashing with HMAC + `APP_KEY`; raw IPs are not stored.
 - Profile view, post view, outbound click, and shop conversion events; dashboard analytics API.
-- Live dashboard pages: Overview, Posts (editor + list), About Me, CV, Products, Orders (buyer info and filters), Payments, Integrations, Federation, RAG, Themes, Settings (gateway, LLM, chatbot), and Coretan.
+- Live dashboard pages: Overview, Posts (editor + list), About Me, Products, Orders (buyer info and filters), Payments, Integrations, Federation, RAG, Themes, Settings (gateway, LLM, chatbot), and Coretan.
 - Theme selection from the dashboard; site navigation unified into one source across all themes.
 
 ### 3.10 Deployment
@@ -178,7 +178,7 @@ Scope: an online shop owned by the website owner (one seller per node, not a mul
 
 - **Analytics page done (September 27, 2026)** at `/dashboard/analytics`: 7/30/90-day ranges, four stat tiles (visits, page views, outbound clicks, shop orders) with the change vs the previous period, a daily line chart (crosshair tooltip, keyboard-operable, responsive down to phone width) with a table view, top pages with post/product titles, where visitors came from (referrer domain only), and outbound links clicked. API `GET /api/v1/me/analytics?days=`.
 - **Correction:** visits used to be recorded only from JSON API endpoints, not from the HTML pages visitors actually open, so analytics were nearly always empty; outbound clicks were never sent either. The front controller now records every successful GET of a public page (after the response is sent), excluding bots, crawlers, fediverse link previews, prefetches, the dashboard, and the API; outbound clicks go through `sendBeacon` to `POST /api/v1/track/outbound-click`. Migration `0063` adds `referrer_host`.
-- **Language settings done (September 27, 2026):** every public page (home, profile, about me, guestbook, timeline, post, YouTube, shop, product, CV, checkout, thank-you page, chatbot widget, navigation, About FPDP) is available in **Indonesian and English** in all three themes. The owner picks the enabled languages and the default one in Settings (`GET/PATCH /api/v1/me/locale-settings`, migration `0062`). A visitor's language comes from `?lang=` (remembered in the `fpdp_lang` cookie), then that cookie, then the browser's `Accept-Language`, then the node default — always limited to the enabled languages. There is a language switcher in the navigation, `<html lang>`, and `hreflang` tags. Catalogs live in `app/Lang/{id,en}/`; a missing key falls back to the other language, a broken catalog file is skipped. Owner-written content is never translated. The owner dashboard is not translated (out of scope).
+- **Language settings done (September 27, 2026):** every public page (home, profile, about me, guestbook, timeline, post, YouTube, shop, product, checkout, thank-you page, chatbot widget, navigation, About FPDP) is available in **Indonesian and English** in all three themes. The owner picks the enabled languages and the default one in Settings (`GET/PATCH /api/v1/me/locale-settings`, migration `0062`). A visitor's language comes from `?lang=` (remembered in the `fpdp_lang` cookie), then that cookie, then the browser's `Accept-Language`, then the node default — always limited to the enabled languages. There is a language switcher in the navigation, `<html lang>`, and `hreflang` tags. Catalogs live in `app/Lang/{id,en}/`; a missing key falls back to the other language, a broken catalog file is skipped. Owner-written content is never translated. The owner dashboard is not translated (out of scope).
 - Node settings still missing: custom CSS/layout and general node config (themes and languages are available).
 - **Session management done (September 27, 2026):** an *Account security* section in Settings lists the devices signed in (device label, IP truncated to /24 or /48, sign-in and last-active times, this-device marker), logs out one device or all others, and **changes the password** (previously impossible) — the current password is required, 12–128 characters, and every other device is logged out. All of it is audited without passwords or full IPs; tokens expired/revoked for over 30 days are deleted at login. Migration `0061`.
 - **2FA done (September 27, 2026)**, optional for the owner account: TOTP (RFC 6238), which works with Google Authenticator, Microsoft Authenticator, Authy, 1Password, Bitwarden, Aegis, and the like. It is turned on under Settings → *Keamanan akun*: scan the QR code (drawn in the browser by the MIT `qrcode-generator` library bundled in the repo, so the secret goes to no third-party service) or type the key by hand, then confirm with a first code. **10 one-time recovery codes** follow (shown once, stored as password hashes). With 2FA on, a correct password only yields a 5-minute challenge (5 tries at most). A session is issued only after a 6-digit code or a recovery code is verified. Each code works once. The secret is encrypted with `APP_KEY` (covered by `rotate-app-key.php`). Turning 2FA on logs other devices out; turning it off needs the password and a code. Every step is audited without secrets or codes. Emergency path if both the phone and the recovery codes are lost: `php scripts/disable-2fa.php --email=…` on the server. `check-requirements.php` now checks clock sync (NTP). Migration `0064`. None of the 15 dashboard login forms needed changing: `owner-login-mfa.js` adds the code step.
@@ -244,13 +244,14 @@ flowchart LR
 
 ## 7. Risks and operational decisions
 
+- **Old CV data (awaiting the owner's decision):** the CV feature is gone, but the `cv_documents`/`cv_access_grants` tables (holding buyer identity) and files in `storage/cv/` remain on servers that used it. Per ISO/IEC 27001:2022 A.8.10 (information deletion), decide whether to archive and then delete them; deletion cannot be undone.
 - Deployment assumes **one owner and one app replica per node**; do not scale before migration locking and shared storage exist.
 - MySQL and `storage/` (CVs, media, digital assets, RAG documents) must be restored from a consistent recovery point.
 - Code rollback does not reverse forward migrations.
 - `APP_KEY` protects OAuth state, analytics HMAC, gateway credentials, and OAuth tokens; rotation must use `scripts/rotate-app-key.php`.
 - Manual payment confirmation grants access/fulfillment without provider proof; it is now in the audit trail (who, when, which payment), but the transfer evidence itself stays outside the system.
 - The chatbot uses the owner's LLM API key; without a spend ceiling, abuse can run up provider bills.
-- **Buyer personal data** (name, email, phone, shipping address) is now stored in orders, payment metadata, and CV grants. In line with ISO/IEC 27001:2022 controls (A.5.34 Privacy and protection of PII, A.8.10 Information deletion, A.8.15 Logging), the following must be defined: a processing basis and privacy notice for buyers, retention and deletion periods, restricted dashboard access, and auditing of access to buyer data.
+- **Buyer personal data** (name, email, phone, shipping address) is now stored in orders and payment metadata (and in old CV grants, if that table is still there). In line with ISO/IEC 27001:2022 controls (A.5.34 Privacy and protection of PII, A.8.10 Information deletion, A.8.15 Logging), the following must be defined: a processing basis and privacy notice for buyers, retention and deletion periods, restricted dashboard access, and auditing of access to buyer data.
 - Payment and federation must be tested against real remote systems before being called production-ready.
 
 ## 8. Latest validation

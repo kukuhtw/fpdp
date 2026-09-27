@@ -1,5 +1,7 @@
 # Business Requirements Document (BRD)
 
+> **Catatan (27 September 2026):** fitur download CV/resume berbayar yang disebut di dokumen ini sudah dihapus dari aplikasi atas keputusan pemilik produk. File dijual sebagai produk digital di toko. Penyebutan CV di bawah dipertahankan sebagai konteks historis.
+
 ## 1. Latar Belakang
 Platform Personal Federation Digital Platform (FPDP) merupakan sistem personal digital home yang memungkinkan setiap individu memiliki domain sendiri, identitas digital sendiri, konten sendiri, dan saluran sosial yang dikoneksikan dari platform eksternal. Tujuan utama platform ini adalah memberi kontrol penuh kepada pengguna terhadap data, identitas, konten, dan pilihan pembayaran mereka.
 

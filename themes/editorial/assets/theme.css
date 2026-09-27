@@ -48,7 +48,7 @@ a:hover{text-decoration:underline}
 .ed-main-narrow{width:min(680px,calc(100% - 32px))}
 
 /* Core semantic classes reused by shared JS (wall-coretan.js) and
-   the about-me/youtube/CV pages — a theme must restyle these under its own
+   the about-me/youtube pages — a theme must restyle these under its own
    palette rather than rename them, since the JS creates elements with these
    exact class names at runtime. */
 .panel{padding:26px 30px;background:var(--ed-card);border:1px solid var(--ed-line);border-radius:4px;font-family:system-ui,sans-serif}
@@ -79,7 +79,6 @@ button:disabled,.button:disabled{opacity:.5;cursor:not-allowed}
 .profile-hero{display:flex;gap:22px;align-items:flex-start}
 .avatar{flex:0 0 64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--ed-accent);color:#fff;font:700 1.8rem Georgia,serif}
 .avatar-photo{flex:0 0 64px;width:64px;height:64px;border-radius:50%;object-fit:cover;display:block}
-.cv-price{font-weight:700;color:var(--ed-accent);font-family:system-ui,sans-serif;margin:.3em 0}
 
 .ed-panel{padding:26px 30px;background:var(--ed-card);border:1px solid var(--ed-line);border-radius:4px}
 .ed-panel h1{font:700 2rem/1.2 Georgia,serif;margin:.2em 0}

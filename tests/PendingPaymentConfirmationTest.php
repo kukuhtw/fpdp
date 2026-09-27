@@ -5,18 +5,19 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Contracts\GoogleOAuthClientInterface;
-use App\Controllers\CvController;
+use App\Controllers\MarketplaceController;
 use App\Controllers\PaymentController;
 use App\Core\Config;
 use App\Core\Database;
 use App\Core\Http\Request;
 use App\Core\Router;
 use App\Repositories\AuthTokenRepository;
-use App\Repositories\CvAccessGrantRepository;
-use App\Repositories\CvDocumentRepository;
 use App\Repositories\NodeRepository;
+use App\Repositories\OrderItemRepository;
+use App\Repositories\OrderRepository;
 use App\Repositories\PaymentGatewayConfigRepository;
 use App\Repositories\PaymentRepository;
+use App\Repositories\ProductRepository;
 use App\Repositories\ProfileRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
@@ -24,7 +25,7 @@ use App\Repositories\VisitorTokenRepository;
 use App\Repositories\VisitorWalletRepository;
 use App\Services\Auth\AuthService;
 use App\Services\Chatbot\VisitorWalletService;
-use App\Services\Cv\CvAccessService;
+use App\Services\Marketplace\MarketplaceService;
 use App\Services\Payment\PaymentService;
 use App\Services\Profile\ProfileService;
 use App\Services\Visitor\VisitorAuthService;
@@ -63,7 +64,6 @@ DB_DATABASE={$dbPath}
 NODE_DOMAIN=test.local
 AUTH_TOKEN_TTL=3600
 VISITOR_TOKEN_TTL=3600
-CV_MAX_FILE_SIZE_BYTES=1048576
 APP_KEY={$appKey}
 ENV);
 
@@ -78,8 +78,9 @@ foreach ([
     'CREATE TABLE auth_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, token_hash TEXT NOT NULL UNIQUE, token_type TEXT NOT NULL DEFAULT "ACCESS", scopes TEXT, expires_at TIMESTAMP NOT NULL, revoked_at TIMESTAMP, public_id TEXT UNIQUE, user_agent TEXT, ip_hint TEXT, last_used_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE visitor_accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT NOT NULL UNIQUE, node_id INTEGER NOT NULL, google_sub TEXT NOT NULL, email TEXT NOT NULL, display_name TEXT, avatar_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (node_id, google_sub))',
     'CREATE TABLE visitor_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, visitor_id INTEGER NOT NULL, token_hash TEXT NOT NULL UNIQUE, expires_at TIMESTAMP NOT NULL, revoked_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-    'CREATE TABLE cv_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT NOT NULL UNIQUE, node_id INTEGER NOT NULL UNIQUE, title TEXT NOT NULL, storage_key TEXT NOT NULL, content_type TEXT NOT NULL DEFAULT "application/pdf", price_amount TEXT NOT NULL DEFAULT "0.00", price_currency TEXT NOT NULL DEFAULT "IDR", status TEXT NOT NULL DEFAULT "ACTIVE", created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
-    'CREATE TABLE cv_access_grants (id INTEGER PRIMARY KEY AUTOINCREMENT, cv_document_id INTEGER NOT NULL, visitor_id INTEGER NOT NULL, payment_reference TEXT, granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (cv_document_id, visitor_id))',
+    'CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT NOT NULL UNIQUE, node_id INTEGER NOT NULL, slug TEXT, title TEXT NOT NULL, description TEXT, price TEXT NOT NULL DEFAULT "0", currency TEXT NOT NULL DEFAULT "IDR", product_type TEXT NOT NULL DEFAULT "PHYSICAL", digital_asset_url TEXT, digital_asset_metadata TEXT, status TEXT NOT NULL DEFAULT "ACTIVE", visibility TEXT NOT NULL DEFAULT "PUBLIC", is_promoted INTEGER NOT NULL DEFAULT 0, media TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE orders (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT NOT NULL UNIQUE, node_id INTEGER NOT NULL, visitor_id INTEGER, buyer_email TEXT, buyer_name TEXT, status TEXT NOT NULL DEFAULT "PENDING", total_amount TEXT NOT NULL DEFAULT "0", currency TEXT NOT NULL DEFAULT "IDR", notes TEXT, shipping_address TEXT, payment_reference TEXT, remote_actor_uri TEXT, remote_client_reference TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, product_id INTEGER NOT NULL, product_snapshot TEXT, quantity INTEGER NOT NULL DEFAULT 1, unit_price TEXT NOT NULL DEFAULT "0", subtotal TEXT NOT NULL DEFAULT "0", created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE payment_gateways (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, name TEXT, adapter_class TEXT, description TEXT, status TEXT DEFAULT "ACTIVE", is_plugin INTEGER DEFAULT 0, config_keys_json TEXT, supports_refund INTEGER DEFAULT 1, supports_recurring INTEGER DEFAULT 0, supports_qris INTEGER DEFAULT 0, supports_va INTEGER DEFAULT 1, supports_credit_card INTEGER DEFAULT 0, supports_ewallet INTEGER DEFAULT 0)',
     'CREATE TABLE payment_gateway_configs (id INTEGER PRIMARY KEY AUTOINCREMENT, gateway_id INTEGER NOT NULL, config_key TEXT NOT NULL, encrypted_value TEXT NOT NULL, environment TEXT DEFAULT "SANDBOX", is_active INTEGER DEFAULT 1, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (gateway_id, config_key, environment))',
     'CREATE TABLE payments (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT NOT NULL UNIQUE, order_id TEXT NOT NULL, gateway_code TEXT NOT NULL, external_transaction_id TEXT, payment_method TEXT, currency TEXT NOT NULL DEFAULT "IDR", amount REAL NOT NULL DEFAULT 0, fee REAL NOT NULL DEFAULT 0, refunded_amount REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT "PENDING", payment_url TEXT, metadata TEXT, expired_at TIMESTAMP, paid_at TIMESTAMP, refunded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
@@ -118,31 +119,24 @@ $visitorToken = $visitorLogin['token']['access_token'];
 $visitor = $visitorLogin['visitor'];
 
 $profileService = new ProfileService(new ProfileRepository($connection));
-$documentService = new \App\Services\Cv\CvDocumentService(new CvDocumentRepository($connection), new CvAccessGrantRepository($connection), $storageDir);
 $paymentService = new PaymentService(gatewayConfigs: new PaymentGatewayConfigRepository($connection), nodes: new NodeRepository($connection));
-$accessService = new CvAccessService(
-    new CvDocumentRepository($connection),
-    new CvAccessGrantRepository($connection),
-    $paymentService,
-    new NodeRepository($connection),
-    $storageDir,
-);
+$marketplace = new MarketplaceService(new ProductRepository($connection), new OrderRepository($connection), new OrderItemRepository($connection), $paymentService, new NodeRepository($connection));
 $walletService = new VisitorWalletService(
     new VisitorWalletRepository($connection),
     new VisitorRepository($connection),
     $paymentService,
     new NodeRepository($connection),
 );
-$cvController = new CvController($authService, $profileService, $visitorAuthService, $documentService, $accessService);
-$paymentController = new PaymentController($authService, $paymentService, $accessService, null, $walletService);
+$marketplaceController = new MarketplaceController($authService, $marketplace, null, $profileService, $visitorAuthService);
+$paymentController = new PaymentController($authService, $paymentService, $marketplace, $walletService);
 
 $router = new Router();
-$router->post('/api/v1/me/cv', fn (Request $r, array $p) => $cvController->upload($r));
-$router->post('/api/v1/profiles/{handle}/cv/access', fn (Request $r, array $p) => $cvController->grantAccess($r, $p));
-$router->get('/api/v1/profiles/{handle}/cv/download', fn (Request $r, array $p) => $cvController->download($r, $p));
-$router->get('/api/v1/me/payment-gateways', fn (Request $r, array $p) => (new \App\Controllers\PaymentController($authService, $paymentService, $accessService))->listGateways($r));
-$router->patch('/api/v1/me/payment-gateways/{code}', fn (Request $r, array $p) => (new \App\Controllers\PaymentController($authService, $paymentService, $accessService))->updateGateway($r, $p));
-$router->put('/api/v1/me/payment-gateways/{code}/activate', fn (Request $r, array $p) => (new \App\Controllers\PaymentController($authService, $paymentService, $accessService))->activateGateway($r, $p));
+$router->post('/api/v1/products', fn (Request $r, array $p) => $marketplaceController->createProduct($r));
+$router->post('/api/v1/profiles/{handle}/orders', fn (Request $r, array $p) => $marketplaceController->checkout($r, $p));
+$router->get('/api/v1/products/{productId}/download', fn (Request $r, array $p) => $marketplaceController->getDigitalDownload($r, $p));
+$router->get('/api/v1/me/payment-gateways', fn (Request $r, array $p) => (new \App\Controllers\PaymentController($authService, $paymentService, $marketplace))->listGateways($r));
+$router->patch('/api/v1/me/payment-gateways/{code}', fn (Request $r, array $p) => (new \App\Controllers\PaymentController($authService, $paymentService, $marketplace))->updateGateway($r, $p));
+$router->put('/api/v1/me/payment-gateways/{code}/activate', fn (Request $r, array $p) => (new \App\Controllers\PaymentController($authService, $paymentService, $marketplace))->activateGateway($r, $p));
 $router->get('/api/v1/me/payments/pending', fn (Request $r, array $p) => $paymentController->listPending($r));
 $router->post('/api/v1/me/payments/{uuid}/confirm', fn (Request $r, array $p) => $paymentController->confirmPayment($r, $p));
 $router->get('/api/v1/profiles/{handle}/wallet', fn (Request $r, array $p) => (new \App\Controllers\ChatbotController($authService, $profileService, $visitorAuthService, new \App\Services\Chatbot\ChatbotService(
@@ -197,38 +191,39 @@ ppc_assert($activate->status === 200, "Activating MANUAL_TRANSFER failed: {$acti
 ppc_assert($router->dispatch(new Request('GET', '/api/v1/me/payments/pending'))->status === 401, 'Listing pending payments should require owner auth');
 ppc_assert($router->dispatch(new Request('POST', '/api/v1/me/payments/some-uuid/confirm'))->status === 401, 'Confirming a payment should require owner auth');
 
-// 2. Priced CV purchase creates a PENDING payment (purpose=cv_access).
-$upload = $router->dispatch(new Request('POST', '/api/v1/me/cv', [], json_encode([
-    'title' => 'Alice Resume', 'price_amount' => 50000, 'price_currency' => 'IDR',
-    'content_type' => 'application/pdf', 'content_base64' => base64_encode('PDF bytes'),
+// 2. A digital product checkout creates a PENDING payment (purpose=marketplace_order).
+$created = $router->dispatch(new Request('POST', '/api/v1/products', [], json_encode([
+    'title' => 'Alice Ebook', 'price' => 50000, 'currency' => 'IDR',
+    'product_type' => 'DIGITAL', 'digital_asset_url' => 'https://files.example.com/alice-ebook.pdf',
 ]), bearer($ownerToken)));
-ppc_assert($upload->status === 201, "Priced CV upload failed: {$upload->body}");
+ppc_assert($created->status === 201, "Creating the product failed: {$created->body}");
+$productId = json_decode($created->body, true)['data']['public_id'];
 
-$access = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/cv/access', [], json_encode(['name' => 'Visitor One', 'phone' => '081234567890']), bearer($visitorToken)));
-ppc_assert($access->status === 200, "Requesting CV access failed: {$access->body}");
-$cvOrderId = json_decode($access->body, true)['data']['payment']['order_id'];
+$checkout = $router->dispatch(new Request('POST', '/api/v1/profiles/alice/orders', [], json_encode(['items' => [['product_id' => $productId, 'quantity' => 1]]]), bearer($visitorToken)));
+ppc_assert($checkout->status === 201, "Checkout failed: {$checkout->body}");
+$shopOrderId = json_decode($checkout->body, true)['data']['payment']['order_id'];
 
 $pending = $router->dispatch(new Request('GET', '/api/v1/me/payments/pending', [], null, bearer($ownerToken)));
 ppc_assert($pending->status === 200, "Listing pending payments failed: {$pending->body}");
 $pendingData = json_decode($pending->body, true)['data'];
-ppc_assert(count($pendingData) === 1, 'Exactly one payment should be pending (the CV purchase): ' . json_encode($pendingData));
-ppc_assert($pendingData[0]['purpose'] === 'cv_access', 'The pending payment should be labelled cv_access');
-ppc_assert($pendingData[0]['order_id'] === $cvOrderId, 'The pending payment should match the CV checkout order_id');
-$cvPaymentUuid = $pendingData[0]['uuid'];
+ppc_assert(count($pendingData) === 1, 'Exactly one payment should be pending (the shop order): ' . json_encode($pendingData));
+ppc_assert($pendingData[0]['purpose'] === 'marketplace_order', 'The pending payment should be labelled marketplace_order');
+ppc_assert($pendingData[0]['order_id'] === $shopOrderId, 'The pending payment should match the checkout order_id');
+$orderPaymentUuid = $pendingData[0]['uuid'];
 
 // 3. Download is denied before confirmation.
-$deniedDownload = $router->dispatch(new Request('GET', '/api/v1/profiles/alice/cv/download', [], null, bearer($visitorToken)));
-ppc_assert($deniedDownload->status === 402, "Download before confirmation should 402, got {$deniedDownload->status}");
+$deniedDownload = $router->dispatch(new Request('GET', "/api/v1/products/{$productId}/download", [], null, bearer($visitorToken)));
+ppc_assert($deniedDownload->status === 403, "Download before confirmation should 403, got {$deniedDownload->status}");
 
 // 4. Owner manually confirms — this is the whole point of this feature:
 // Manual Transfer has no automatic webhook, so this dashboard action IS
 // how the payment ever gets fulfilled.
-$confirm = $router->dispatch(new Request('POST', "/api/v1/me/payments/{$cvPaymentUuid}/confirm", [], null, bearer($ownerToken)));
+$confirm = $router->dispatch(new Request('POST', "/api/v1/me/payments/{$orderPaymentUuid}/confirm", [], null, bearer($ownerToken)));
 ppc_assert($confirm->status === 200, "Confirming the payment failed: {$confirm->body}");
 ppc_assert(json_decode($confirm->body, true)['data']['status'] === 'PAID', 'Confirmed payment should report status PAID');
 
-$grantedDownload = $router->dispatch(new Request('GET', '/api/v1/profiles/alice/cv/download', [], null, bearer($visitorToken)));
-ppc_assert($grantedDownload->status === 200 && $grantedDownload->body === 'PDF bytes', 'CV download after manual confirmation should return the uploaded bytes');
+$grantedDownload = $router->dispatch(new Request('GET', "/api/v1/products/{$productId}/download", [], null, bearer($visitorToken)));
+ppc_assert($grantedDownload->status === 200 && json_decode($grantedDownload->body, true)['data']['digital_asset_url'] === 'https://files.example.com/alice-ebook.pdf', 'The download should open after manual confirmation: ' . $grantedDownload->body);
 
 $pendingAfter = $router->dispatch(new Request('GET', '/api/v1/me/payments/pending', [], null, bearer($ownerToken)));
 ppc_assert(json_decode($pendingAfter->body, true)['data'] === [], 'The confirmed payment should no longer appear in the pending list');
@@ -268,7 +263,7 @@ $connection->exec("UPDATE payments SET status = 'CANCELLED' WHERE uuid = '{$wall
 $cancelledConfirm = $router->dispatch(new Request('POST', "/api/v1/me/payments/{$walletPaymentUuid}/confirm", [], null, bearer($ownerToken)));
 ppc_assert($cancelledConfirm->status === 409, "Confirming an already-CANCELLED payment should 409, got {$cancelledConfirm->status}");
 
-unset($router, $cvController, $paymentController, $accessService, $walletService, $paymentService, $documentService, $profileService, $visitorAuthService, $authService, $connection);
+unset($router, $marketplaceController, $paymentController, $marketplace, $walletService, $paymentService, $profileService, $visitorAuthService, $authService, $connection);
 Database::reset();
 gc_collect_cycles();
 unlink($envPath);

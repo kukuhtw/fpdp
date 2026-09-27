@@ -20,7 +20,7 @@ Karena feed tersebut bersifat publik:
 - dapat digunakan untuk channel publik milik sendiri maupun channel publik lain;
 - hanya mengambil metadata upload yang tersedia dalam feed publik.
 
-Google OAuth yang digunakan untuk login visitor CV adalah fitur berbeda dan tidak berhubungan dengan integrasi channel YouTube ini.
+Google OAuth yang digunakan untuk login visitor (pembeli toko) adalah fitur berbeda dan tidak berhubungan dengan integrasi channel YouTube ini.
 
 ## 2. Apa yang dilakukan FPDP?
 

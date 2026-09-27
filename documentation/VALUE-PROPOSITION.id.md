@@ -1,5 +1,7 @@
 # Mengapa FPDP — Narasi Produk dan Value Proposition Profesional
 
+> **Catatan (27 September 2026):** fitur download CV/resume berbayar yang disebut di dokumen ini sudah dihapus dari aplikasi atas keputusan pemilik produk. File dijual sebagai produk digital di toko. Penyebutan CV di bawah dipertahankan sebagai konteks historis.
+
 > **Satu rumah digital. Identitas, audiens, konten, relasi, dan peluang Anda—dalam kendali Anda.**
 
 ## 1. Pitch singkat

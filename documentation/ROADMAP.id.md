@@ -333,7 +333,7 @@ Task secara berurutan (tiap langkah bernomor di bawah cocok dengan Bagian 12 dok
 
 1. Identity visitor lewat Google OAuth (`visitor_accounts`, `visitor_tokens`, endpoint redirect/callback).
 2. Abstraksi LLM provider (`LLMProviderInterface`, `LLMProviderFactory` untuk OpenAI/Anthropic, `llm_configs`).
-3. Akses CV/resume berbayar (`cv_documents`, `cv_access_grants`).
+3. ~~Akses CV/resume berbayar (`cv_documents`, `cv_access_grants`).~~ Sempat dibangun, lalu **dihapus 27 September 2026** atas keputusan pemilik produk; file dijual sebagai produk digital di toko.
 4. Chatbot berbayar yang grounded pada profil/CV owner sendiri (`chat_sessions`, `chat_messages`).
 5. Analitik traffic harian dan unique-visitor (`page_views`, `analytics_daily`).
 6. Marketplace ad banner dengan pricing harian/mingguan/bulanan (`ad_slots`, `ad_bookings`).
@@ -341,7 +341,7 @@ Task secara berurutan (tiap langkah bernomor di bawah cocok dengan Bagian 12 dok
 Exit criteria:
 
 - visitor dapat melihat profil publik tanpa login, tapi diminta login Google begitu mencoba aksi berbayar atau interaktif;
-- akses CV dan sesi chatbot ditagih lewat `PaymentGatewayInterface` yang sudah ada, tidak pernah provider yang di-hardcode;
+- sesi chatbot (dan, selama masih ada, akses CV) ditagih lewat `PaymentGatewayInterface` yang sudah ada, tidak pernah provider yang di-hardcode;
 - penggunaan LLM dibatasi rate dan cost per node, dan fail closed (bukan ke default bersama) saat belum dikonfigurasi;
 - owner dapat melihat jumlah unique-visitor dan page-view kemarin;
 - booking advertiser hanya tayang setelah owner menyetujui creative-nya, dan expired otomatis di akhir periode yang dibayar.
