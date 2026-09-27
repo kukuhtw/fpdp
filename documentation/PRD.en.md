@@ -109,7 +109,7 @@ Individuals currently depend on large platforms for identity, content, transacti
 - A user can register an account, authenticate with a bearer token, and read their own context via `/me`.
 - A user can create and update a profile on their node, with visibility rules enforced for public reads.
 - Registration and login reject excessive attempts from the same client with a rate-limit error.
-- A user can customize their node's theme, layout, custom CSS, and default/available languages (planned; not yet implemented).
+- A user can customize their node's theme and default/available languages (available: themes, and Indonesian/English for the public pages); layout and custom CSS are still planned.
 - A user can add an RSS or custom feed.
 - An administrator can activate a default gateway.
 - Payment flows depend on the common interface, not a specific provider.

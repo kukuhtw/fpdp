@@ -1,4 +1,7 @@
 (() => {
+  // Translated UI text (window.fpdpT from the page head); the Indonesian fallback keeps the page readable without it.
+  const t = window.fpdpT || ((k, p, f) => Object.keys(p || {}).reduce((s, n) => s.split(`:${n}`).join(p[n]), f));
+  const numberLocale = window.FPDP_LOCALE === 'en' ? 'en-US' : 'id-ID';
   const tokenKey = 'fpdp_visitor_token';
   const handle = document.body.dataset.profileHandle;
   const productId = document.body.dataset.productId;
@@ -29,15 +32,18 @@
     if (options.body) headers['Content-Type'] = 'application/json';
     const response = await fetch(path, { ...options, headers });
     if (binary) {
-      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      if (!response.ok) throw new Error(t('common.request_failed', { status: response.status }, `Request failed (${response.status})`));
       return response.blob();
     }
     const payload = response.status === 204 ? null : await response.json();
-    if (!response.ok) throw new Error(payload?.error?.message || `Request failed (${response.status})`);
+    if (!response.ok) throw new Error(payload?.error?.message || t('common.request_failed', { status: response.status }, `Request failed (${response.status})`));
     return payload;
   };
 
-  const kindLabels = { PDF: 'Download PDF', SOURCE_CODE: 'Download source code' };
+  const kindLabels = {
+    PDF: t('checkout.download_pdf', {}, 'Download PDF'),
+    SOURCE_CODE: t('checkout.download_source', {}, 'Download source code'),
+  };
   const downloadGatedAsset = async (kind, filename) => {
     try {
       const blob = await api(`/api/v1/products/${encodeURIComponent(productId)}/digital-assets/${encodeURIComponent(kind)}/download`, {}, true);
@@ -64,17 +70,21 @@
     const link = document.createElement('a');
     link.className = 'button secondary';
     link.href = `/payment/thank-you?type=order&ref=${encodeURIComponent(orderPublicId)}&handle=${encodeURIComponent(handle)}`;
-    link.textContent = 'Sudah transfer? Cek status pembayaran →';
+    link.textContent = t('checkout.confirm_link', {}, 'Sudah transfer? Cek status pembayaran →');
     confirmLink.append(link);
   };
 
   const formatPrice = (price, currency) => {
     const amount = Number(price);
-    if (!amount) return 'Gratis';
-    return `${currency} ${amount.toLocaleString('id-ID')}`;
+    if (!amount) return t('checkout.free', {}, 'Gratis');
+    return `${currency} ${amount.toLocaleString(numberLocale)}`;
   };
 
-  const typeLabel = { PHYSICAL: 'Barang fisik', DIGITAL: 'Barang digital', SERVICE: 'Jasa' };
+  const typeLabel = {
+    PHYSICAL: t('checkout.type_physical', {}, 'Barang fisik'),
+    DIGITAL: t('checkout.type_digital', {}, 'Barang digital'),
+    SERVICE: t('checkout.type_service', {}, 'Jasa'),
+  };
 
   const renderDetails = () => {
     details.innerHTML = '';
@@ -118,7 +128,8 @@
     const visitorName = sessionStorage.getItem('fpdp_visitor_name');
     const visitorEmail = sessionStorage.getItem('fpdp_visitor_email');
     if (visitorEmail) {
-      buyerIdentity.textContent = `Masuk sebagai: ${visitorName ? `${visitorName} ` : ''}(${visitorEmail})`;
+      const who = `${visitorName ? `${visitorName} ` : ''}(${visitorEmail})`;
+      buyerIdentity.textContent = t('checkout.signed_in_as', { who }, `Masuk sebagai: ${who}`);
       buyerIdentity.classList.remove('hidden');
     }
 
@@ -136,7 +147,7 @@
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'button';
-          button.textContent = kindLabels[asset.kind] || `Download ${asset.kind}`;
+          button.textContent = kindLabels[asset.kind] || t('checkout.download_kind', { kind: asset.kind }, `Download ${asset.kind}`);
           button.addEventListener('click', () => downloadGatedAsset(asset.kind, asset.original_filename));
           digitalAssetsButtons.append(button);
         });
@@ -169,7 +180,10 @@
       renderDetails();
       await updateAuthUi();
     } catch (error) {
-      details.innerHTML = '<p class="muted">Produk tidak ditemukan.</p>';
+      const notFound = document.createElement('p');
+      notFound.className = 'muted';
+      notFound.textContent = t('product.not_found', {}, 'Produk tidak ditemukan.');
+      details.replaceChildren(notFound);
       message(error.message, true);
     }
   };
@@ -183,12 +197,12 @@
       const recipientPhone = recipientPhoneInput.value.trim();
       const addressLine = shippingAddressInput.value.trim();
       if (!recipientName || !recipientPhone || !addressLine) {
-        return message('Isi nama penerima, nomor telepon, dan alamat lengkap terlebih dahulu.', true);
+        return message(t('product.fill_shipping', {}, 'Isi nama penerima, nomor telepon, dan alamat lengkap terlebih dahulu.'), true);
       }
       shippingAddress = `Nama: ${recipientName}\nTelepon: ${recipientPhone}\nAlamat: ${addressLine}`;
     }
     buyButton.disabled = true;
-    message('Memproses pembelian…');
+    message(t('product.processing', {}, 'Memproses pembelian…'));
     try {
       const body = { items: [{ product_id: productId, quantity }] };
       if (shippingAddress) body.shipping_address = shippingAddress;
@@ -199,12 +213,12 @@
       });
       const { order, payment } = result.data;
       if (order.status === 'COMPLETED') {
-        message('Pembayaran berhasil. Terima kasih!');
+        message(t('product.paid', {}, 'Pembayaran berhasil. Terima kasih!'));
         await updateAuthUi();
         return;
       }
       if (payment?.payment_url) {
-        message('Mengalihkan ke halaman pembayaran…');
+        message(t('checkout.redirecting', {}, 'Mengalihkan ke halaman pembayaran…'));
         location.href = payment.payment_url;
         return;
       }
@@ -213,7 +227,7 @@
         showConfirmLink(order.public_id);
         return;
       }
-      message('Pesanan dibuat, menunggu konfirmasi pembayaran.');
+      message(t('product.order_pending', {}, 'Pesanan dibuat, menunggu konfirmasi pembayaran.'));
       showConfirmLink(order.public_id);
     } catch (error) {
       message(error.message, true);

@@ -130,6 +130,16 @@ GET  /api/v1/me/themes            → daftar theme terpasang + slug yang sedang 
 PATCH /api/v1/me/theme            → body: {"slug": "editorial"}
 ```
 
+## 6a. Terjemahan di view tema
+
+Halaman publik tersedia dalam dua bahasa (Indonesia dan English; owner memilih di Settings). View tema tidak boleh menulis teks UI secara langsung:
+
+- Cetak teks UI dengan `<?= \App\Core\View::te('key') ?>` (sudah di-escape). Kunci dan teks ada di `app/Lang/{id,en}/*.php`; pakai ulang kunci yang dipakai view inti untuk teks yang sama, dan tambahkan kunci baru ke **kedua** bahasa.
+- Buka halaman dengan `<html lang="<?= \App\Core\View::lang() ?>">`.
+- Pasang `<?= \App\Core\View::themeStylesheetTag() ?>` di `<head>`, atau — bila tema memasang stylesheet-nya sendiri — `<?= \App\Core\View::i18nHead() ?>`. Tag ini menambahkan link `hreflang` dan `window.fpdpT()`, yang dipakai script halaman untuk teksnya.
+- Partial navigasi (`View::partial('topnav', …)`) sudah membawa tombol ganti bahasa.
+- Jangan pernah menerjemahkan isi milik owner atau pengunjung (bio, post, teks produk, nama).
+
 ## 7. Keamanan & batasan
 
 - Slug theme dan nama file view/asset divalidasi dengan whitelist ketat (path traversal, ekstensi tidak dikenal, dan nama file view di luar 8 nama yang diizinkan ditolak).

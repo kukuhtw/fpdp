@@ -27,7 +27,7 @@ foreach ([
 $router = require __DIR__ . '/../app/routes.php';
 
 $home = $router->dispatch(new Request('GET', '/'));
-if ($home->status !== 200 || !str_contains($home->body, 'Personal Digital Home')) {
+if ($home->status !== 200 || !str_contains($home->body, 'Rumah Digital Pribadi')) {
     fwrite(STDERR, "Home route failed\n");
     exit(1);
 }

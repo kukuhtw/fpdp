@@ -77,10 +77,7 @@ final class HomeController
 
     private function placeholder(): string
     {
-        return View::render('home', [
-            'title' => 'FPDP',
-            'heading' => 'Personal Digital Home',
-            'subtitle' => 'Your domain becomes your digital home.',
-        ]);
+        // home.php falls back to the translated home.heading/home.subtitle.
+        return View::render('home', ['title' => 'FPDP']);
     }
 }

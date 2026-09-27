@@ -1,4 +1,7 @@
 (() => {
+  // Translated UI text (window.fpdpT from the page head); the Indonesian fallback keeps the page readable without it.
+  const t = window.fpdpT || ((k, p, f) => Object.keys(p || {}).reduce((s, n) => s.split(`:${n}`).join(p[n]), f));
+  const numberLocale = window.FPDP_LOCALE === 'en' ? 'en-US' : 'id-ID';
   const tokenKey = 'fpdp_visitor_token';
   const heading = document.querySelector('#payment-heading');
   const message = document.querySelector('#payment-message');
@@ -16,11 +19,11 @@
     if (options.body) headers['Content-Type'] = 'application/json';
     const response = await fetch(path, { ...options, headers });
     if (binary) {
-      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      if (!response.ok) throw new Error(t('common.request_failed', { status: response.status }, `Request failed (${response.status})`));
       return response.blob();
     }
     const payload = response.status === 204 ? null : await response.json();
-    if (!response.ok) throw new Error(payload?.error?.message || `Request failed (${response.status})`);
+    if (!response.ok) throw new Error(payload?.error?.message || t('common.request_failed', { status: response.status }, `Request failed (${response.status})`));
     return payload;
   };
 
@@ -52,7 +55,10 @@
   };
 
   // ---- Order (product purchase) ----
-  const kindLabels = { PDF: 'Download PDF', SOURCE_CODE: 'Download source code' };
+  const kindLabels = {
+    PDF: t('checkout.download_pdf', {}, 'Download PDF'),
+    SOURCE_CODE: t('checkout.download_source', {}, 'Download source code'),
+  };
 
   const renderOrderDetails = async (order, handle) => {
     details.replaceChildren();
@@ -61,12 +67,15 @@
     (order.items || []).forEach((item) => {
       const snapshot = JSON.parse(item.product_snapshot || '{}');
       const li = document.createElement('li');
-      li.innerHTML = `<span>${item.quantity}x ${escapeHtml(snapshot.title || 'Produk')}</span><span class="count">${order.currency} ${Number(item.subtotal).toLocaleString('id-ID')}</span>`;
+      li.innerHTML = `<span>${item.quantity}x ${escapeHtml(snapshot.title || t('thankyou.product_fallback', {}, 'Produk'))}</span><span class="count">${escapeHtml(order.currency)} ${Number(item.subtotal).toLocaleString(numberLocale)}</span>`;
       list.append(li);
     });
     details.append(list);
     const total = document.createElement('p');
-    total.innerHTML = `<strong>Total: ${order.currency} ${Number(order.total_amount).toLocaleString('id-ID')}</strong>`;
+    const totalText = document.createElement('strong');
+    const amount = `${order.currency} ${Number(order.total_amount).toLocaleString(numberLocale)}`;
+    totalText.textContent = t('thankyou.total', { amount }, `Total: ${amount}`);
+    total.append(totalText);
     details.append(total);
 
     if (order.status !== 'COMPLETED') return;
@@ -79,7 +88,7 @@
         if (product.product_type !== 'DIGITAL') continue;
         const download = await api(`/api/v1/products/${encodeURIComponent(snapshot.public_id)}/download`);
         if (download.data.digital_asset_url) {
-          addAction(`Download: ${snapshot.title}`, download.data.digital_asset_url);
+          addAction(t('thankyou.download_item', { title: snapshot.title }, `Download: ${snapshot.title}`), download.data.digital_asset_url);
         }
         (download.data.digital_assets || []).forEach((asset) => {
           addAction(
@@ -92,26 +101,26 @@
         // Not a digital product, or download not yet authorized — skip silently, physical items need no download button.
       }
     }
-    addAction('Lihat halaman toko', `/@${encodeURIComponent(handle)}`);
+    addAction(t('thankyou.view_shop', {}, 'Lihat halaman toko'), `/@${encodeURIComponent(handle)}`);
   };
 
   const checkOrder = async (ref, handle) => {
     const result = await api(`/api/v1/orders/${encodeURIComponent(ref)}`);
     const order = result.data;
     if (order.status === 'COMPLETED') {
-      heading.textContent = 'Pembayaran berhasil!';
-      message.textContent = 'Terima kasih, pesanan Anda sudah kami terima.';
+      heading.textContent = t('thankyou.paid', {}, 'Pembayaran berhasil!');
+      message.textContent = t('thankyou.order_received', {}, 'Terima kasih, pesanan Anda sudah kami terima.');
       await renderOrderDetails(order, handle);
       return true;
     }
     if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
-      heading.textContent = 'Pesanan tidak selesai';
-      message.textContent = `Status pesanan: ${order.status}.`;
-      addAction('Kembali ke toko', `/@${encodeURIComponent(handle)}`);
+      heading.textContent = t('thankyou.order_not_completed', {}, 'Pesanan tidak selesai');
+      message.textContent = t('thankyou.order_status', { status: order.status }, `Status pesanan: ${order.status}.`);
+      addAction(t('thankyou.back_to_shop', {}, 'Kembali ke toko'), `/@${encodeURIComponent(handle)}`);
       return true;
     }
-    heading.textContent = 'Menunggu konfirmasi pembayaran…';
-    message.textContent = 'Status saat ini: PENDING. Halaman ini akan otomatis diperbarui begitu pembayaran dikonfirmasi.';
+    heading.textContent = t('thankyou.waiting', {}, 'Menunggu konfirmasi pembayaran…');
+    message.textContent = t('thankyou.order_pending', {}, 'Status saat ini: PENDING. Halaman ini akan otomatis diperbarui begitu pembayaran dikonfirmasi.');
     return false;
   };
 
@@ -119,13 +128,13 @@
   const checkCv = async (handle) => {
     const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/cv/access`, { method: 'POST' });
     if (result.data.granted) {
-      heading.textContent = 'Pembayaran berhasil!';
-      message.textContent = 'Akses CV/Resume Anda sudah aktif.';
-      addAction('Download CV', null, () => downloadBlob(`/api/v1/profiles/${encodeURIComponent(handle)}/cv/download`, 'cv'));
+      heading.textContent = t('thankyou.paid', {}, 'Pembayaran berhasil!');
+      message.textContent = t('thankyou.cv_active', {}, 'Akses CV/Resume Anda sudah aktif.');
+      addAction(t('thankyou.download_cv', {}, 'Download CV'), null, () => downloadBlob(`/api/v1/profiles/${encodeURIComponent(handle)}/cv/download`, 'cv'));
       return true;
     }
-    heading.textContent = 'Menunggu konfirmasi pembayaran…';
-    message.textContent = 'Halaman ini akan otomatis diperbarui begitu pembayaran dikonfirmasi.';
+    heading.textContent = t('thankyou.waiting', {}, 'Menunggu konfirmasi pembayaran…');
+    message.textContent = t('thankyou.payment_pending', {}, 'Halaman ini akan otomatis diperbarui begitu pembayaran dikonfirmasi.');
     return false;
   };
 
@@ -134,13 +143,14 @@
     const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/wallet`);
     const balance = Number(result.data.balance_amount);
     if (before === null || balance > before) {
-      heading.textContent = 'Top up berhasil!';
-      message.textContent = `Saldo Anda sekarang: ${result.data.currency} ${balance.toLocaleString('id-ID')}.`;
-      addAction('Kembali ke chat', `/@${encodeURIComponent(handle)}`);
+      heading.textContent = t('thankyou.topup_success', {}, 'Top up berhasil!');
+      const amount = `${result.data.currency} ${balance.toLocaleString(numberLocale)}`;
+      message.textContent = t('thankyou.balance_now', { amount }, `Saldo Anda sekarang: ${amount}.`);
+      addAction(t('thankyou.back_to_chat', {}, 'Kembali ke chat'), `/@${encodeURIComponent(handle)}`);
       return true;
     }
-    heading.textContent = 'Menunggu konfirmasi pembayaran…';
-    message.textContent = 'Halaman ini akan otomatis diperbarui begitu top up dikonfirmasi.';
+    heading.textContent = t('thankyou.waiting', {}, 'Menunggu konfirmasi pembayaran…');
+    message.textContent = t('thankyou.topup_pending', {}, 'Halaman ini akan otomatis diperbarui begitu top up dikonfirmasi.');
     return false;
   };
 
@@ -154,10 +164,10 @@
   let attempts = 0;
 
   const showTimeout = () => {
-    heading.textContent = 'Masih diproses';
-    message.textContent = 'Pembayaran Anda mungkin masih diproses (misalnya transfer manual yang menunggu konfirmasi pemilik toko). Coba cek ulang beberapa saat lagi.';
+    heading.textContent = t('thankyou.still_processing', {}, 'Masih diproses');
+    message.textContent = t('thankyou.still_processing_message', {}, 'Pembayaran Anda mungkin masih diproses (misalnya transfer manual yang menunggu konfirmasi pemilik toko). Coba cek ulang beberapa saat lagi.');
     actions.replaceChildren();
-    addAction('Cek ulang', null, () => { attempts = 0; actions.replaceChildren(); actions.classList.add('hidden'); tick(); });
+    addAction(t('thankyou.recheck', {}, 'Cek ulang'), null, () => { attempts = 0; actions.replaceChildren(); actions.classList.add('hidden'); tick(); });
   };
 
   const tick = async () => {
@@ -168,8 +178,8 @@
       else if (type === 'cv' && handle) done = await checkCv(handle);
       else if (type === 'wallet' && handle) done = await checkWallet(handle, before);
       else {
-        heading.textContent = 'Terima kasih';
-        message.textContent = 'Status pembayaran tidak dapat ditentukan dari halaman ini.';
+        heading.textContent = t('thankyou.thanks', {}, 'Terima kasih');
+        message.textContent = t('thankyou.unknown', {}, 'Status pembayaran tidak dapat ditentukan dari halaman ini.');
         return;
       }
       if (done) return;

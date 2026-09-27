@@ -118,6 +118,16 @@ GET  /api/v1/me/themes            → installed themes + the currently active sl
 PATCH /api/v1/me/theme            → body: {"slug": "editorial"}
 ```
 
+## 6a. Translations in theme views
+
+Public pages are bilingual (Indonesian and English; the owner picks which in Settings). A theme view must not hardcode UI text:
+
+- Print UI text with `<?= \App\Core\View::te('key') ?>` (escaped). Keys and texts live in `app/Lang/{id,en}/*.php`; reuse the key the core view uses for the same text, and add any new key to **both** languages.
+- Open the page with `<html lang="<?= \App\Core\View::lang() ?>">`.
+- Put `<?= \App\Core\View::themeStylesheetTag() ?>` in `<head>`, or — if the theme links its own stylesheet — `<?= \App\Core\View::i18nHead() ?>`. It adds the `hreflang` links and `window.fpdpT()`, which the page scripts use for their text.
+- The navigation partial (`View::partial('topnav', …)`) already carries the language switcher.
+- Never translate owner or visitor content (bio, posts, product text, names).
+
 ## 7. Security & limits
 
 - Theme slugs and view/asset filenames are validated against a strict allow-list (path traversal, unknown extensions, and view filenames outside the 6 allowed names are all rejected).

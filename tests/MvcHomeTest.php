@@ -39,7 +39,7 @@ $router = require __DIR__ . '/../app/routes.php';
 // Before a node/owner exists, "/" must fall back to the static placeholder.
 $beforeOwner = $router->dispatch(new Request('GET', '/'));
 home_assert(
-    $beforeOwner->status === 200 && str_contains($beforeOwner->body, 'FPDP') && str_contains($beforeOwner->body, 'Personal Digital Home'),
+    $beforeOwner->status === 200 && str_contains($beforeOwner->body, 'FPDP') && str_contains($beforeOwner->body, 'Rumah Digital Pribadi'),
     'Home should render the placeholder before a node/owner exists',
 );
 
@@ -54,14 +54,14 @@ home_assert(
     'Home should render the owner public profile once one exists',
 );
 home_assert(
-    !str_contains($withOwner->body, 'Your domain becomes your digital home.'),
+    !str_contains($withOwner->body, 'Domain Anda menjadi rumah digital Anda.'),
     'Home should no longer show the placeholder copy once an owner profile is public',
 );
 
 $db->exec("UPDATE profiles SET visibility = 'PRIVATE' WHERE id = 1");
 $privateOwner = $router->dispatch(new Request('GET', '/'));
 home_assert(
-    $privateOwner->status === 200 && str_contains($privateOwner->body, 'Personal Digital Home'),
+    $privateOwner->status === 200 && str_contains($privateOwner->body, 'Rumah Digital Pribadi'),
     'Home should fall back to the placeholder when the owner profile is not public',
 );
 

@@ -1,4 +1,7 @@
 (() => {
+  // Translated UI text (window.fpdpT from the page head); the Indonesian fallback keeps the page readable without it.
+  const t = window.fpdpT || ((k, p, f) => Object.keys(p || {}).reduce((s, n) => s.split(`:${n}`).join(p[n]), f));
+  const numberLocale = window.FPDP_LOCALE === 'en' ? 'en-US' : 'id-ID';
   const tokenKey = 'fpdp_visitor_token';
   const handle = document.body.dataset.profileHandle;
   const widget = document.querySelector('#chatbot-widget');
@@ -30,7 +33,7 @@
     const response = await fetch(path, { ...options, headers });
     const payload = response.status === 204 ? null : await response.json();
     if (!response.ok) {
-      const error = new Error(payload?.error?.message || `Request failed (${response.status})`);
+      const error = new Error(payload?.error?.message || t('common.request_failed', { status: response.status }, `Request failed (${response.status})`));
       error.status = response.status;
       throw error;
     }
@@ -43,13 +46,13 @@
   };
 
   const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  const formatMoney = (amount) => `${currency} ${Number(amount).toLocaleString('id-ID')}`;
+  const formatMoney = (amount) => `${currency} ${Number(amount).toLocaleString(numberLocale)}`;
 
   const appendLog = (question, answer) => {
     const q = document.createElement('p');
-    q.innerHTML = `<strong>Anda:</strong> ${escapeHtml(question)}`;
+    q.innerHTML = `<strong>${escapeHtml(t('chatbot.you', {}, 'Anda:'))}</strong> ${escapeHtml(question)}`;
     const a = document.createElement('p');
-    a.innerHTML = `<strong>AI (balasan otomatis):</strong> ${escapeHtml(answer)}`;
+    a.innerHTML = `<strong>${escapeHtml(t('chatbot.ai', {}, 'AI (balasan otomatis):'))}</strong> ${escapeHtml(answer)}`;
     log.append(q, a);
     log.scrollTop = log.scrollHeight;
   };
@@ -58,7 +61,7 @@
     try {
       const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/wallet`);
       lastKnownBalance = Number(result.data.balance_amount) || 0;
-      walletNote.textContent = `Saldo Anda: ${formatMoney(result.data.balance_amount)}`;
+      walletNote.textContent = t('chatbot.balance', { amount: formatMoney(result.data.balance_amount) }, `Saldo Anda: ${formatMoney(result.data.balance_amount)}`);
     } catch (_) {
       // Ignore — the ask/top-up flows surface their own errors.
     }
@@ -71,7 +74,7 @@
     const link = document.createElement('a');
     link.className = 'button secondary';
     link.href = `/payment/thank-you?type=wallet&handle=${encodeURIComponent(handle)}&before=${encodeURIComponent(lastKnownBalance)}`;
-    link.textContent = 'Sudah transfer? Cek status pembayaran →';
+    link.textContent = t('checkout.confirm_link', {}, 'Sudah transfer? Cek status pembayaran →');
     el.append(link);
   };
 
@@ -88,7 +91,8 @@
     const visitorName = sessionStorage.getItem('fpdp_visitor_name');
     const visitorEmail = sessionStorage.getItem('fpdp_visitor_email');
     if (signedIn && visitorEmail) {
-      buyerIdentity.textContent = `Masuk sebagai: ${visitorName ? `${visitorName} ` : ''}(${visitorEmail})`;
+      const who = `${visitorName ? `${visitorName} ` : ''}(${visitorEmail})`;
+      buyerIdentity.textContent = t('checkout.signed_in_as', { who }, `Masuk sebagai: ${who}`);
       buyerIdentity.classList.remove('hidden');
     } else {
       buyerIdentity.classList.add('hidden');
@@ -98,27 +102,27 @@
 
   topupButton.addEventListener('click', async () => {
     const amount = Number(topupAmount.value);
-    if (!amount || amount < 1000) return message('Minimal top up Rp 1.000.', true);
+    if (!amount || amount < 1000) return message(t('chatbot.min_topup', {}, 'Minimal top up Rp 1.000.'), true);
     const name = topupName.value.trim();
     const phone = topupPhone.value.trim();
-    if (!name || !phone) return message('Isi nama dan nomor telepon terlebih dahulu.', true);
+    if (!name || !phone) return message(t('checkout.fill_name_phone', {}, 'Isi nama dan nomor telepon terlebih dahulu.'), true);
     topupButton.disabled = true;
-    message('Memproses top up…');
+    message(t('chatbot.processing_topup', {}, 'Memproses top up…'));
     try {
       const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/wallet/topup`, {
         method: 'POST',
         body: JSON.stringify({ amount, name, phone }),
       });
       if (result.data.payment?.payment_url) {
-        message('Mengalihkan ke halaman pembayaran…');
+        message(t('checkout.redirecting', {}, 'Mengalihkan ke halaman pembayaran…'));
         location.href = result.data.payment.payment_url;
         return;
       }
-      message(result.data.payment?.instructions || 'Top up berhasil.');
+      message(result.data.payment?.instructions || t('chatbot.topup_success', {}, 'Top up berhasil.'));
       if (result.data.payment?.instructions) showConfirmLink();
       await refreshWallet();
     } catch (error) {
-      if (error.status === 401) { signOut(); message('Sesi berakhir, silakan masuk lagi.', true); return; }
+      if (error.status === 401) { signOut(); message(t('chatbot.session_expired', {}, 'Sesi berakhir, silakan masuk lagi.'), true); return; }
       message(error.message, true);
     } finally {
       topupButton.disabled = false;
@@ -131,7 +135,7 @@
     if (!question) return;
     const submitButton = askForm.querySelector('button');
     submitButton.disabled = true;
-    message('Mengirim pertanyaan…');
+    message(t('chatbot.sending', {}, 'Mengirim pertanyaan…'));
     try {
       const result = await api(`/api/v1/profiles/${encodeURIComponent(handle)}/chatbot/messages`, {
         method: 'POST',
@@ -139,11 +143,11 @@
       });
       appendLog(result.data.question, result.data.answer);
       questionInput.value = '';
-      walletNote.textContent = `Saldo Anda: ${formatMoney(result.data.wallet_balance)}`;
+      walletNote.textContent = t('chatbot.balance', { amount: formatMoney(result.data.wallet_balance) }, `Saldo Anda: ${formatMoney(result.data.wallet_balance)}`);
       message('');
     } catch (error) {
-      if (error.status === 402) { message('Saldo tidak cukup. Silakan top up terlebih dahulu.', true); }
-      else if (error.status === 401) { signOut(); message('Sesi berakhir, silakan masuk lagi.', true); }
+      if (error.status === 402) { message(t('chatbot.insufficient_balance', {}, 'Saldo tidak cukup. Silakan top up terlebih dahulu.'), true); }
+      else if (error.status === 401) { signOut(); message(t('chatbot.session_expired', {}, 'Sesi berakhir, silakan masuk lagi.'), true); }
       else { message(error.message, true); }
     } finally {
       submitButton.disabled = false;
@@ -156,7 +160,9 @@
       if (!result.data.enabled) return;
       currency = result.data.currency;
       const price = Number(result.data.price_per_question);
-      priceNote.textContent = price > 0 ? `${formatMoney(price)} per pertanyaan.` : 'Gratis untuk bertanya.';
+      priceNote.textContent = price > 0
+        ? t('chatbot.price_per_question', { price: formatMoney(price) }, `${formatMoney(price)} per pertanyaan.`)
+        : t('chatbot.free_to_ask', {}, 'Gratis untuk bertanya.');
       googleLogin.href = `/api/v1/profiles/${encodeURIComponent(handle)}/visitor-auth/google/redirect?return_to=${encodeURIComponent('/@' + handle)}`;
       widget.classList.remove('hidden');
       await updateSignedInUi();

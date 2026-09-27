@@ -90,7 +90,7 @@ Saat ini, banyak individu mengandalkan platform besar untuk identitas digital, k
 - User dapat registrasi akun, autentikasi dengan bearer token, dan membaca context-nya sendiri lewat `/me`.
 - User dapat membuat dan meng-update profile di node sendiri, dengan aturan visibility ditegakkan pada pembacaan publik.
 - Registrasi dan login menolak percobaan berlebihan dari client yang sama dengan error rate-limit.
-- User dapat mengustomisasi tema, layout, custom CSS, dan bahasa default/aktif node-nya (direncanakan; belum diimplementasikan).
+- User dapat mengustomisasi tema dan bahasa default/aktif node-nya (tersedia: tema, dan bahasa Indonesia/English untuk halaman publik); layout dan custom CSS masih direncanakan.
 - User dapat menambahkan RSS atau feed custom.
 - Admin dapat mengaktifkan gateway default.
 - Payment flow hanya bergantung pada interface, bukan provider tertentu.
