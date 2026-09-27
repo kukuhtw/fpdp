@@ -33,6 +33,7 @@ final class AuthService
         private readonly ProfileRepository $profiles,
         private readonly AuthTokenRepository $tokens,
         private readonly ?AuditService $audit = null,
+        private readonly ?TwoFactorService $twoFactor = null,
     ) {
     }
 
@@ -157,6 +158,53 @@ final class AuthService
         }
         $this->assertOwnerAccess($user);
 
+        // With 2FA on, a correct password only earns a short-lived challenge;
+        // the session comes from verifyLoginCode().
+        if ($this->twoFactor !== null && TwoFactorService::isEnabled($user)) {
+            return [
+                'mfa_required' => true,
+                'mfa_token' => $this->twoFactor->startChallenge($user),
+                'expires_in' => 300,
+            ];
+        }
+
+        return $this->completeLogin($user, $client, false);
+    }
+
+    /**
+     * Second step of a 2FA login: the challenge from login() plus a code from
+     * the authenticator app (or a recovery code) → a normal session.
+     *
+     * @param array<string, mixed> $input {mfa_token, code}
+     * @param array{user_agent?: string|null, ip?: string|null} $client
+     * @return array<string, mixed>
+     */
+    public function verifyLoginCode(array $input, array $client = []): array
+    {
+        if ($this->twoFactor === null) {
+            throw new UnauthorizedException();
+        }
+        $errors = self::validateAgainstSchema($input, ['mfa_token', 'code']);
+        $code = trim((string) ($input['code'] ?? ''));
+        if ($code === '') {
+            $errors[] = ['field' => 'code', 'reason' => 'required'];
+        }
+        if ($errors !== []) {
+            throw new ValidationException($errors);
+        }
+
+        $user = $this->twoFactor->consumeChallenge((string) ($input['mfa_token'] ?? ''), $code);
+        $this->assertOwnerAccess($user);
+
+        return $this->completeLogin($user, $client, true);
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    private function completeLogin(array $user, array $client, bool $withSecondFactor): array
+    {
         $result = [
             'user' => $user,
             'node' => $this->nodes->findById((int) $user['node_id']),
@@ -165,6 +213,7 @@ final class AuthService
 
         $this->audit?->record($result, 'user.login', 'user', $user['public_id'], [
             'ip_hint' => self::ipHint($client['ip'] ?? null),
+            'second_factor' => $withSecondFactor,
         ]);
 
         return $result;

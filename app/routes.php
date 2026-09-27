@@ -61,12 +61,14 @@ use App\Repositories\ProductRepository;
 use App\Repositories\RagDocumentRepository;
 use App\Repositories\RagFaqRepository;
 use App\Repositories\RateLimitRepository;
+use App\Repositories\TwoFactorRepository;
 use App\Repositories\UserRepository;
 use App\Repositories\VisitorRepository;
 use App\Repositories\VisitorTokenRepository;
 use App\Repositories\VisitorWalletRepository;
 use App\Repositories\WallCommentRepository;
 use App\Services\Auth\AuthService;
+use App\Services\Auth\TwoFactorService;
 use App\Services\Analytics\AnalyticsService;
 use App\Services\Chatbot\ChatbotService;
 use App\Services\Chatbot\VisitorWalletService;
@@ -103,7 +105,18 @@ $buildAuditService = static function (): AuditService {
     return new AuditService(new AuditEventRepository(Database::connection()));
 };
 
-$buildAuthService = static function () use ($buildAuditService): AuthService {
+$buildTwoFactorService = static function () use ($buildAuditService): TwoFactorService {
+    $connection = Database::connection();
+
+    return new TwoFactorService(
+        new TwoFactorRepository($connection),
+        new UserRepository($connection),
+        new AuthTokenRepository($connection),
+        $buildAuditService(),
+    );
+};
+
+$buildAuthService = static function () use ($buildAuditService, $buildTwoFactorService): AuthService {
     $connection = Database::connection();
 
     return new AuthService(
@@ -112,6 +125,7 @@ $buildAuthService = static function () use ($buildAuditService): AuthService {
         new ProfileRepository($connection),
         new AuthTokenRepository($connection),
         $buildAuditService(),
+        $buildTwoFactorService(),
     );
 };
 
@@ -631,6 +645,30 @@ $router->delete('/api/v1/me/sessions/{sessionId}', function (Request $request, a
 
 $router->post('/api/v1/me/password', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
     return (new AuthController($buildAuthService(), $buildRateLimiter()))->changePassword($request);
+});
+
+$router->post('/api/v1/auth/login/verify', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter()))->verifyLogin($request);
+});
+
+$router->get('/api/v1/me/2fa', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter, $buildTwoFactorService): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter(), $buildTwoFactorService()))->twoFactorStatus($request);
+});
+
+$router->post('/api/v1/me/2fa/setup', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter, $buildTwoFactorService): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter(), $buildTwoFactorService()))->twoFactorSetup($request);
+});
+
+$router->post('/api/v1/me/2fa/confirm', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter, $buildTwoFactorService): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter(), $buildTwoFactorService()))->twoFactorConfirm($request);
+});
+
+$router->post('/api/v1/me/2fa/disable', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter, $buildTwoFactorService): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter(), $buildTwoFactorService()))->twoFactorDisable($request);
+});
+
+$router->post('/api/v1/me/2fa/recovery-codes', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter, $buildTwoFactorService): Response {
+    return (new AuthController($buildAuthService(), $buildRateLimiter(), $buildTwoFactorService()))->twoFactorRecoveryCodes($request);
 });
 
 $router->get('/api/v1/profiles/{handle}', function (Request $request, array $params) use ($buildAuthService, $buildProfileService, $buildAnalyticsService): Response {

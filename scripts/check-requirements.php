@@ -104,6 +104,17 @@ foreach (['storage', 'storage/cv', 'storage/media', 'storage/products'] as $dire
     }
     $report(is_writable($path) ? 'OK' : 'FAIL', "{$directory}/ writable", is_writable($path) ? '' : 'chown -R www-data:www-data storage');
 }
+// Two-factor codes depend on the clock: more than ~30 seconds off and the
+// owner's authenticator codes stop being accepted.
+$ntp = function_exists('shell_exec') && PHP_OS_FAMILY === 'Linux' ? trim((string) @shell_exec('timedatectl show -p NTPSynchronized --value 2>/dev/null')) : '';
+if ($ntp === 'yes') {
+    $report('OK', 'clock synchronized (NTP)');
+} elseif ($ntp === 'no') {
+    $report('WARN', 'clock not synchronized', '2FA codes need an accurate clock: sudo timedatectl set-ntp true');
+} else {
+    $report('WARN', 'clock sync unknown', 'could not run timedatectl; make sure NTP is on (2FA codes need an accurate clock)');
+}
+
 $report(is_file($root . '/public/install.php') && !is_file($root . '/storage/installed.lock') ? 'WARN' : 'OK', 'web installer locked', 'touch storage/installed.lock (or delete public/install.php)');
 
 // ---- Public endpoints ----

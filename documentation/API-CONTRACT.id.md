@@ -51,13 +51,19 @@ Envelope error standar:
 |---|---|---|---|
 | GET | `/health` | Publik | Status hidup aplikasi dan ringkasan dependency |
 | POST | `/auth/register` | Publik | Mendaftarkan owner dan node awal |
-| POST | `/auth/login` | Publik | Menukar credential dengan access token |
+| POST | `/auth/login` | Publik | Menukar credential dengan access token. Bila 2FA aktif: `{mfa_required: true, mfa_token, expires_in: 300}` sebagai gantinya, tanpa token |
+| POST | `/auth/login/verify` | Publik | `{mfa_token, code}` (kode 6 digit atau kode pemulihan) → respons sama seperti login tanpa 2FA. 5 kode salah mengakhiri tantangan (401) |
 | POST | `/auth/logout` | Bearer | Mencabut token aktif |
 | GET | `/me` | Bearer | Mengambil user dan konteks node aktif |
 | GET | `/me/sessions` | Bearer | Perangkat yang sedang masuk (id, perangkat, IP terpotong, waktu masuk/terakhir aktif, `current`) |
 | DELETE | `/me/sessions/{id}` | Bearer | Keluarkan satu perangkat lain (perangkat ini: pakai logout) |
 | POST | `/me/sessions/revoke-others` | Bearer | Keluarkan semua perangkat lain; mengembalikan `revoked` |
 | POST | `/me/password` | Bearer | `{current_password, new_password}`; mengeluarkan semua perangkat lain |
+| GET | `/me/2fa` | Bearer | `{enabled, enabled_at, recovery_codes_remaining}` |
+| POST | `/me/2fa/setup` | Bearer | Secret sementara baru: `{secret, otpauth_uri}` untuk kode QR (409 bila sudah aktif) |
+| POST | `/me/2fa/confirm` | Bearer | `{code}` → mengaktifkan 2FA; `{recovery_codes[10], other_sessions_revoked}`, hanya ditampilkan di sini |
+| POST | `/me/2fa/disable` | Bearer | `{password, code}` (kode atau kode pemulihan) → status |
+| POST | `/me/2fa/recovery-codes` | Bearer | `{code}` (hanya kode aplikasi) → `{recovery_codes[10]}`; set lama tidak berlaku |
 
 ### Profil dan konten
 

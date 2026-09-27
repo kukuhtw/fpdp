@@ -161,7 +161,13 @@ sudo FPDP_DIR=/var/www/fpdp sh deploy/ubuntu/restore.sh /var/backups/fpdp/fpdp-2
 sudo -u www-data php scripts/check-requirements.php --http
 ```
 
-Script ini memeriksa PHP dan ekstensinya, batas upload, pembuatan RSA key untuk signing federasi, pengaturan production di `.env`, database dan migration yang tertunda, `storage/` yang bisa ditulis, dan — dengan `--http` — bahwa `/api/v1/health` menjawab, WebFinger menemukan owner, dan `/.env` tidak tersaji. Exit code bukan nol bila ada yang gagal; jalankan juga setelah setiap upgrade.
+Script ini memeriksa PHP dan ekstensinya, batas upload, pembuatan RSA key untuk signing federasi, pengaturan production di `.env`, database dan migration yang tertunda, `storage/` yang bisa ditulis, dan — dengan `--http` — bahwa `/api/v1/health` menjawab, WebFinger menemukan owner, dan `/.env` tidak tersaji. Script ini juga memberi peringatan bila jam server tidak tersinkron NTP: kode dua langkah tidak diterima bila jam server meleset lebih dari sekitar 30 detik (`sudo timedatectl set-ntp true`). Exit code bukan nol bila ada yang gagal; jalankan juga setelah setiap upgrade.
+
+**Terkunci 2FA?** Bila owner kehilangan ponsel sekaligus kode pemulihan, nonaktifkan 2FA dari server (akses shell menjadi bukti kepemilikan), lalu login dengan password dan aktifkan kembali:
+
+```bash
+sudo -u www-data php scripts/disable-2fa.php --email=owner@example.com
+```
 
 ## 5. Deployment di shared hosting
 
@@ -263,6 +269,7 @@ Untuk sengaja menginstal ulang (misalnya pada salinan staging baru), hapus `stor
 - `.env` memiliki `APP_ENV=production` dan `APP_DEBUG=false`.
 - Permission file `.env` ketat (`chmod 600` di VPS; di shared hosting, jaga agar tetap di luar folder yang bisa diakses web seperti dijelaskan di §5.3).
 - Anda bisa login sebagai akun owner yang dibuat saat instalasi.
+- Disarankan: aktifkan verifikasi dua langkah di Settings → Keamanan akun, dan simpan kode pemulihan di luar server.
 
 ## 8. Memperbarui node yang sudah di-deploy
 

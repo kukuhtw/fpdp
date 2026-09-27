@@ -95,6 +95,55 @@
             </form>
             <p class="muted">Mengganti password juga mengeluarkan semua perangkat lain.</p>
             <p id="password-status" class="status" role="status" aria-live="polite"></p>
+
+            <h3 id="twofa-heading">Verifikasi dua langkah (2FA)</h3>
+            <div id="twofa-panel" class="stack" aria-labelledby="twofa-heading">
+                <p id="twofa-summary" class="muted">Memuat status…</p>
+
+                <div id="twofa-off" class="stack hidden">
+                    <p class="muted">Selain password, login meminta kode 6 digit dari aplikasi authenticator di ponsel Anda (Google Authenticator, Microsoft Authenticator, Authy, 1Password, Bitwarden, Aegis, dan sejenisnya). Password yang bocor saja tidak cukup untuk masuk.</p>
+                    <p><button type="button" id="twofa-start">Aktifkan 2FA</button></p>
+                </div>
+
+                <div id="twofa-setup" class="stack hidden">
+                    <p>1. Pindai kode QR ini dengan aplikasi authenticator.</p>
+                    <div id="twofa-qr" class="twofa-qr" role="img" aria-label="Kode QR untuk aplikasi authenticator"></div>
+                    <p class="muted">Tidak bisa memindai? Masukkan kunci ini secara manual (jenis: berbasis waktu):</p>
+                    <p><code id="twofa-secret" class="twofa-secret"></code></p>
+                    <form id="twofa-confirm-form" class="stack">
+                        <label>2. Masukkan kode 6 digit yang muncul di aplikasi<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></label>
+                        <div class="actions">
+                            <button type="submit">Aktifkan</button>
+                            <button type="button" id="twofa-setup-cancel" class="secondary">Batal</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="twofa-codes" class="stack hidden">
+                    <p><strong>Simpan kode pemulihan ini sekarang.</strong> Kode ini hanya ditampilkan sekali. Jika ponsel hilang, setiap kode bisa dipakai satu kali sebagai pengganti kode 6 digit.</p>
+                    <ul id="twofa-code-list" class="recovery-codes"></ul>
+                    <div class="actions">
+                        <button type="button" id="twofa-copy" class="secondary">Salin</button>
+                        <button type="button" id="twofa-download" class="secondary">Unduh .txt</button>
+                        <button type="button" id="twofa-codes-done">Sudah saya simpan</button>
+                    </div>
+                </div>
+
+                <div id="twofa-on" class="stack hidden">
+                    <form id="twofa-regenerate-form" class="stack">
+                        <p class="muted">Buat kode pemulihan baru (kode lama langsung tidak berlaku).</p>
+                        <label>Kode 6 digit dari aplikasi<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required></label>
+                        <button type="submit" class="secondary">Buat kode pemulihan baru</button>
+                    </form>
+                    <form id="twofa-disable-form" class="stack">
+                        <p class="muted">Menonaktifkan 2FA membuat login kembali hanya memakai password.</p>
+                        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+                        <label>Kode 6 digit atau kode pemulihan<input name="code" autocomplete="one-time-code" maxlength="20" required></label>
+                        <button type="submit" class="danger">Nonaktifkan 2FA</button>
+                    </form>
+                </div>
+                <p id="twofa-status" class="status" role="status" aria-live="polite"></p>
+            </div>
         </section>
 
         <section class="panel">
@@ -105,6 +154,8 @@
 </main>
 <script src="/assets/dashboard-settings.js" defer></script>
 <script src="/assets/dashboard-security.js" defer></script>
+<script src="/assets/vendor/qrcode-generator-2.0.4.js" defer></script>
+<script src="/assets/dashboard-2fa.js" defer></script>
 <script src="/assets/dashboard-language.js" defer></script>
 </body>
 </html>

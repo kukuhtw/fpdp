@@ -51,13 +51,19 @@ Standard error envelope:
 |---|---|---|---|
 | GET | `/health` | Public | Liveness and dependency summary |
 | POST | `/auth/register` | Public | Register an owner and initial node |
-| POST | `/auth/login` | Public | Exchange credentials for access token |
+| POST | `/auth/login` | Public | Exchange credentials for access token. With 2FA on: `{mfa_required: true, mfa_token, expires_in: 300}` instead, and no token |
+| POST | `/auth/login/verify` | Public | `{mfa_token, code}` (6-digit code or recovery code) → same response as a login without 2FA. 5 wrong codes end the challenge (401) |
 | POST | `/auth/logout` | Bearer | Revoke the current token |
 | GET | `/me` | Bearer | Return authenticated user and node context |
 | GET | `/me/sessions` | Bearer | Devices signed in (id, device, truncated IP, created/last used, `current`) |
 | DELETE | `/me/sessions/{id}` | Bearer | Log one other device out (the current one: use logout) |
 | POST | `/me/sessions/revoke-others` | Bearer | Log every other device out; returns `revoked` |
 | POST | `/me/password` | Bearer | `{current_password, new_password}`; logs every other device out |
+| GET | `/me/2fa` | Bearer | `{enabled, enabled_at, recovery_codes_remaining}` |
+| POST | `/me/2fa/setup` | Bearer | New pending secret: `{secret, otpauth_uri}` for the QR code (409 if already on) |
+| POST | `/me/2fa/confirm` | Bearer | `{code}` → turns 2FA on; `{recovery_codes[10], other_sessions_revoked}`, shown only here |
+| POST | `/me/2fa/disable` | Bearer | `{password, code}` (code or recovery code) → status |
+| POST | `/me/2fa/recovery-codes` | Bearer | `{code}` (app code only) → `{recovery_codes[10]}`; the old set stops working |
 
 ### Profiles and content
 

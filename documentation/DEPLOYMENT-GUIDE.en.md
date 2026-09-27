@@ -161,7 +161,13 @@ sudo FPDP_DIR=/var/www/fpdp sh deploy/ubuntu/restore.sh /var/backups/fpdp/fpdp-2
 sudo -u www-data php scripts/check-requirements.php --http
 ```
 
-It checks PHP and its extensions, upload limits, RSA key generation for federation signing, `.env` production settings, the database and pending migrations, writable `storage/`, and — with `--http` — that `/api/v1/health` answers, that WebFinger finds the owner, and that `/.env` is not served. It exits non-zero if anything fails; run it after every upgrade too.
+It checks PHP and its extensions, upload limits, RSA key generation for federation signing, `.env` production settings, the database and pending migrations, writable `storage/`, and — with `--http` — that `/api/v1/health` answers, that WebFinger finds the owner, and that `/.env` is not served. It also warns when the clock is not NTP-synchronized: two-factor codes stop being accepted when the server clock is more than about 30 seconds off (`sudo timedatectl set-ntp true`). It exits non-zero if anything fails; run it after every upgrade too.
+
+**Locked out of 2FA?** If the owner has lost both the phone and the recovery codes, turn 2FA off from the server (shell access is the proof of ownership), then sign in with the password and set it up again:
+
+```bash
+sudo -u www-data php scripts/disable-2fa.php --email=owner@example.com
+```
 
 ## 5. Shared hosting deployment
 
@@ -263,6 +269,7 @@ To intentionally reinstall (for example onto a fresh staging copy), delete `stor
 - `.env` has `APP_ENV=production` and `APP_DEBUG=false`.
 - `.env` file permissions are restrictive (`chmod 600` on a VPS; on shared hosting, keep it out of any web-servable folder as described in §5.3).
 - You can log in as the owner account created during installation.
+- Recommended: turn on two-factor authentication under Settings → Keamanan akun, and keep the recovery codes off the server.
 
 ## 8. Updating a deployed node
 

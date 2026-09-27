@@ -185,7 +185,11 @@ final class View
 
         // Outbound-link analytics on the public pages only, not the dashboard.
         $path = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
-        $tracking = str_starts_with($path, '/dashboard') ? '' : '<script src="/assets/track-outbound.js" defer></script>';
+        // The dashboard instead gets the 2FA step of the owner login (not deferred:
+        // it wraps fetch() before any page script can use it).
+        $tracking = str_starts_with($path, '/dashboard')
+            ? '<script src="/assets/owner-login-mfa.js"></script>'
+            : '<script src="/assets/track-outbound.js" defer></script>';
 
         return $tags . '<script>window.FPDP_I18N=' . $json . ';window.FPDP_LOCALE=' . $locale . ';' . $helper . '</script>' . $tracking;
     }

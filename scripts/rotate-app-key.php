@@ -29,6 +29,8 @@ $db = Database::connection();
 $targets = [
     ['table' => 'payment_gateway_configs', 'column' => 'encrypted_value'],
     ['table' => 'external_accounts', 'column' => 'access_token'],
+    ['table' => 'users', 'column' => 'totp_secret'],
+    ['table' => 'users', 'column' => 'totp_pending_secret'],
 ];
 
 $db->beginTransaction();
