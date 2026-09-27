@@ -29,8 +29,8 @@ if ($remoteProduct !== null) {
             <?= htmlspecialchars((string) $post['display_name'], ENT_QUOTES, 'UTF-8') ?>
         </a>
         <span>@<?= htmlspecialchars((string) $post['handle'], ENT_QUOTES, 'UTF-8') ?></span>
-        <?php if ($isFederated): ?><span class="badge-fediverse" title="Post dari akun yang Anda follow di fediverse">Fediverse</span><?php endif; ?>
-        <?php if ($isProduct): ?><span class="badge-product" title="Produk yang dipromosikan">Produk</span><?php endif; ?>
+        <?php if ($isFederated): ?><span class="badge-fediverse" title="<?= \App\Core\View::te('card.fediverse_title') ?>"><?= \App\Core\View::te('card.fediverse_badge') ?></span><?php endif; ?>
+        <?php if ($isProduct): ?><span class="badge-product" title="<?= \App\Core\View::te('card.product_title') ?>"><?= \App\Core\View::te('card.product_badge') ?></span><?php endif; ?>
         <?php if ($post['published_at'] !== null): ?>
             <time datetime="<?= htmlspecialchars((string) $post['published_at'], ENT_QUOTES, 'UTF-8') ?>">
                 <?= htmlspecialchars(date('M j, Y', strtotime((string) $post['published_at'])), ENT_QUOTES, 'UTF-8') ?>
@@ -57,5 +57,5 @@ if ($remoteProduct !== null) {
             <?php endif; ?>
         <?php endforeach; ?>
     </div><?php endif; ?>
-    <footer><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $externalAttrs ?>><?php if ($remoteProduct !== null): ?>Beli di <?= htmlspecialchars((string) $remoteProduct['seller_domain'], ENT_QUOTES, 'UTF-8') ?> ↗<?php else: ?><?= $isFederated ? 'Lihat postingan asli ↗' : ($isProduct ? 'Lihat produk & beli →' : 'Permalink') ?><?php endif; ?></a></footer>
+    <footer><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $externalAttrs ?>><?php if ($remoteProduct !== null): ?><?= \App\Core\View::te('card.buy_at', ['domain' => (string) $remoteProduct['seller_domain']]) ?><?php else: ?><?= \App\Core\View::te($isFederated ? 'card.view_original' : ($isProduct ? 'card.view_product' : 'card.permalink')) ?><?php endif; ?></a></footer>
 </article>

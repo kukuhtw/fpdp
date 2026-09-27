@@ -1,29 +1,29 @@
 <!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title><link rel="stylesheet" href="/themes/editorial/assets/theme.css"></head>
+<html lang="<?= \App\Core\View::lang() ?>"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title><link rel="stylesheet" href="/themes/editorial/assets/theme.css"><?= \App\Core\View::i18nHead() ?></head>
 <body data-profile-handle="<?= htmlspecialchars((string) $profile['handle'], ENT_QUOTES, 'UTF-8') ?>">
 <?php \App\Core\View::partial('topnav', ['navClass' => 'ed-nav', 'brandClass' => 'ed-brand', 'linksClass' => 'ed-nav-links']); ?>
 <main class="ed-main">
   <header class="profile-hero">
     <?php if (trim((string) ($profile['avatar_url'] ?? '')) !== ''): ?>
-      <img class="avatar-photo" src="<?= htmlspecialchars((string) $profile['avatar_url'], ENT_QUOTES, 'UTF-8') ?>" alt="Foto profil <?= htmlspecialchars((string) $profile['display_name'], ENT_QUOTES, 'UTF-8') ?>">
+      <img class="avatar-photo" src="<?= htmlspecialchars((string) $profile['avatar_url'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= \App\Core\View::te('cv.avatar_alt', ['name' => (string) $profile['display_name']]) ?>">
     <?php else: ?>
       <div class="avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr((string) $profile['display_name'], 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
     <?php endif; ?>
     <div>
       <p class="eyebrow">@<?= htmlspecialchars((string) $profile['handle'], ENT_QUOTES, 'UTF-8') ?></p>
-      <h1>CV / Resume</h1>
+      <h1><?= \App\Core\View::te('cv.heading') ?></h1>
       <p><?= htmlspecialchars((string) $profile['display_name'], ENT_QUOTES, 'UTF-8') ?></p>
     </div>
   </header>
   <section class="panel">
-    <div id="cv-details"><p class="muted">Memuat informasi CV…</p></div>
+    <div id="cv-details"><p class="muted"><?= \App\Core\View::te('cv.loading') ?></p></div>
     <div id="cv-actions" class="stack hidden">
       <p id="cv-buyer-identity" class="muted hidden"></p>
-      <a id="google-login" class="button" href="/api/v1/profiles/<?= rawurlencode((string) $profile['handle']) ?>/visitor-auth/google/redirect">Masuk dengan Google</a>
-      <label id="cv-name-field" class="hidden">Nama<input id="cv-name-input" type="text" maxlength="255" placeholder="Nama lengkap"></label>
-      <label id="cv-phone-field" class="hidden">Nomor telepon<input id="cv-phone-input" type="tel" maxlength="30" placeholder="08xxxxxxxxxx"></label>
-      <button id="access-button" class="hidden">Beli akses</button>
-      <button id="download-button" class="hidden">Download CV</button>
+      <a id="google-login" class="button" href="/api/v1/profiles/<?= rawurlencode((string) $profile['handle']) ?>/visitor-auth/google/redirect"><?= \App\Core\View::te('cv.google_login') ?></a>
+      <label id="cv-name-field" class="hidden"><?= \App\Core\View::te('cv.name') ?><input id="cv-name-input" type="text" maxlength="255" placeholder="<?= \App\Core\View::te('cv.name_placeholder') ?>"></label>
+      <label id="cv-phone-field" class="hidden"><?= \App\Core\View::te('cv.phone') ?><input id="cv-phone-input" type="tel" maxlength="30" placeholder="08xxxxxxxxxx"></label>
+      <button id="access-button" class="hidden"><?= \App\Core\View::te('cv.buy_access') ?></button>
+      <button id="download-button" class="hidden"><?= \App\Core\View::te('cv.download') ?></button>
     </div>
     <p id="cv-status" class="status" role="status" aria-live="polite"></p>
     <p id="payment-confirm-link"></p>

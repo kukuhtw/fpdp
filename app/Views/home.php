@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= \App\Core\View::lang() ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,9 +43,9 @@
 <body>
     <div class="container">
         <div class="badge">FPDP</div>
-        <h1><?= htmlspecialchars($heading ?? 'Personal Digital Home') ?></h1>
-        <p><?= htmlspecialchars($subtitle ?? 'Your domain becomes your digital home.') ?></p>
-        <p>Local profile, social feed, federation, commerce, and payment gateway abstraction are all planned around a provider-agnostic architecture.</p>
+        <h1><?= htmlspecialchars($heading ?? \App\Core\View::t('home.heading')) ?></h1>
+        <p><?= htmlspecialchars($subtitle ?? \App\Core\View::t('home.subtitle')) ?></p>
+        <p><?= \App\Core\View::te('home.description') ?></p>
     </div>
 </body>
 </html>

@@ -11,6 +11,7 @@ use App\Controllers\ContentPageController;
 use App\Controllers\HealthController;
 use App\Controllers\HomeController;
 use App\Controllers\LlmController;
+use App\Controllers\LocaleSettingsController;
 use App\Controllers\MediaController;
 use App\Controllers\RagController;
 use App\Controllers\ProfileController;
@@ -602,6 +603,14 @@ $router->post('/api/v1/auth/logout', function (Request $request, array $params) 
 
 $router->get('/api/v1/me', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {
     return (new AuthController($buildAuthService(), $buildRateLimiter()))->me($request);
+});
+
+$router->get('/api/v1/me/locale-settings', function (Request $request, array $params) use ($buildAuthService, $buildAuditService): Response {
+    return (new LocaleSettingsController($buildAuthService(), new NodeRepository(Database::connection()), $buildAuditService()))->show($request);
+});
+
+$router->patch('/api/v1/me/locale-settings', function (Request $request, array $params) use ($buildAuthService, $buildAuditService): Response {
+    return (new LocaleSettingsController($buildAuthService(), new NodeRepository(Database::connection()), $buildAuditService()))->update($request);
 });
 
 $router->get('/api/v1/me/sessions', function (Request $request, array $params) use ($buildAuthService, $buildRateLimiter): Response {

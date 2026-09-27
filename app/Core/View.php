@@ -115,7 +115,84 @@ final class View
             // back to the core stylesheet alone rather than breaking the page.
         }
 
-        return $cached = $tag;
+        $cached = $tag;
+
+        // Not cached: the language can differ from one render to the next.
+        return $cached . self::i18nHead();
+    }
+
+    /**
+     * Translated text for the current visitor language (see I18n). Raw —
+     * use te() when printing into HTML.
+     *
+     * @param array<string, string|int|float> $params
+     */
+    public static function t(string $key, array $params = []): string
+    {
+        return I18n::t($key, $params);
+    }
+
+    /**
+     * Translated text, HTML-escaped — the one to use inside templates.
+     *
+     * @param array<string, string|int|float> $params
+     */
+    public static function te(string $key, array $params = []): string
+    {
+        return htmlspecialchars(I18n::t($key, $params), ENT_QUOTES, 'UTF-8');
+    }
+
+    /** For <html lang="...">. */
+    public static function lang(): string
+    {
+        return htmlspecialchars(I18n::locale(), ENT_QUOTES, 'UTF-8');
+    }
+
+    /**
+     * The enabled languages as links to the current page, for the switcher.
+     *
+     * @return array<int, array{code: string, label: string, url: string, current: bool}>
+     */
+    public static function languageLinks(): array
+    {
+        return array_map(static fn (string $code): array => [
+            'code' => $code,
+            'label' => I18n::LABELS[$code] ?? $code,
+            'url' => self::urlWithLang($code),
+            'current' => $code === I18n::locale(),
+        ], I18n::enabledLocales());
+    }
+
+    /**
+     * hreflang alternates (one per enabled language) and the `js.*`
+     * strings for the page's scripts: window.FPDP_I18N / window.FPDP_LOCALE.
+     */
+    public static function i18nHead(): string
+    {
+        $tags = '';
+        $languages = I18n::enabledLocales();
+        if (count($languages) > 1) {
+            foreach ($languages as $code) {
+                $tags .= '<link rel="alternate" hreflang="' . htmlspecialchars($code, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars(self::urlWithLang($code), ENT_QUOTES, 'UTF-8') . '">';
+            }
+        }
+        $json = json_encode(I18n::jsCatalog(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $locale = json_encode(I18n::locale(), JSON_HEX_TAG | JSON_HEX_QUOT);
+
+        // fpdpT(key, params, fallback): the JS twin of View::t(), for `js.*` keys (without the prefix).
+        $helper = 'window.fpdpT=function(k,p,f){var s=window.FPDP_I18N[k];if(s==null)s=f==null?k:f;p=p||{};'
+            . 'for(var n in p){s=s.split(":"+n).join(p[n]);}return s;};';
+
+        return $tags . '<script>window.FPDP_I18N=' . $json . ';window.FPDP_LOCALE=' . $locale . ';' . $helper . '</script>';
+    }
+
+    private static function urlWithLang(string $code): string
+    {
+        $path = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+        parse_str((string) ($_SERVER['QUERY_STRING'] ?? ''), $query);
+        $query['lang'] = $code;
+
+        return $path . '?' . http_build_query($query);
     }
 
     /**

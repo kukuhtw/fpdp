@@ -65,6 +65,20 @@
             <p id="llm-status" class="status" role="status" aria-live="polite"></p>
         </section>
 
+        <section class="panel" id="language-panel">
+            <h2>Bahasa halaman publik</h2>
+            <p class="muted">Bahasa yang dipakai halaman untuk pengunjung (beranda, profil, toko, CV, timeline). Pengunjung bisa berpindah di antara bahasa yang aktif lewat tombol di navigasi; tanpa pilihan, dipakai bahasa browser mereka bila aktif, lalu bahasa default. Isi yang Anda tulis sendiri (bio, post, produk) tidak diterjemahkan.</p>
+            <form id="language-form" class="stack">
+                <fieldset class="stack">
+                    <legend>Bahasa aktif</legend>
+                    <div id="language-options" class="stack"><p class="muted">Memuat…</p></div>
+                </fieldset>
+                <label>Bahasa default<select name="default_locale" id="default-locale"></select></label>
+                <button type="submit">Simpan bahasa</button>
+            </form>
+            <p id="language-status" class="status" role="status" aria-live="polite"></p>
+        </section>
+
         <section class="panel" id="security-panel">
             <h2>Keamanan akun</h2>
             <p class="muted">Perangkat tempat Anda sedang masuk. Keluarkan yang tidak Anda kenali, lalu ganti password. IP hanya disimpan sebagian (mis. <code>203.0.113.x</code>).</p>
@@ -91,5 +105,6 @@
 </main>
 <script src="/assets/dashboard-settings.js" defer></script>
 <script src="/assets/dashboard-security.js" defer></script>
+<script src="/assets/dashboard-language.js" defer></script>
 </body>
 </html>

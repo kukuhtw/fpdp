@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use App\Core\Config;
+use App\Core\Database;
 use App\Core\Http\JsonEnvelope;
+use App\Core\I18n;
 use App\Core\Http\Request;
 use App\Core\Router;
+use App\Repositories\NodeRepository;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -34,7 +37,16 @@ try {
     /** @var Router $router */
     $router = require __DIR__ . '/../app/routes.php';
 
-    $response = $router->dispatch(Request::fromGlobals());
+    $request = Request::fromGlobals();
+    // The visitor's language for public pages; node settings are read only
+    // if a page actually renders translated text.
+    I18n::useRequest($request, static function (): array {
+        $node = (new NodeRepository(Database::connection()))->findFirst();
+
+        return ['default' => $node['default_locale'] ?? null, 'enabled' => $node['enabled_locales'] ?? null];
+    });
+
+    $response = $router->dispatch($request);
 } catch (\Throwable $e) {
     // Whatever the client sees (generic in production, since APP_DEBUG
     // hides internals from the response for good reason), the real
@@ -51,6 +63,13 @@ try {
     ));
     $message = $debug ? $e->getMessage() : 'An unexpected error occurred.';
     $response = JsonEnvelope::error('INTERNAL_ERROR', $message, 500);
+}
+
+// Remember a language picked with ?lang= (cookie, not the URL, so links stay clean).
+$languageCookie = I18n::pendingCookie();
+if ($languageCookie !== null && !headers_sent()) {
+    header('Set-Cookie: ' . $languageCookie, false);
+    header('Vary: Accept-Language, Cookie', false);
 }
 
 $response->send();

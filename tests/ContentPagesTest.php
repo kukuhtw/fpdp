@@ -47,7 +47,7 @@ $insertVideo->execute(['media' => $media]);
 /** @var Router $router */
 $router = require __DIR__ . '/../app/routes.php';
 $timeline = $router->dispatch(new Request('GET', '/timeline'));
-page_assert($timeline->status === 200 && str_contains($timeline->body, 'Local timeline'), 'Timeline page failed');
+page_assert($timeline->status === 200 && str_contains($timeline->body, 'Timeline lokal'), 'Timeline page failed');
 page_assert(!str_contains($timeline->body, '<script>alert(1)</script>'), 'Timeline rendered unsafe post HTML');
 page_assert(str_contains($timeline->body, '&lt;script&gt;alert(1)&lt;/script&gt;'), 'Timeline did not escape post content');
 

@@ -3,7 +3,14 @@
  * Body of the public /about page, shared by every theme's about.php so the
  * description of what FPDP does stays in one place. Keep it in line with
  * documentation/PROGRESS-REPORT.en.md: only claim what the code does.
+ *
+ * Text comes from app/Lang/{id,en}/about.php. The about.* strings are
+ * trusted, author-controlled static HTML (some hold <strong>, <code>, <em>
+ * or <a href> markup), so they are printed unescaped with $t(). Anything
+ * dynamic — visitor or owner data — must still be escaped (View::te() or
+ * htmlspecialchars()).
  */
+$t = static fn (string $key): string => \App\Core\View::t($key);
 ?>
 <style>
   .about-hero{text-align:center;padding:48px 28px;background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:20px;}
@@ -35,118 +42,122 @@
   @media (max-width:700px){.about-grid{grid-template-columns:1fr;}.status-table th,.status-table td{padding:8px;}}
 </style>
 
+
 <section class="about-hero">
   <p class="eyebrow">FPDP</p>
-  <h1>Federated Personal Digital Platform</h1>
-  <p class="tagline">Your domain is your digital home — not a profile on someone else's platform.</p>
+  <h1><?= $t('about.hero.title') ?></h1>
+  <p class="tagline"><?= $t('about.hero.tagline') ?></p>
 </section>
 
 <div class="about-grid">
   <article class="about-card">
     <div class="icon">🏠</div>
-    <h2>What is FPDP?</h2>
-    <p>FPDP is a self-hosted personal digital platform. Each installation is one independent node, on one domain, owned by one person: their website, social profile, shop, and inbox in one place, connected to the fediverse.</p>
+    <h2><?= $t('about.what.heading') ?></h2>
+    <p><?= $t('about.what.intro') ?></p>
     <ul>
-      <li><strong>Own your domain</strong> — your identity is <code>@you@your-domain</code>, not an account on a platform you don't control.</li>
-      <li><strong>Own your content</strong> — posts, media, CV, and data stay on your node.</li>
-      <li><strong>Own your connections</strong> — follow and be followed by Mastodon users and other FPDP nodes.</li>
-      <li><strong>Own your shop</strong> — sell your own products to visitors and pick the payment gateway yourself.</li>
+      <li><?= $t('about.what.domain') ?></li>
+      <li><?= $t('about.what.content') ?></li>
+      <li><?= $t('about.what.connections') ?></li>
+      <li><?= $t('about.what.shop') ?></li>
     </ul>
   </article>
 
   <article class="about-card">
     <div class="icon">🌐</div>
-    <h2>How federation works</h2>
-    <p>FPDP speaks <strong>ActivityPub</strong>, the protocol behind Mastodon and the wider fediverse, so there is no central server.</p>
+    <h2><?= $t('about.how.heading') ?></h2>
+    <p><?= $t('about.how.intro') ?></p>
     <ul>
-      <li><strong>Identity</strong> — every node publishes WebFinger and an actor document, and signs what it sends with its own RSA key (HTTP Signatures).</li>
-      <li><strong>Follow</strong> — Follow, Accept, Reject, and Undo, including follow requests you approve yourself.</li>
-      <li><strong>Delivery</strong> — your posts and promoted products are delivered to followers, with retry and backoff.</li>
-      <li><strong>Timeline</strong> — incoming posts (created, edited, deleted, with images) join your local posts, external feeds, and products in one timeline.</li>
+      <li><?= $t('about.how.identity') ?></li>
+      <li><?= $t('about.how.follow') ?></li>
+      <li><?= $t('about.how.delivery') ?></li>
+      <li><?= $t('about.how.timeline') ?></li>
     </ul>
   </article>
 </div>
 
 <article class="about-card" style="margin-bottom:20px;">
   <div class="icon">🧰</div>
-  <h2>What a node includes today</h2>
+  <h2><?= $t('about.features.heading') ?></h2>
   <div class="about-features">
-    <div class="about-feature"><h3>📝 Publishing</h3><p>Posts and articles with media upload, drafts, visibility, and a public profile at <code>/@handle</code>.</p></div>
-    <div class="about-feature"><h3>🛍️ Personal online shop</h3><p>Physical and digital products, public checkout, and downloads after payment. Promoted products appear in followers' fediverse timelines.</p></div>
-    <div class="about-feature"><h3>💳 Payments</h3><p>Midtrans, PayPal, Paywuz, iPaymu, or manual bank transfer; confirmation, cancel, refund, and reconciliation from the dashboard.</p></div>
-    <div class="about-feature"><h3>📄 Paid CV access</h3><p>Visitors sign in with Google and pay once to download the owner's CV.</p></div>
-    <div class="about-feature"><h3>🤖 AI chatbot</h3><p>A chatbot answering from the owner's own documents and FAQ, using the owner's LLM provider, paid from a visitor wallet.</p></div>
-    <div class="about-feature"><h3>🔁 External feeds</h3><p>RSS, Atom, YouTube, custom APIs, and LinkedIn pages, shown with attribution and links to the original.</p></div>
-    <div class="about-feature"><h3>🎨 Themes</h3><p>Default, editorial, and minimal themes, switchable from the dashboard.</p></div>
-    <div class="about-feature"><h3>🔐 Owner dashboard</h3><p>One owner per node, with an audit trail of sensitive actions such as payments, credentials, and federation trust.</p></div>
+<?php foreach (['publishing', 'shop', 'payments', 'cv', 'chatbot', 'feeds', 'themes', 'dashboard'] as $feature): ?>
+    <div class="about-feature"><h3><?= $t('about.features.' . $feature . '.title') ?></h3><p><?= $t('about.features.' . $feature . '.text') ?></p></div>
+<?php endforeach; ?>
   </div>
 </article>
 
 <article class="about-card" style="margin-bottom:20px;">
   <div class="icon">🔗</div>
-  <h2>Federation in action</h2>
-  <p>Three independent nodes, each on its own domain — any of them could just as well be a Mastodon server:</p>
+  <h2><?= $t('about.action.heading') ?></h2>
+  <p><?= $t('about.action.intro') ?></p>
   <div class="fed-diagram">
-    <div class="fed-node"><div class="domain">kukuhtw.com</div><div class="handle">@kukuh</div><div>FPDP owner</div></div>
+    <div class="fed-node"><div class="domain">kukuhtw.com</div><div class="handle">@kukuh</div><div><?= $t('about.action.role_owner') ?></div></div>
     <div class="fed-arrow">⇄</div>
-    <div class="fed-node"><div class="domain">maya.id</div><div class="handle">@maya</div><div>Friend</div></div>
+    <div class="fed-node"><div class="domain">maya.id</div><div class="handle">@maya</div><div><?= $t('about.action.role_friend') ?></div></div>
     <div class="fed-arrow">⇄</div>
-    <div class="fed-node"><div class="domain">mastodon.social</div><div class="handle">@ari</div><div>Colleague</div></div>
+    <div class="fed-node"><div class="domain">mastodon.social</div><div class="handle">@ari</div><div><?= $t('about.action.role_colleague') ?></div></div>
   </div>
   <ol>
-    <li><strong>Find:</strong> @kukuh looks up <code>@ari@mastodon.social</code> in the dashboard and previews the profile.</li>
-    <li><strong>Follow:</strong> kukuhtw.com sends a signed Follow; ari's server accepts it.</li>
-    <li><strong>Receive:</strong> when @ari posts, edits, or deletes a post, kukuhtw.com gets it and updates @kukuh's timeline.</li>
-    <li><strong>Share:</strong> when @kukuh promotes a product, it reaches @ari's timeline as a post linking back to the shop; on another FPDP node like maya.id it shows as a product card with the price and a "Buy on kukuhtw.com" button.</li>
+    <li><?= $t('about.action.find') ?></li>
+    <li><?= $t('about.action.follow') ?></li>
+    <li><?= $t('about.action.receive') ?></li>
+    <li><?= $t('about.action.share') ?></li>
   </ol>
 </article>
 
 <div class="about-grid">
   <article class="about-card">
     <div class="icon">🔌</div>
-    <h2>How to connect</h2>
+    <h2><?= $t('about.connect.heading') ?></h2>
     <ol>
-      <li><strong>Get a node</strong> — deploy FPDP on your own domain (Docker/Dokploy, a VPS, or shared hosting — see <a href="https://github.com/kukuhtw/fpdp">GitHub</a>).</li>
-      <li><strong>Share your address</strong> — people follow you at <code>@handle@your-domain</code>, from Mastodon or another FPDP node.</li>
-      <li><strong>Find people</strong> — in <em>Dashboard → Federation</em>, search an address, see follow-back suggestions, or browse a Mastodon server's directory and hashtags.</li>
-      <li><strong>Approve followers</strong> — incoming follow requests wait for your approval.</li>
-      <li><strong>Publish</strong> — new posts and promoted products are delivered to your followers automatically.</li>
+      <li><?= $t('about.connect.node') ?></li>
+      <li><?= $t('about.connect.address') ?></li>
+      <li><?= $t('about.connect.find') ?></li>
+      <li><?= $t('about.connect.approve') ?></li>
+      <li><?= $t('about.connect.publish') ?></li>
     </ol>
-    <p>Federation is open — any ActivityPub server can connect without asking permission, and you can block any server or account.</p>
+    <p><?= $t('about.connect.open') ?></p>
   </article>
 
   <article class="about-card">
     <div class="icon">📋</div>
-    <h2>Federation status</h2>
-    <p>FPDP is in active development. What the code does today:</p>
+    <h2><?= $t('about.status.heading') ?></h2>
+    <p><?= $t('about.status.intro') ?></p>
     <table class="status-table">
-      <tr><th>Feature</th><th>Status</th></tr>
-      <tr><td>WebFinger, actor documents, RSA keys &amp; HTTP Signatures</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Follow / Accept / Reject / Undo, follow approval</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Signed delivery with retry</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Incoming posts (create, edit, delete, images)</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Promoted products to the fediverse</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Account discovery (search, suggestions, directory, hashtags)</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Block servers and accounts, mute connections</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Works with Mastodon (mastodon.social, mastodon.world)</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Likes, boosts, and replies</td><td><span class="status-tag status-todo">Planned</span></td></tr>
-      <tr><td>Reporting accounts (Flag)</td><td><span class="status-tag status-todo">Planned</span></td></tr>
-      <tr><td>Products as structured objects, with a "Buy on {seller}" card on other FPDP nodes</td><td><span class="status-tag status-done">Done</span></td></tr>
-      <tr><td>Ordering natively from another node's dashboard</td><td><span class="status-tag status-todo">Deferred</span></td></tr>
+      <tr><th><?= $t('about.status.col_feature') ?></th><th><?= $t('about.status.col_status') ?></th></tr>
+<?php
+// row key => status (the CSS class and the label key share the name suffix)
+$statusRows = [
+    'identity' => 'done',
+    'follow' => 'done',
+    'delivery' => 'done',
+    'incoming' => 'done',
+    'promoted' => 'done',
+    'discovery' => 'done',
+    'block' => 'done',
+    'mastodon' => 'done',
+    'interactions' => 'planned',
+    'flag' => 'planned',
+    'products' => 'done',
+    'native_order' => 'deferred',
+];
+$statusClass = ['done' => 'status-done', 'planned' => 'status-todo', 'deferred' => 'status-todo'];
+foreach ($statusRows as $row => $status): ?>
+      <tr><td><?= $t('about.status.row_' . $row) ?></td><td><span class="status-tag <?= $statusClass[$status] ?>"><?= $t('about.status.' . $status) ?></span></td></tr>
+<?php endforeach; ?>
     </table>
   </article>
 </div>
 
 <article class="about-card">
   <div class="icon">📖</div>
-  <h2>Documentation</h2>
-  <p>For developers and node operators — source code on <a href="https://github.com/kukuhtw/fpdp">GitHub</a>, licensed under Apache-2.0:</p>
+  <h2><?= $t('about.docs.heading') ?></h2>
+  <p><?= $t('about.docs.intro') ?></p>
   <ul>
-    <li><a href="/documentation/PROGRESS-REPORT.en.md">Progress Report</a> — what is done, partial, and not started.</li>
-    <li><a href="/documentation/FEDERATION-CONCEPT.en.md">Federation Concept</a> — federation protocol design.</li>
-    <li><a href="/documentation/API-CONTRACT.en.md">API Contract</a> — API specification.</li>
-    <li><a href="/documentation/DEPLOYMENT-GUIDE.en.md">Deployment Guide</a> — VPS, shared hosting, and Docker.</li>
-    <li><a href="/documentation/ROADMAP.en.md">Roadmap</a> — development phases.</li>
-    <li><a href="/documentation/PRD.en.md">Product Requirements</a> and <a href="/documentation/BRD.en.md">Business Requirements</a>.</li>
+    <li><?= $t('about.docs.progress') ?></li>
+    <li><?= $t('about.docs.federation') ?></li>
+    <li><?= $t('about.docs.api') ?></li>
+    <li><?= $t('about.docs.deployment') ?></li>
+    <li><?= $t('about.docs.roadmap') ?></li>
+    <li><?= $t('about.docs.requirements') ?></li>
   </ul>
 </article>

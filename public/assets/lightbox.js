@@ -49,7 +49,7 @@
     const closeButton = document.createElement('button');
     closeButton.type = 'button';
     closeButton.className = 'lightbox-close';
-    closeButton.setAttribute('aria-label', 'Tutup');
+    closeButton.setAttribute('aria-label', typeof window.fpdpT === 'function' ? window.fpdpT('lightbox.close', {}, 'Tutup') : 'Tutup');
     closeButton.textContent = '×';
     closeButton.addEventListener('click', closeLightbox);
 

@@ -9,6 +9,12 @@
   const loadMoreButton = document.querySelector('#load-more');
   let nextCursor = null;
 
+  // Translated UI text (see View::i18nHead()); the Indonesian fallback keeps working without the catalog.
+  const t = (key, params, fallback) => {
+    if (typeof window.fpdpT === 'function') return window.fpdpT(key, params, fallback);
+    return Object.entries(params || {}).reduce((text, [name, value]) => text.split(`:${name}`).join(value), fallback);
+  };
+
   const api = async (path, options = {}) => {
     const headers = { ...(options.headers || {}) };
     const token = sessionStorage.getItem(tokenKey);
@@ -16,7 +22,7 @@
     if (options.body) headers['Content-Type'] = 'application/json';
     const response = await fetch(path, { ...options, headers });
     const payload = await response.json();
-    if (!response.ok) throw new Error(payload?.error?.message || `Request failed (${response.status})`);
+    if (!response.ok) throw new Error(payload?.error?.message || t('common.request_failed', { status: response.status }, 'Permintaan gagal (:status)'));
     return payload;
   };
 
@@ -47,7 +53,7 @@
 
     const meta = document.createElement('p');
     meta.className = 'muted';
-    meta.textContent = `${comment.author.display_name || 'Pengunjung'} · ${new Date(comment.created_at).toLocaleString('id-ID')}`;
+    meta.textContent = `${comment.author.display_name || t('coretan.visitor', {}, 'Pengunjung')} · ${new Date(comment.created_at).toLocaleString(window.FPDP_LOCALE === 'en' ? 'en-US' : 'id-ID')}`;
 
     const body = document.createElement('div');
     body.innerHTML = renderText(comment.content);
@@ -59,7 +65,7 @@
       reply.className = 'comment-reply';
       const replyMeta = document.createElement('p');
       replyMeta.className = 'muted';
-      replyMeta.textContent = 'Balasan admin';
+      replyMeta.textContent = t('coretan.admin_reply', {}, 'Balasan admin');
       const replyBody = document.createElement('div');
       replyBody.innerHTML = renderText(comment.admin_reply);
       reply.append(replyMeta, replyBody);
@@ -72,7 +78,10 @@
   const renderComments = (comments, append) => {
     if (!append) list.replaceChildren();
     if (comments.length === 0 && !append) {
-      list.innerHTML = '<p class="muted">Belum ada coretan. Jadilah yang pertama menulis!</p>';
+      const empty = document.createElement('p');
+      empty.className = 'muted';
+      empty.textContent = t('coretan.empty', {}, 'Belum ada coretan. Jadilah yang pertama menulis!');
+      list.replaceChildren(empty);
       return;
     }
     comments.forEach((comment) => list.append(commentCard(comment)));
@@ -106,7 +115,7 @@
         body: JSON.stringify({ content }),
       });
       form.reset();
-      message('Coretan terkirim. Terima kasih!');
+      message(t('coretan.sent', {}, 'Coretan terkirim. Terima kasih!'));
       nextCursor = null;
       loadComments(false);
     } catch (error) {

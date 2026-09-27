@@ -103,6 +103,18 @@ final class NodeRepository
      *
      * @return array<string, mixed>|null
      */
+    public function updateLocaleSettings(int $nodeId, string $defaultLocale, array $enabledLocales): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE nodes SET default_locale = :default_locale, enabled_locales = :enabled_locales WHERE id = :id',
+        );
+        $statement->execute([
+            'default_locale' => $defaultLocale,
+            'enabled_locales' => implode(',', $enabledLocales),
+            'id' => $nodeId,
+        ]);
+    }
+
     public function findFirst(): ?array
     {
         $statement = $this->connection->query('SELECT * FROM nodes ORDER BY id ASC LIMIT 1');

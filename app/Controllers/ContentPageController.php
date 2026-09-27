@@ -44,7 +44,7 @@ final class ContentPageController
     {
         return View::renderThemed(
             'about',
-            ['title' => 'About FPDP · Federated Personal Digital Platform'],
+            ['title' => View::t('about.page_title')],
             $this->themes?->getActiveSlugForFirstNode(),
         );
     }

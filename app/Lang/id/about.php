@@ -1,0 +1,92 @@
+<?php
+
+// Halaman publik /about (app/Views/partials/about-content.php).
+// String di sini adalah HTML statis tepercaya yang ditulis oleh author:
+// sebagian berisi markup inline (<strong>, <code>, <em>, <a href>) dan
+// dicetak tanpa escape lewat View::t(). Jangan pernah menaruh teks dari
+// visitor atau owner di sini.
+return [
+    'about.page_title' => 'Tentang FPDP · Federated Personal Digital Platform',
+
+    'about.hero.title' => 'Federated Personal Digital Platform',
+    'about.hero.tagline' => 'Domain Anda adalah rumah digital Anda — bukan sekadar profil di platform milik orang lain.',
+
+    'about.what.heading' => 'Apa itu FPDP?',
+    'about.what.intro' => 'FPDP adalah platform digital personal yang di-host sendiri. Setiap instalasi adalah satu node independen, di satu domain, milik satu orang: website, profil sosial, toko, dan inbox dalam satu tempat, terhubung ke fediverse.',
+    'about.what.domain' => '<strong>Miliki domain Anda</strong> — identitas Anda adalah <code>@you@your-domain</code>, bukan akun di platform yang tidak Anda kendalikan.',
+    'about.what.content' => '<strong>Miliki konten Anda</strong> — post, media, CV, dan data tetap tersimpan di node Anda.',
+    'about.what.connections' => '<strong>Miliki koneksi Anda</strong> — follow dan di-follow oleh pengguna Mastodon maupun node FPDP lain.',
+    'about.what.shop' => '<strong>Miliki toko Anda</strong> — jual produk sendiri kepada visitor dan pilih sendiri payment gateway-nya.',
+
+    'about.how.heading' => 'Cara kerja federasi',
+    'about.how.intro' => 'FPDP berbicara <strong>ActivityPub</strong>, protokol di balik Mastodon dan fediverse secara umum, sehingga tidak ada server pusat.',
+    'about.how.identity' => '<strong>Identitas</strong> — setiap node memublikasikan WebFinger dan actor document, serta menandatangani setiap kiriman dengan RSA key miliknya sendiri (HTTP Signatures).',
+    'about.how.follow' => '<strong>Follow</strong> — Follow, Accept, Reject, dan Undo, termasuk permintaan follow yang Anda setujui sendiri.',
+    'about.how.delivery' => '<strong>Pengiriman</strong> — post dan produk promosi Anda dikirim ke follower, dengan retry dan backoff.',
+    'about.how.timeline' => '<strong>Timeline</strong> — post yang masuk (dibuat, diedit, dihapus, beserta gambar) bergabung dengan post lokal, feed eksternal, dan produk Anda dalam satu timeline.',
+
+    'about.features.heading' => 'Isi sebuah node saat ini',
+    'about.features.publishing.title' => '📝 Publikasi',
+    'about.features.publishing.text' => 'Post dan artikel dengan upload media, draft, pengaturan visibilitas, serta profil publik di <code>/@handle</code>.',
+    'about.features.shop.title' => '🛍️ Toko online pribadi',
+    'about.features.shop.text' => 'Produk fisik dan digital, checkout publik, serta unduhan setelah pembayaran. Produk promosi tampil di timeline fediverse para follower.',
+    'about.features.payments.title' => '💳 Pembayaran',
+    'about.features.payments.text' => 'Midtrans, PayPal, Paywuz, iPaymu, atau transfer bank manual; konfirmasi, pembatalan, refund, dan rekonsiliasi dari dashboard.',
+    'about.features.cv.title' => '📄 Akses CV berbayar',
+    'about.features.cv.text' => 'Visitor login dengan Google dan cukup membayar sekali untuk mengunduh CV owner.',
+    'about.features.chatbot.title' => '🤖 Chatbot AI',
+    'about.features.chatbot.text' => 'Chatbot yang menjawab berdasarkan dokumen dan FAQ milik owner, memakai LLM provider owner, dan dibayar dari wallet visitor.',
+    'about.features.feeds.title' => '🔁 Feed eksternal',
+    'about.features.feeds.text' => 'RSS, Atom, YouTube, API kustom, dan halaman LinkedIn, ditampilkan dengan atribusi dan tautan ke sumber aslinya.',
+    'about.features.themes.title' => '🎨 Theme',
+    'about.features.themes.text' => 'Theme default, editorial, dan minimal, yang bisa diganti dari dashboard.',
+    'about.features.dashboard.title' => '🔐 Dashboard owner',
+    'about.features.dashboard.text' => 'Satu owner per node, dengan audit trail untuk aksi sensitif seperti pembayaran, kredensial, dan trust federasi.',
+
+    'about.action.heading' => 'Federasi dalam praktik',
+    'about.action.intro' => 'Tiga node independen, masing-masing di domainnya sendiri — salah satunya bisa saja berupa server Mastodon:',
+    'about.action.role_owner' => 'Owner FPDP',
+    'about.action.role_friend' => 'Teman',
+    'about.action.role_colleague' => 'Rekan kerja',
+    'about.action.find' => '<strong>Cari:</strong> @kukuh mencari <code>@ari@mastodon.social</code> di dashboard dan melihat pratinjau profilnya.',
+    'about.action.follow' => '<strong>Follow:</strong> kukuhtw.com mengirim Follow yang ditandatangani; server ari menerimanya.',
+    'about.action.receive' => '<strong>Terima:</strong> saat @ari membuat, mengedit, atau menghapus post, kukuhtw.com menerimanya dan memperbarui timeline @kukuh.',
+    'about.action.share' => '<strong>Bagikan:</strong> saat @kukuh mempromosikan produk, produk itu sampai ke timeline @ari sebagai post yang menautkan kembali ke toko; di node FPDP lain seperti maya.id, produk tampil sebagai kartu produk lengkap dengan harga dan tombol "Beli di kukuhtw.com".',
+
+    'about.connect.heading' => 'Cara terhubung',
+    'about.connect.node' => '<strong>Siapkan node</strong> — deploy FPDP di domain Anda sendiri (Docker/Dokploy, VPS, atau shared hosting — lihat <a href="https://github.com/kukuhtw/fpdp">GitHub</a>).',
+    'about.connect.address' => '<strong>Bagikan alamat Anda</strong> — orang lain mem-follow Anda di <code>@handle@your-domain</code>, dari Mastodon atau node FPDP lain.',
+    'about.connect.find' => '<strong>Temukan orang</strong> — di <em>Dashboard → Federasi</em>, cari sebuah alamat, lihat saran follow-back, atau jelajahi direktori dan hashtag sebuah server Mastodon.',
+    'about.connect.approve' => '<strong>Setujui follower</strong> — permintaan follow yang masuk menunggu persetujuan Anda.',
+    'about.connect.publish' => '<strong>Publikasikan</strong> — post baru dan produk promosi otomatis dikirim ke follower Anda.',
+    'about.connect.open' => 'Federasi bersifat terbuka — server ActivityPub mana pun bisa terhubung tanpa meminta izin, dan Anda bisa memblokir server atau akun mana pun.',
+
+    'about.status.heading' => 'Status federasi',
+    'about.status.intro' => 'FPDP sedang aktif dikembangkan. Yang sudah dikerjakan kode saat ini:',
+    'about.status.col_feature' => 'Fitur',
+    'about.status.col_status' => 'Status',
+    'about.status.done' => 'Selesai',
+    'about.status.planned' => 'Direncanakan',
+    'about.status.deferred' => 'Ditunda',
+    'about.status.row_identity' => 'WebFinger, actor document, RSA key &amp; HTTP Signatures',
+    'about.status.row_follow' => 'Follow / Accept / Reject / Undo, persetujuan follow',
+    'about.status.row_delivery' => 'Pengiriman bertanda tangan dengan retry',
+    'about.status.row_incoming' => 'Post masuk (buat, edit, hapus, gambar)',
+    'about.status.row_promoted' => 'Produk promosi ke fediverse',
+    'about.status.row_discovery' => 'Penemuan akun (pencarian, saran, direktori, hashtag)',
+    'about.status.row_block' => 'Blokir server dan akun, mute koneksi',
+    'about.status.row_mastodon' => 'Kompatibel dengan Mastodon (mastodon.social, mastodon.world)',
+    'about.status.row_interactions' => 'Like, boost, dan reply',
+    'about.status.row_flag' => 'Pelaporan akun (Flag)',
+    'about.status.row_products' => 'Produk sebagai objek terstruktur, dengan kartu "Beli di {seller}" di node FPDP lain',
+    'about.status.row_native_order' => 'Pemesanan langsung dari dashboard node lain',
+
+    'about.docs.heading' => 'Dokumentasi',
+    'about.docs.intro' => 'Untuk developer dan operator node — source code tersedia di <a href="https://github.com/kukuhtw/fpdp">GitHub</a> dengan lisensi Apache-2.0:',
+    'about.docs.progress' => '<a href="/documentation/PROGRESS-REPORT.id.md">Laporan Progres</a> — apa yang sudah selesai, sebagian, dan belum dimulai.',
+    'about.docs.federation' => '<a href="/documentation/FEDERATION-CONCEPT.id.md">Konsep Federasi</a> — desain protokol federasi.',
+    'about.docs.api' => '<a href="/documentation/API-CONTRACT.id.md">Kontrak API</a> — spesifikasi API.',
+    'about.docs.deployment' => '<a href="/documentation/DEPLOYMENT-GUIDE.id.md">Panduan Deployment</a> — VPS, shared hosting, dan Docker.',
+    'about.docs.roadmap' => '<a href="/documentation/ROADMAP.id.md">Roadmap</a> — fase-fase pengembangan.',
+    'about.docs.requirements' => '<a href="/documentation/PRD.md">Product Requirements</a> dan <a href="/documentation/BRD.md">Business Requirements</a>.',
+];
