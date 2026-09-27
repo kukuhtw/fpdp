@@ -7,6 +7,7 @@
 !.env.example
 node_modules
 storage/cv
+storage/archive
 storage/media
 storage/products
 storage/logs

@@ -155,6 +155,18 @@ sudo FPDP_DIR=/var/www/fpdp sh deploy/ubuntu/restore.sh /var/backups/fpdp/fpdp-2
 
 `restore.sh` asks for confirmation, pauses the cron jobs, loads the dump, swaps `storage/` (the old one is kept as `storage.before-restore.*`) and `.env`, runs any newer migration, and turns the jobs back on.
 
+### 4.9a Removing old CV data
+
+The paid CV download was removed (September 27, 2026). On a node that used it, migration `0066` only renames its tables to `archived_cv_documents` / `archived_cv_access_grants` — data intact, because migrations run on every deploy. To archive and then delete them together with `storage/cv/`:
+
+```bash
+sudo -u www-data php scripts/archive-cv-data.php            # summary, changes nothing
+sudo -u www-data php scripts/archive-cv-data.php --archive  # storage/archive/cv-archive-<time>.tar.gz, verified, chmod 600
+sudo -u www-data php scripts/archive-cv-data.php --delete --archive-file=storage/archive/cv-archive-<time>.tar.gz --confirm
+```
+
+`--delete` re-verifies the archive and refuses if the rows or files changed since it was made. The archive holds buyer identity: move it off the server encrypted (e.g. `gpg -c`), keep it only as long as needed, then delete it. On Dokploy, run the same commands in the `app` container.
+
 ### 4.10 Check the server
 
 ```bash

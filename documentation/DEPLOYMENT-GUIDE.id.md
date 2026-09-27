@@ -155,6 +155,18 @@ sudo FPDP_DIR=/var/www/fpdp sh deploy/ubuntu/restore.sh /var/backups/fpdp/fpdp-2
 
 `restore.sh` meminta konfirmasi, menghentikan sementara job cron, memuat dump, menukar `storage/` (yang lama disimpan sebagai `storage.before-restore.*`) dan `.env`, menjalankan migration yang lebih baru, lalu menyalakan kembali job-nya.
 
+### 4.9a Menghapus data CV lama
+
+Fitur download CV berbayar sudah dihapus (27 September 2026). Di node yang pernah memakainya, migration `0066` hanya mengganti nama tabelnya menjadi `archived_cv_documents` / `archived_cv_access_grants` — datanya utuh, karena migration berjalan di setiap deploy. Untuk mengarsipkan lalu menghapusnya bersama `storage/cv/`:
+
+```bash
+sudo -u www-data php scripts/archive-cv-data.php            # ringkasan, tidak mengubah apa pun
+sudo -u www-data php scripts/archive-cv-data.php --archive  # storage/archive/cv-archive-<waktu>.tar.gz, terverifikasi, chmod 600
+sudo -u www-data php scripts/archive-cv-data.php --delete --archive-file=storage/archive/cv-archive-<waktu>.tar.gz --confirm
+```
+
+`--delete` memverifikasi ulang arsip dan menolak bila baris atau file berubah sejak arsip dibuat. Arsip berisi identitas pembeli: pindahkan ke luar server dalam keadaan terenkripsi (mis. `gpg -c`), simpan hanya selama diperlukan, lalu hapus. Di Dokploy, jalankan perintah yang sama di container `app`.
+
 ### 4.10 Periksa server
 
 ```bash
