@@ -61,6 +61,35 @@ final class MarketplaceService
         if ($product === null) throw new NotFoundException('Product not found.');
         return $product;
     }
+
+    /**
+     * A product as the public may see it: only ACTIVE and not PRIVATE, and
+     * without the external download URL, which is what the buyer pays for
+     * (it is handed out by the purchase-gated download endpoint instead).
+     * Anything else is a plain 404 so hidden products can't be probed.
+     *
+     * @return array<string, mixed>
+     */
+    public function getPublicProduct(string $publicId): array
+    {
+        $product = $this->products->findByPublicId($publicId);
+        if ($product === null || (string) $product['status'] !== 'ACTIVE' || (string) $product['visibility'] === 'PRIVATE') {
+            throw new NotFoundException('Product not found.');
+        }
+
+        return self::toPublicProduct($product);
+    }
+
+    /**
+     * @param array<string, mixed> $product
+     * @return array<string, mixed>
+     */
+    public static function toPublicProduct(array $product): array
+    {
+        unset($product['digital_asset_url'], $product['digital_asset_metadata']);
+
+        return $product;
+    }
 public function listProducts(int $nodeId, array $query = []): array
     {
         $limit = filter_var($query['limit'] ?? 20, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 100]]);
@@ -73,7 +102,7 @@ public function listProducts(int $nodeId, array $query = []): array
         if (isset($query['mine'])) {
             return ['items' => $this->products->listByNodeId($nodeId), 'next_cursor' => null, 'has_more' => false];
         }
-        $rows = $this->products->listPublic($nodeId, $limit, $beforeId);
+        $rows = array_map([self::class, 'toPublicProduct'], $this->products->listPublic($nodeId, $limit, $beforeId));
         $hasMore = count($rows) > $limit;
         if ($hasMore) array_pop($rows);
         $last = $rows === [] ? null : $rows[array_key_last($rows)];
@@ -213,6 +242,7 @@ public function listProducts(int $nodeId, array $query = []): array
         $totalAmount = '0';
         $orderItems = [];
         $hasPhysicalItem = false;
+        $currencies = [];
         foreach ($input['items'] as $i => $item) {
             $pid = $item['product_id'] ?? '';
             $qty = max(1, (int) ($item['quantity'] ?? 1));
@@ -220,6 +250,9 @@ public function listProducts(int $nodeId, array $query = []): array
             if ($product === null) { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_found']; continue; }
             if ((int) $product['node_id'] !== $nodeId) { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_found']; continue; }
             if ((string) ($product['status'] ?? 'ACTIVE') !== 'ACTIVE') { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_available']; continue; }
+            // A visitor can only buy what the shop shows; the owner may still record a sale of a private product by hand.
+            if ($visitorId !== null && (string) ($product['visibility'] ?? 'PUBLIC') === 'PRIVATE') { $errors[] = ['field' => "items.{$i}.product_id", 'reason' => 'not_found']; continue; }
+            $currencies[(string) ($product['currency'] ?? 'IDR')] = true;
             if ((string) ($product['product_type'] ?? 'PHYSICAL') === 'PHYSICAL') { $hasPhysicalItem = true; }
             $unitPrice = $product['price'];
             $subtotal = (string) ((float) $unitPrice * $qty);
@@ -235,9 +268,16 @@ public function listProducts(int $nodeId, array $query = []): array
             $errors[] = ['field' => 'shipping_address', 'reason' => 'invalid_length'];
         }
 
+        // The order is charged in the products' own currency — never one the
+        // client names — and one order can't mix currencies.
+        if (count($currencies) > 1) {
+            $errors[] = ['field' => 'items', 'reason' => 'mixed_currencies'];
+        }
+
         if ($errors !== []) throw new ValidationException($errors);
+        $currency = (string) (array_key_first($currencies) ?? 'IDR');
         $orderPubId = Uuid::v4();
-        $order = $this->orders->create($orderPubId, $nodeId, $totalAmount, $input['currency'] ?? 'IDR', $buyerEmail, $buyerName, $input['notes'] ?? null, $visitorId, $shippingAddress !== '' ? $shippingAddress : null);
+        $order = $this->orders->create($orderPubId, $nodeId, $totalAmount, $currency, $buyerEmail, $buyerName, $input['notes'] ?? null, $visitorId, $shippingAddress !== '' ? $shippingAddress : null);
         foreach ($orderItems as $oi) {
             $this->orderItems->create((int) $order['id'], (int) $oi['product']['id'], ['public_id' => $oi['product']['public_id'], 'title' => $oi['product']['title'], 'price' => $oi['product']['price']], $oi['quantity'], $oi['unit_price'], $oi['subtotal']);
         }
@@ -254,10 +294,22 @@ public function listProducts(int $nodeId, array $query = []): array
         return $this->nodes ??= new NodeRepository(\App\Core\Database::connection());
     }
 
-    public function getOrder(string $publicId): array
+    /**
+     * An order is personal data (buyer name, email, shipping address), so
+     * only the owner of the selling node or the visitor who placed it may
+     * read it. Pass exactly one of $ownerNodeId / $visitorId. Anyone else
+     * gets a 404, so order ids can't be probed.
+     *
+     * @return array<string, mixed>
+     */
+    public function getOrder(string $publicId, ?int $ownerNodeId = null, ?int $visitorId = null): array
     {
         $order = $this->orders->findByPublicId($publicId);
-        if ($order === null) throw new NotFoundException('Order not found.');
+        $allowed = $order !== null && (
+            ($ownerNodeId !== null && (int) $order['node_id'] === $ownerNodeId)
+            || ($visitorId !== null && $order['visitor_id'] !== null && (int) $order['visitor_id'] === $visitorId)
+        );
+        if (!$allowed) throw new NotFoundException('Order not found.');
         $order['items'] = $this->orderItems->findByOrderId((int) $order['id']);
         return $order;
     }

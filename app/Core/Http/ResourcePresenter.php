@@ -90,6 +90,13 @@ final class ResourcePresenter
                 'visibility' => 'PUBLIC',
                 'published_at' => $publishedAt,
                 'updated_at' => $publishedAt,
+                'product' => is_array($post['remote_product'] ?? null) ? [
+                    'price' => $post['remote_product']['price'],
+                    'currency' => $post['remote_product']['currency'],
+                    'product_type' => $post['remote_product']['product_type'],
+                    'checkout_url' => $post['remote_product']['checkout_url'],
+                    'seller_domain' => $post['remote_product']['seller_domain'],
+                ] : null,
             ];
         }
 

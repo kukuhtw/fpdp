@@ -35,7 +35,7 @@ foreach ([
     'CREATE TABLE remote_nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, domain TEXT UNIQUE, name TEXT, status TEXT DEFAULT "ACTIVE", trust_state TEXT DEFAULT "UNKNOWN", last_seen_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE remote_actors (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_node_id INTEGER, actor_uri TEXT, federated_address TEXT UNIQUE, display_name TEXT, avatar_url TEXT, canonical_url TEXT, inbox_url TEXT, shared_inbox_url TEXT, public_key_id TEXT, public_key_pem TEXT, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE federated_connections (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, relationship_status TEXT DEFAULT "PENDING", show_on_profile INTEGER DEFAULT 1, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE (profile_id, remote_actor_id))',
-    'CREATE TABLE federated_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_actor_id INTEGER, object_uri TEXT, canonical_url TEXT, title TEXT, content TEXT, attachments TEXT, visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP)',
+    'CREATE TABLE federated_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, remote_actor_id INTEGER, object_uri TEXT, canonical_url TEXT, title TEXT, content TEXT, attachments TEXT, product_data TEXT, visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP)',
     'CREATE TABLE node_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER, key_type TEXT DEFAULT "rsa", public_key TEXT, private_key TEXT, fingerprint TEXT UNIQUE, is_current INTEGER DEFAULT 1, rotated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE follows (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, profile_id INTEGER, remote_actor_id INTEGER, target_actor_uri TEXT, target_federated_address TEXT, status TEXT DEFAULT "PENDING", direction TEXT DEFAULT "OUTGOING", activity_public_id TEXT, accepted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
     'CREATE TABLE federation_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, direction TEXT, activity_type TEXT, actor_uri TEXT, object_uri TEXT, target_node_domain TEXT, target_actor_uri TEXT, payload TEXT, signature TEXT, status TEXT DEFAULT "PENDING", retry_count INTEGER DEFAULT 0, last_error TEXT, next_attempt_at TIMESTAMP, delivered_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
@@ -70,9 +70,15 @@ function fpost_seed_remote_actor(PDO $db, string $handle, string $domain): array
     $keyId = $actorUri . '#main-key';
     $inboxUrl = $actorUri . '/inbox';
 
-    $nodeStmt = $db->prepare('INSERT INTO remote_nodes (public_id, domain, trust_state) VALUES (:pid, :domain, "UNKNOWN")');
-    $nodeStmt->execute(['pid' => Uuid::v4(), 'domain' => $domain]);
-    $nodeId = (int) $db->lastInsertId();
+    // Several actors may share one server.
+    $existingNode = $db->prepare('SELECT id FROM remote_nodes WHERE domain = :domain');
+    $existingNode->execute(['domain' => $domain]);
+    $nodeId = (int) $existingNode->fetchColumn();
+    if ($nodeId === 0) {
+        $nodeStmt = $db->prepare('INSERT INTO remote_nodes (public_id, domain, trust_state) VALUES (:pid, :domain, "UNKNOWN")');
+        $nodeStmt->execute(['pid' => Uuid::v4(), 'domain' => $domain]);
+        $nodeId = (int) $db->lastInsertId();
+    }
 
     $actorStmt = $db->prepare(
         'INSERT INTO remote_actors (public_id, remote_node_id, actor_uri, federated_address, display_name, inbox_url, public_key_id, public_key_pem, fetched_at)
@@ -217,6 +223,83 @@ $strangerResult = $dispatch('POST', $inboxPath, $signedStranger['body'], $signed
 fpost_assert($strangerResult['status'] === 202, 'Create from an unfollowed actor should still be acknowledged (not an error): ' . json_encode($strangerResult));
 $strangerStored = $db->query('SELECT COUNT(*) FROM federated_posts WHERE object_uri = ' . $db->quote($strangerNoteUri))->fetchColumn();
 fpost_assert((int) $strangerStored === 0, 'A Create from an actor with no accepted connection to any local profile must not be stored');
+
+// ================= Federated commerce (link checkout) =================
+// The timeline also reads local posts and promoted products.
+foreach ([
+    'CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, slug TEXT, user_id INTEGER, profile_id INTEGER, title TEXT, content TEXT, post_type TEXT DEFAULT "NOTE", visibility TEXT DEFAULT "PUBLIC", published_at TIMESTAMP, deleted_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+    'CREATE TABLE post_media (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER, media_type TEXT, url TEXT, alt_text TEXT, sort_order INTEGER DEFAULT 0)',
+    'CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, public_id TEXT UNIQUE, node_id INTEGER, title TEXT, description TEXT, price TEXT DEFAULT "0", currency TEXT DEFAULT "IDR", status TEXT DEFAULT "ACTIVE", visibility TEXT DEFAULT "PUBLIC", is_promoted INTEGER DEFAULT 0, media TEXT, product_type TEXT DEFAULT "PHYSICAL", digital_asset_url TEXT, digital_asset_metadata TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
+] as $sql) {
+    $db->exec($sql);
+}
+$send = static function (array $remoteActor, array $activity) use ($dispatch, $inboxPath): array {
+    $activity += ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => 'https://' . parse_url($remoteActor['actorUri'], PHP_URL_HOST) . '/activities/' . Uuid::v4(), 'actor' => $remoteActor['actorUri'], 'published' => gmdate('c')];
+    $signed = fpost_sign_request($remoteActor['privateKey'], $remoteActor['keyId'], 'POST', $inboxPath, 'test.local', $activity);
+
+    return $dispatch('POST', $inboxPath, $signed['body'], $signed['headers']);
+};
+$productRow = static fn (string $uri) => $db->query('SELECT * FROM federated_posts WHERE object_uri = ' . $db->quote($uri))->fetch();
+$productUri = 'https://sender.example/shop/' . Uuid::v4();
+$productNote = static fn (array $overrides = []): array => $overrides + [
+    'id' => $productUri, 'type' => 'Note', 'attributedTo' => $remote['actorUri'], 'name' => 'Kaos Edisi Terbatas',
+    'content' => '<p><strong>Kaos Edisi Terbatas</strong> — IDR 150.000</p>', 'url' => $productUri,
+    'published' => gmdate('c'), 'to' => ['https://www.w3.org/ns/activitystreams#Public'],
+    'fpdp:product' => ['price' => '150000.00', 'currency' => 'IDR', 'productType' => 'PHYSICAL', 'checkoutUrl' => $productUri],
+];
+
+// ---- Test 6: a product from another FPDP node is stored with its validated fpdp:product block ----
+$send($remote, ['type' => 'Create', 'object' => $productNote()]);
+$stored = $productRow($productUri);
+fpost_assert($stored !== false && $stored['deleted_at'] === null, 'The product Note should be stored');
+fpost_assert(json_decode((string) $stored['product_data'], true) === ['price' => '150000.00', 'currency' => 'IDR', 'product_type' => 'PHYSICAL', 'checkout_url' => $productUri], 'product_data should hold the validated block: ' . $stored['product_data']);
+
+// ---- Test 7: the timeline shows it as a product card whose Buy link is the seller's checkout ----
+$timelineApi = $dispatch('GET', '/api/v1/timeline', null, [], ['source_type' => 'ALL']);
+$apiItem = null;
+foreach ($timelineApi['body']['data'] ?? [] as $item) {
+    if (($item['canonical_url'] ?? null) === $productUri || (($item['product']['checkout_url'] ?? null) === $productUri)) {
+        $apiItem = $item;
+    }
+}
+fpost_assert($apiItem !== null && $apiItem['product'] === ['price' => '150000.00', 'currency' => 'IDR', 'product_type' => 'PHYSICAL', 'checkout_url' => $productUri, 'seller_domain' => 'sender.example'], 'The timeline API should expose the remote product: ' . json_encode($apiItem));
+$html = (string) $router->dispatch(new Request('GET', '/timeline', [], null, []))->body;
+fpost_assert(str_contains($html, 'Beli di sender.example') && str_contains($html, 'IDR 150.000') && str_contains($html, 'href="' . $productUri . '"'), 'The timeline card should show the price and a "Beli di sender.example" link to the checkout');
+
+// ---- Test 8: a checkout URL on another host is dropped — the post is kept, but not as a product ----
+$phishingUri = 'https://sender.example/shop/' . Uuid::v4();
+$send($remote, ['type' => 'Create', 'object' => $productNote(['id' => $phishingUri, 'url' => $phishingUri, 'fpdp:product' => ['price' => '10', 'currency' => 'IDR', 'productType' => 'DIGITAL', 'checkoutUrl' => 'https://evil.example/pay']])]);
+fpost_assert($productRow($phishingUri)['product_data'] === null, 'A checkout URL off the seller\'s host must be discarded');
+foreach ([['price' => 'free', 'currency' => 'IDR', 'checkoutUrl' => $productUri], ['price' => '1', 'currency' => 'rupiah', 'checkoutUrl' => $productUri], ['price' => '1', 'currency' => 'IDR', 'checkoutUrl' => 'javascript:alert(1)']] as $n => $bad) {
+    $badUri = 'https://sender.example/shop/bad-' . $n;
+    $send($remote, ['type' => 'Create', 'object' => $productNote(['id' => $badUri, 'fpdp:product' => $bad])]);
+    fpost_assert($productRow($badUri)['product_data'] === null, 'A malformed fpdp:product block must be discarded: ' . json_encode($bad));
+}
+
+// ---- Test 9: another (validly signed, followed) actor cannot touch alice's product ----
+$carol = fpost_seed_remote_actor($db, 'carol', 'sender.example');
+$connStmt->execute(['pid' => Uuid::v4(), 'profile_id' => $profileId, 'actor_id' => $carol['remoteActorId']]);
+$send($carol, ['type' => 'Update', 'object' => $productNote(['attributedTo' => $carol['actorUri'], 'fpdp:product' => ['price' => '1.00', 'currency' => 'IDR', 'productType' => 'PHYSICAL', 'checkoutUrl' => 'https://sender.example/scam']])]);
+fpost_assert(json_decode((string) $productRow($productUri)['product_data'], true)['price'] === '150000.00', "Another actor's Update must not change the product");
+$send($carol, ['type' => 'Delete', 'object' => $productUri]);
+fpost_assert($productRow($productUri)['deleted_at'] === null, "Another actor's Delete must not remove the product");
+
+// ---- Test 10: an object hosted somewhere else, or attributed to someone else, can't be created ----
+$foreignUri = 'https://other.example/notes/' . Uuid::v4();
+$send($remote, ['type' => 'Create', 'object' => ['id' => $foreignUri, 'type' => 'Note', 'content' => 'x', 'to' => ['https://www.w3.org/ns/activitystreams#Public']]]);
+fpost_assert($productRow($foreignUri) === false, 'An object id on another host must not be stored');
+$misattributedUri = 'https://sender.example/notes/' . Uuid::v4();
+$send($remote, ['type' => 'Create', 'object' => ['id' => $misattributedUri, 'type' => 'Note', 'attributedTo' => $carol['actorUri'], 'content' => 'x']]);
+fpost_assert($productRow($misattributedUri) === false, 'An object attributed to a different actor must not be stored');
+
+// ---- Test 11: the seller withdraws it (Delete), a late Update can't revive it, a new Create does ----
+$send($remote, ['type' => 'Delete', 'object' => ['id' => $productUri, 'type' => 'Tombstone']]);
+fpost_assert($productRow($productUri)['deleted_at'] !== null, "The seller's Delete should withdraw the product");
+$send($remote, ['type' => 'Update', 'object' => $productNote(['content' => '<p>late</p>'])]);
+fpost_assert($productRow($productUri)['deleted_at'] !== null, 'A late Update must not bring a deleted product back');
+$send($remote, ['type' => 'Create', 'object' => $productNote(['fpdp:product' => ['price' => '99000', 'currency' => 'IDR', 'productType' => 'PHYSICAL', 'checkoutUrl' => $productUri]])]);
+$restored = $productRow($productUri);
+fpost_assert($restored['deleted_at'] === null && json_decode((string) $restored['product_data'], true)['price'] === '99000.00', 'Re-promoting (a new Create) should restore the product with its new price');
 
 Database::reset();
 unset($db, $router, $dispatch);

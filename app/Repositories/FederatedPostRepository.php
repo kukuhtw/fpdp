@@ -32,12 +32,13 @@ final class FederatedPostRepository
         ?string $publishedAt = null,
         string $visibility = 'PUBLIC',
         ?array $attachments = null,
+        ?array $productData = null,
     ): int {
         $statement = $this->connection->prepare(
             'INSERT INTO federated_posts (public_id, remote_actor_id, object_uri, canonical_url,
-                                          title, content, attachments, visibility, published_at)
+                                          title, content, attachments, product_data, visibility, published_at)
              VALUES (:public_id, :remote_actor_id, :object_uri, :canonical_url,
-                     :title, :content, :attachments, :visibility, :published_at)',
+                     :title, :content, :attachments, :product_data, :visibility, :published_at)',
         );
         $statement->execute([
             'public_id' => $publicId,
@@ -47,6 +48,7 @@ final class FederatedPostRepository
             'title' => $title,
             'content' => $content,
             'attachments' => $attachments !== null && $attachments !== [] ? json_encode($attachments) : null,
+            'product_data' => $productData !== null ? json_encode($productData) : null,
             'visibility' => $visibility,
             'published_at' => $publishedAt,
         ]);
@@ -163,11 +165,13 @@ final class FederatedPostRepository
         ?string $canonicalUrl,
         string $visibility,
         ?array $attachments = null,
+        ?array $productData = null,
     ): void {
         $statement = $this->connection->prepare(
             'UPDATE federated_posts
              SET title = :title, content = :content, canonical_url = :canonical_url,
-                 attachments = :attachments, visibility = :visibility, fetched_at = CURRENT_TIMESTAMP
+                 attachments = :attachments, product_data = :product_data, visibility = :visibility,
+                 fetched_at = CURRENT_TIMESTAMP
              WHERE object_uri = :object_uri',
         );
         $statement->execute([
@@ -176,8 +180,19 @@ final class FederatedPostRepository
             'content' => $content,
             'canonical_url' => $canonicalUrl,
             'attachments' => $attachments !== null && $attachments !== [] ? json_encode($attachments) : null,
+            'product_data' => $productData !== null ? json_encode($productData) : null,
             'visibility' => $visibility,
         ]);
+    }
+
+    /**
+     * Brings back a soft-deleted post, for a seller re-publishing a product
+     * it withdrew earlier (a new Create for the same object id).
+     */
+    public function restoreByObjectUri(string $objectUri): void
+    {
+        $statement = $this->connection->prepare('UPDATE federated_posts SET deleted_at = NULL WHERE object_uri = :object_uri');
+        $statement->execute(['object_uri' => $objectUri]);
     }
 
     public function softDeleteByObjectUri(string $objectUri): void
@@ -212,7 +227,7 @@ final class FederatedPostRepository
         }
 
         $statement = $this->connection->prepare(
-            'SELECT fp.public_id, fp.title, fp.content, fp.attachments, fp.canonical_url, fp.published_at,
+            'SELECT fp.public_id, fp.title, fp.content, fp.attachments, fp.product_data, fp.canonical_url, fp.published_at,
                     ra.display_name AS actor_display_name, ra.federated_address, ra.avatar_url AS actor_avatar_url,
                     ra.canonical_url AS actor_canonical_url
              FROM federated_posts fp
@@ -227,6 +242,8 @@ final class FederatedPostRepository
         foreach ($rows as &$row) {
             $decoded = is_string($row['attachments'] ?? null) ? json_decode($row['attachments'], true) : null;
             $row['attachments'] = is_array($decoded) ? $decoded : [];
+            $product = is_string($row['product_data'] ?? null) ? json_decode($row['product_data'], true) : null;
+            $row['product_data'] = is_array($product) ? $product : null;
         }
         unset($row);
 

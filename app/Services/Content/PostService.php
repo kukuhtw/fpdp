@@ -276,6 +276,12 @@ final class PostService
             'permalink' => $row['canonical_url'] ?: $row['actor_canonical_url'],
             'profile_link' => $row['actor_canonical_url'] ?: $row['canonical_url'],
             'media' => is_array($row['attachments'] ?? null) ? $row['attachments'] : [],
+            // A product from another FPDP node (its `fpdp:product` block,
+            // validated on receipt): rendered as a product card whose Buy
+            // link goes to the seller's own checkout.
+            'remote_product' => is_array($row['product_data'] ?? null)
+                ? $row['product_data'] + ['seller_domain' => (string) parse_url((string) $row['product_data']['checkout_url'], PHP_URL_HOST)]
+                : null,
         ];
     }
 

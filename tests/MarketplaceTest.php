@@ -72,8 +72,9 @@ mp_assert($o['b']['data']['status'] === 'PENDING', 'Order status should be PENDI
 mp_assert((float) $o['b']['data']['total_amount'] > 0, 'Order should have total');
 $oid = $o['b']['data']['public_id'];
 
-// Get order
-$og = $d('GET', "/api/v1/orders/{$oid}");
+// Get order: owner only — the order holds the buyer's personal data
+mp_assert($d('GET', "/api/v1/orders/{$oid}")['s'] === 401, 'Reading an order without a token must be refused');
+$og = $d('GET', "/api/v1/orders/{$oid}", null, $t);
 mp_assert($og['s'] === 200, 'Get order failed');
 mp_assert(isset($og['b']['data']['items'][0]), 'Order should have items');
 

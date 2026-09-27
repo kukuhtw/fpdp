@@ -6,6 +6,7 @@ namespace App\Services\Federation;
 
 use App\Core\Exceptions\ForbiddenException;
 use App\Core\Exceptions\NotFoundException;
+use App\Core\Exceptions\UnauthorizedException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Uuid;
 use App\Repositories\FederatedConnectionRepository;
@@ -399,7 +400,7 @@ final class FederationService
         }
 
         $localNodeId = (int) $localProfile['node_id'];
-        $status = $verified ? 'VERIFIED' : ($signatureHeader !== null ? 'UNVERIFIED_KEY_MISSING' : 'UNSIGNED');
+        $status = 'VERIFIED';
         $rawObject = $activity['object'] ?? null;
         $objectUri = is_string($rawObject) ? $rawObject : (is_array($rawObject) ? (string) ($rawObject['id'] ?? '') : null);
         $ar->create($activityId, $localNodeId, 'INCOMING', $type, $actorUri, $objectUri !== '' ? $objectUri : null, $senderDomain, $activity, $signatureHeader, $status);
@@ -433,53 +434,74 @@ final class FederationService
 
     /**
      * Verifies an inbound HTTP Signature (draft-cavage — the header-based
-     * scheme Mastodon and the rest of the Fediverse actually use) against
-     * the claimed signer's published RSA key, resolved (and cached) from
-     * their Actor document via the keyId. Mirrors the old code's leniency:
-     * no Signature header at all is accepted as unverified (status
-     * UNSIGNED downstream); a header that's present but whose key can't be
-     * resolved is also accepted as unverified (UNVERIFIED_KEY_MISSING); a
-     * header that's present, resolvable, and simply doesn't verify is a
-     * hard rejection — that combination only happens for a forged/tampered
-     * request, never a legitimate misconfiguration.
+     * scheme Mastodon and the rest of the Fediverse actually use) and
+     * refuses anything that is not provably from the activity's own actor:
+     *
+     * - no Signature header, or one that doesn't parse → 401;
+     * - the signature must cover (request-target), host, date, and digest,
+     *   the Digest must match the body, and the Date must be within
+     *   MAX_ACTIVITY_SKEW_SECONDS (so a captured request can't be replayed
+     *   later or have its body swapped);
+     * - the key must belong to `activity.actor` — a valid signature from
+     *   some other account is not permission to act as this one;
+     * - a key that can't be resolved, or a signature that fails, is retried
+     *   once against a freshly fetched actor document (key rotation) before
+     *   the request is refused.
      *
      * @param array<string, string> $headers
-     * @return array{0: bool, 1: ?string} [verified, raw Signature header value or null]
+     * @return array{0: bool, 1: string} [verified (always true), raw Signature header]
      */
     private function verifyInboundSignature(array $headers, string $rawBody, string $requestPath, string $actorUri): array
     {
         $signatureHeader = $headers['signature'] ?? null;
         if (!is_string($signatureHeader) || $signatureHeader === '') {
-            return [false, null];
+            throw new UnauthorizedException('Activities must carry an HTTP Signature.');
         }
 
         $parsed = HttpSignature::parseSignatureHeader($signatureHeader);
         if ($parsed === null) {
-            return [false, $signatureHeader];
+            throw new UnauthorizedException('The Signature header could not be parsed.');
         }
 
-        if (isset($headers['digest'])) {
-            $expectedDigest = HttpSignature::digestHeader($rawBody);
-            if (!hash_equals($expectedDigest, $headers['digest'])) {
-                throw new ForbiddenException('Digest header does not match the request body.');
+        $signedHeaders = array_map('strtolower', $parsed['headers']);
+        foreach (['(request-target)', 'host', 'date', 'digest'] as $required) {
+            if (!in_array($required, $signedHeaders, true)) {
+                throw new UnauthorizedException("The signature must cover the {$required} header.");
             }
         }
 
+        if (!isset($headers['digest']) || !hash_equals(HttpSignature::digestHeader($rawBody), $headers['digest'])) {
+            throw new ForbiddenException('Digest header does not match the request body.');
+        }
+
+        $date = strtotime((string) ($headers['date'] ?? ''));
+        if ($date === false || abs(time() - $date) > self::MAX_ACTIVITY_SKEW_SECONDS) {
+            throw new UnauthorizedException('The signed Date header is missing or outside the acceptable window.');
+        }
+
         $signerActorUri = explode('#', $parsed['keyId'], 2)[0];
-        $signerActor = $this->getDiscoveryService()->resolveActorByUri($signerActorUri);
-        $publicKeyPem = $signerActor['public_key_pem'] ?? null;
-        if ($publicKeyPem === null || $publicKeyPem === '') {
-            return [false, $signatureHeader];
-        }
-
         $signingString = HttpSignature::buildSigningString('POST', $requestPath, $headers, $parsed['headers']);
-        $verified = $this->getKeyService()->verify($signingString, $parsed['signature'], $publicKeyPem);
 
-        if (!$verified) {
-            throw new ForbiddenException('Invalid activity signature.');
+        foreach ([false, true] as $forceRefresh) {
+            $signerActor = $this->getDiscoveryService()->resolveActorByUri($signerActorUri, $forceRefresh);
+            $publicKeyPem = (string) ($signerActor['public_key_pem'] ?? '');
+            if ($signerActor === null || $publicKeyPem === '') {
+                continue;
+            }
+
+            // Compare canonical identities: the keyId may use a vanity URL
+            // that the actor document canonicalizes (Mastodon /@x -> /users/x).
+            $signerIdentities = array_filter([$signerActorUri, (string) ($signerActor['actor_uri'] ?? '')]);
+            if (!in_array($actorUri, $signerIdentities, true)) {
+                throw new UnauthorizedException('The signing key does not belong to the activity actor.');
+            }
+
+            if ($this->getKeyService()->verify($signingString, $parsed['signature'], $publicKeyPem)) {
+                return [true, $signatureHeader];
+            }
         }
 
-        return [true, $signatureHeader];
+        throw new UnauthorizedException('Invalid activity signature.');
     }
 
     public function ensureNodeKey(int $nodeId): array
@@ -848,6 +870,13 @@ final class FederationService
      * objects are stored — anything else (e.g. an actor Update wrapped as
      * a Create in some implementations) is acknowledged but not persisted.
      *
+     * The object must live on the actor's own host and, if it names an
+     * author, be attributed to the actor: a (validly signed) actor cannot
+     * plant an object under somebody else's URI. A product from another
+     * FPDP node keeps its validated `fpdp:product` block. A new Create for
+     * an object this actor withdrew earlier (a re-promoted product) brings
+     * it back.
+     *
      * @param array<string, mixed> $activity
      */
     public function processCreate(array $activity): array
@@ -867,14 +896,29 @@ final class FederationService
             return ['status' => 'error', 'message' => 'Missing object id'];
         }
 
-        if ($this->posts->findByObjectUri($objectUri) !== null) {
+        $actorUri = (string) ($activity['actor'] ?? '');
+        if (!self::objectBelongsToActor($object, $actorUri)) {
+            return ['status' => 'rejected', 'message' => 'Object is not owned by the sending actor'];
+        }
+
+        $existing = $this->posts->findByObjectUri($objectUri);
+        if ($existing !== null && $existing['deleted_at'] === null) {
             return ['status' => 'duplicate', 'message' => 'Post already stored'];
         }
 
-        $actorUri = (string) ($activity['actor'] ?? '');
         $remoteActor = $this->getDiscoveryService()->ensureRemoteActor($actorUri);
         if ($remoteActor === null) {
             return ['status' => 'error', 'message' => 'Could not resolve the sending actor'];
+        }
+
+        if ($existing !== null) {
+            if ((int) $existing['remote_actor_id'] !== (int) $remoteActor['id']) {
+                return ['status' => 'rejected', 'message' => 'Object is not owned by the sending actor'];
+            }
+            $this->posts->restoreByObjectUri($objectUri);
+            $this->applyObjectUpdate($objectUri, $object, $existing, $actorUri);
+
+            return ['status' => 'restored', 'message' => 'Federated post restored'];
         }
 
         $this->posts->create(
@@ -887,6 +931,7 @@ final class FederationService
             self::normalizeActivityTimestamp($object['published'] ?? null),
             self::extractObjectVisibility($object),
             self::extractIncomingAttachments($object),
+            self::extractFpdpProduct($object, $actorUri),
         );
 
         return ['status' => 'created', 'message' => 'Federated post stored'];
@@ -916,6 +961,26 @@ final class FederationService
             return $this->processCreate($activity);
         }
 
+        $actorUri = (string) ($activity['actor'] ?? '');
+        if (!$this->storedObjectBelongsToActor($existing, $actorUri)) {
+            return ['status' => 'rejected', 'message' => 'Object is not owned by the sending actor'];
+        }
+        if ($existing['deleted_at'] !== null) {
+            // A late Update must not resurrect something already deleted.
+            return ['status' => 'ignored', 'message' => 'Post was deleted'];
+        }
+
+        $this->applyObjectUpdate($objectUri, $object, $existing, $actorUri);
+
+        return ['status' => 'updated', 'message' => 'Federated post updated'];
+    }
+
+    /**
+     * @param array<string, mixed> $object
+     * @param array<string, mixed> $existing
+     */
+    private function applyObjectUpdate(string $objectUri, array $object, array $existing, string $actorUri): void
+    {
         $this->posts->updateByObjectUri(
             $objectUri,
             self::extractObjectText($object['name'] ?? $object['summary'] ?? null) ?? $existing['title'],
@@ -923,9 +988,80 @@ final class FederationService
             self::extractObjectUrl($object['url'] ?? null) ?? $existing['canonical_url'],
             self::extractObjectVisibility($object),
             self::extractIncomingAttachments($object),
+            self::extractFpdpProduct($object, $actorUri),
         );
+    }
 
-        return ['status' => 'updated', 'message' => 'Federated post updated'];
+    /**
+     * An inbound object may only be created by its own author: its id must
+     * be on the actor's host, and `attributedTo`, when present, must be the
+     * actor.
+     *
+     * @param array<string, mixed> $object
+     */
+    private static function objectBelongsToActor(array $object, string $actorUri): bool
+    {
+        $objectHost = strtolower((string) parse_url((string) ($object['id'] ?? ''), PHP_URL_HOST));
+        $actorHost = strtolower((string) parse_url($actorUri, PHP_URL_HOST));
+        if ($objectHost === '' || $objectHost !== $actorHost) {
+            return false;
+        }
+        $attributedTo = $object['attributedTo'] ?? null;
+        if (is_array($attributedTo)) {
+            $attributedTo = $attributedTo['id'] ?? null;
+        }
+
+        return $attributedTo === null || $attributedTo === $actorUri;
+    }
+
+    /**
+     * Update/Delete may only touch a stored object that the sending actor
+     * created.
+     *
+     * @param array<string, mixed> $stored
+     */
+    private function storedObjectBelongsToActor(array $stored, string $actorUri): bool
+    {
+        $actor = $this->actors->findByActorUri($actorUri);
+
+        return $actor !== null && (int) $actor['id'] === (int) $stored['remote_actor_id'];
+    }
+
+    /**
+     * The `fpdp:product` block of a product from another FPDP node, kept
+     * only if every field is well-formed. The checkout URL must be https on
+     * the seller's own host, so a product card can never send a buyer to a
+     * different site than the account that published it.
+     *
+     * @param array<string, mixed> $object
+     * @return array{price: string, currency: string, product_type: string, checkout_url: string}|null
+     */
+    private static function extractFpdpProduct(array $object, string $actorUri): ?array
+    {
+        $product = $object['fpdp:product'] ?? null;
+        if (!is_array($product)) {
+            return null;
+        }
+
+        $price = $product['price'] ?? null;
+        $currency = strtoupper((string) ($product['currency'] ?? ''));
+        $productType = strtoupper((string) ($product['productType'] ?? ''));
+        $checkoutUrl = (string) ($product['checkoutUrl'] ?? '');
+        $actorHost = strtolower((string) parse_url($actorUri, PHP_URL_HOST));
+
+        if (!is_numeric($price) || (float) $price < 0 || preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
+            return null;
+        }
+        if (preg_match('#^https://[^\s"\'<>]+$#i', $checkoutUrl) !== 1 || strtolower((string) parse_url($checkoutUrl, PHP_URL_HOST)) !== $actorHost) {
+            return null;
+        }
+
+        return [
+            'price' => number_format((float) $price, 2, '.', ''),
+            'currency' => $currency,
+            'product_type' => in_array($productType, self::PRODUCT_TYPES, true) ? $productType : 'PHYSICAL',
+            'checkout_url' => $checkoutUrl,
+        ];
     }
 
     /**
@@ -941,6 +1077,14 @@ final class FederationService
         $objectUri = is_string($object) ? $object : (is_array($object) ? (string) ($object['id'] ?? '') : '');
         if ($objectUri === '') {
             return ['status' => 'error', 'message' => 'Missing object id'];
+        }
+
+        $stored = $this->posts->findByObjectUri($objectUri);
+        if ($stored === null) {
+            return ['status' => 'ignored', 'message' => 'Unknown object'];
+        }
+        if (!$this->storedObjectBelongsToActor($stored, (string) ($activity['actor'] ?? ''))) {
+            return ['status' => 'rejected', 'message' => 'Object is not owned by the sending actor'];
         }
 
         $this->posts->softDeleteByObjectUri($objectUri);
@@ -1189,27 +1333,51 @@ final class FederationService
     }
 
     /**
-     * Delivers a promoted product to the owner's accepted followers as a
-     * signed Create/Update activity, formatted as a simple announcement
-     * post (title, price, short description, checkout link, photo as an
-     * attachment) rather than a structured commerce object — Mastodon and
-     * the rest of the Fediverse have no first-class "Product" type that
-     * renders meaningfully in a timeline. Only products explicitly marked
-     * is_promoted are federated; everything else stays local-only. There
-     * is no product delete/archive flow yet, so unlike
-     * publishLocalPost(), this never needs to handle 'Delete'.
+     * JSON-LD namespace for FPDP's own ActivityPub extension terms. It only
+     * needs to be a stable IRI (it is not fetched); servers that don't know
+     * it — Mastodon and the rest of the fediverse — ignore `fpdp:` terms and
+     * render the object as the ordinary Note it also is.
+     */
+    public const FPDP_NAMESPACE = 'https://github.com/kukuhtw/fpdp/ns#';
+
+    private const PRODUCT_TYPES = ['PHYSICAL', 'DIGITAL', 'SERVICE'];
+
+    /**
+     * Whether a local product belongs in followers' timelines: promoted,
+     * ACTIVE, and not PRIVATE. MarketplaceController compares this before
+     * and after an edit to pick Create, Update, or Delete.
+     *
+     * @param array<string, mixed>|null $product
+     */
+    public static function isFederatableProduct(?array $product): bool
+    {
+        return $product !== null
+            && (bool) ($product['is_promoted'] ?? false)
+            && (string) ($product['visibility'] ?? 'PUBLIC') !== 'PRIVATE'
+            && (string) ($product['status'] ?? 'ACTIVE') === 'ACTIVE';
+    }
+
+    /**
+     * Delivers a product to the owner's accepted followers as a signed
+     * activity:
+     *
+     * - Create/Update carry a Note (title, price, description, checkout
+     *   link, photo) that any fediverse client renders, plus an
+     *   `fpdp:product` block (price, currency, product type, checkout URL)
+     *   that other FPDP nodes use to show a product card with a Buy link.
+     *   Buying always happens on this node's own checkout (the "link
+     *   checkout" model — there is no cross-node order protocol).
+     * - Delete sends a Tombstone, so a product that is archived, made
+     *   private, or no longer promoted disappears from followers' timelines.
+     *
+     * Create/Update are skipped unless isFederatableProduct(); Delete is the
+     * caller's call (it has the product's previous state).
      *
      * @param array<string, mixed> $product
      */
     public function publishLocalProduct(int $nodeId, array $product, string $activityType = 'Create'): void
     {
-        if (!(bool) ($product['is_promoted'] ?? false)) {
-            return;
-        }
-        if ((string) ($product['visibility'] ?? 'PUBLIC') === 'PRIVATE') {
-            return;
-        }
-        if ((string) ($product['status'] ?? 'ACTIVE') !== 'ACTIVE') {
+        if ($activityType !== 'Delete' && !self::isFederatableProduct($product)) {
             return;
         }
 
@@ -1226,7 +1394,9 @@ final class FederationService
         $domain = (string) $localProfile['node_domain'];
         $actorUri = "https://{$domain}/@{$localProfile['handle']}";
         $objectUri = "https://{$domain}/shop/{$product['public_id']}";
-        $object = self::buildFederatedProductObject($actorUri, $objectUri, $product);
+        $object = $activityType === 'Delete'
+            ? ['id' => $objectUri, 'type' => 'Tombstone']
+            : self::buildFederatedProductObject($actorUri, $objectUri, $product);
 
         foreach ($followers as $follower) {
             $targetActorUri = (string) ($follower['target_actor_uri'] ?? '');
@@ -1235,6 +1405,7 @@ final class FederationService
             }
             $targetDomain = (string) ($follower['node_domain'] ?? parse_url($targetActorUri, PHP_URL_HOST) ?? '');
             $this->queueOutgoingActivity($nodeId, $activityType, $actorUri, $targetDomain, $objectUri, [
+                '@context' => ['https://www.w3.org/ns/activitystreams', ['fpdp' => self::FPDP_NAMESPACE]],
                 'object' => $object,
             ], $targetActorUri);
         }
@@ -1272,6 +1443,12 @@ final class FederationService
             'published' => self::toAs2Timestamp($product['updated_at'] ?? $product['created_at'] ?? null),
             'to' => ['https://www.w3.org/ns/activitystreams#Public'],
             'cc' => ["{$actorUri}/followers"],
+            'fpdp:product' => [
+                'price' => number_format((float) ($product['price'] ?? 0), 2, '.', ''),
+                'currency' => $currency,
+                'productType' => (string) ($product['product_type'] ?? 'PHYSICAL'),
+                'checkoutUrl' => $objectUri,
+            ],
         ];
 
         $media = $product['media'] ?? [];

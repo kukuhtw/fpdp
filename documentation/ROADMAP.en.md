@@ -286,6 +286,8 @@ Exit criteria:
 
 Depends on Phase 5 (online shop and payments) and Phase 6 (federation). Estimate: 4–6 weeks.
 
+> **Status September 27, 2026 — approach chosen: link checkout.** Structured products (`fpdp:product`), the Create/Update/Delete lifecycle, product cards with a "Buy on {seller}" link on receiving FPDP nodes, and ownership validation are implemented (tasks 1, 2, 7, 9, part of 10). Every buyer checks out as a visitor on the seller's node. Native cross-node orders (tasks 3–6, 8) are **deliberately deferred** by the product owner's decision. See [FEDERATION-CONCEPT §11a](FEDERATION-CONCEPT.en.md).
+
 Tasks, in order:
 
 1. Define how products are represented in ActivityPub (object type, price, currency, availability, checkout link) and how they render in common fediverse clients.

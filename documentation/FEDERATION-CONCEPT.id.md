@@ -327,6 +327,38 @@ Contoh capability:
 
 Capability yang tidak dikenal harus diabaikan dengan aman. Version mismatch tidak boleh menurunkan keamanan secara diam-diam.
 
+## 11a. Ekstensi produk (`fpdp:product`) — federated commerce
+
+FPDP memfederasikan produk yang dipromosikan sebagai `Note` ActivityStreams biasa (sehingga Mastodon dan klien lain menampilkannya sebagai post berisi judul, harga, deskripsi, foto, dan link checkout) ditambah satu term ekstensi yang dibaca node FPDP lain. Diimplementasikan 27 September 2026.
+
+```json
+{
+  "@context": ["https://www.w3.org/ns/activitystreams", {"fpdp": "https://github.com/kukuhtw/fpdp/ns#"}],
+  "type": "Create",
+  "actor": "https://penjual.example/@owner",
+  "object": {
+    "id": "https://penjual.example/shop/{product-id}",
+    "type": "Note",
+    "attributedTo": "https://penjual.example/@owner",
+    "name": "Kaos Edisi Terbatas",
+    "content": "<p><strong>Kaos Edisi Terbatas</strong> — IDR 150.000</p>…",
+    "url": "https://penjual.example/shop/{product-id}",
+    "fpdp:product": {
+      "price": "150000.00",
+      "currency": "IDR",
+      "productType": "PHYSICAL",
+      "checkoutUrl": "https://penjual.example/shop/{product-id}"
+    }
+  }
+}
+```
+
+- **Siklus hidup:** `Create` saat produk menjadi dipromosikan, `ACTIVE`, dan bukan `PRIVATE`; `Update` selama tetap begitu; `Delete` dengan `Tombstone` saat diarsipkan, dijadikan private, atau tidak dipromosikan lagi. `Create` berikutnya untuk id yang sama memulihkannya.
+- **Pembelian lewat link checkout.** Tidak ada protokol order lintas node: semua pembeli, termasuk owner node FPDP lain, checkout sebagai visitor di node penjual, tempat pembayaran dan fulfillment terjadi. Node FPDP penerima menampilkan kartu produk dengan link "Beli di {penjual}".
+- **Validasi di sisi penerima:** `price` numerik dan ≥ 0, `currency` tiga huruf kapital, `productType` salah satu dari `PHYSICAL`/`DIGITAL`/`SERVICE` (selain itu `PHYSICAL`), `checkoutUrl` https **di host milik actor itu sendiri**. Blok yang gagal salah satu pemeriksaan dibuang dan Note disimpan sebagai post biasa.
+- **Kepemilikan:** objek hanya diterima dari penulisnya (id di host actor, `attributedTo` sama dengan actor), `Update`/`Delete` hanya berlaku untuk objek yang dibuat actor pengirim, dan `Update` yang terlambat tidak menghidupkan objek yang sudah dihapus. Semua aktivitas inbox wajib ditandatangani HTTP Signature oleh actor itu sendiri (§14).
+- **Belum termasuk:** stok/ketersediaan (produk belum punya inventaris) dan order lintas node native (sengaja ditunda).
+
 ## 12. API dan service boundary yang disarankan
 
 Endpoint federasi publik bergantung pada protokol pilihan, tetapi service internal FPDP harus tetap eksplisit:

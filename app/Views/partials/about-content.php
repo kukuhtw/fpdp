@@ -97,7 +97,7 @@
     <li><strong>Find:</strong> @kukuh looks up <code>@ari@mastodon.social</code> in the dashboard and previews the profile.</li>
     <li><strong>Follow:</strong> kukuhtw.com sends a signed Follow; ari's server accepts it.</li>
     <li><strong>Receive:</strong> when @ari posts, edits, or deletes a post, kukuhtw.com gets it and updates @kukuh's timeline.</li>
-    <li><strong>Share:</strong> when @kukuh promotes a product, it reaches @ari's timeline as a post linking back to the shop.</li>
+    <li><strong>Share:</strong> when @kukuh promotes a product, it reaches @ari's timeline as a post linking back to the shop; on another FPDP node like maya.id it shows as a product card with the price and a "Buy on kukuhtw.com" button.</li>
   </ol>
 </article>
 
@@ -131,7 +131,8 @@
       <tr><td>Works with Mastodon (mastodon.social, mastodon.world)</td><td><span class="status-tag status-done">Done</span></td></tr>
       <tr><td>Likes, boosts, and replies</td><td><span class="status-tag status-todo">Planned</span></td></tr>
       <tr><td>Reporting accounts (Flag)</td><td><span class="status-tag status-todo">Planned</span></td></tr>
-      <tr><td>Federated commerce — ordering from another node</td><td><span class="status-tag status-todo">Planned</span></td></tr>
+      <tr><td>Products as structured objects, with a "Buy on {seller}" card on other FPDP nodes</td><td><span class="status-tag status-done">Done</span></td></tr>
+      <tr><td>Ordering natively from another node's dashboard</td><td><span class="status-tag status-todo">Deferred</span></td></tr>
     </table>
   </article>
 </div>

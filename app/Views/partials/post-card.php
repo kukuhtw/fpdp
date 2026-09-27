@@ -1,7 +1,14 @@
 <?php
 $isFederated = !empty($post['is_federated']);
-$isProduct = !empty($post['is_product']);
-if ($isFederated) {
+$remoteProduct = $isFederated && is_array($post['remote_product'] ?? null) ? $post['remote_product'] : null;
+$isProduct = !empty($post['is_product']) || $remoteProduct !== null;
+if ($remoteProduct !== null) {
+    // Another FPDP node's product: every link goes to the seller's own
+    // checkout (validated on receipt to be https on the seller's host).
+    $postUrl = (string) $remoteProduct['checkout_url'];
+    $profileUrl = (string) ($post['profile_link'] ?? $postUrl);
+    $externalAttrs = ' target="_blank" rel="noopener noreferrer"';
+} elseif ($isFederated) {
     $postUrl = (string) ($post['permalink'] ?? '#');
     $profileUrl = (string) ($post['profile_link'] ?? $postUrl);
     $externalAttrs = ' target="_blank" rel="noopener noreferrer"';
@@ -30,6 +37,9 @@ if ($isFederated) {
             </time>
         <?php endif; ?>
     </header>
+    <?php if ($remoteProduct !== null): ?>
+        <p class="post-price"><strong><?= htmlspecialchars((string) $remoteProduct['currency'], ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars(number_format((float) $remoteProduct['price'], $remoteProduct['currency'] === 'IDR' ? 0 : 2, ',', '.'), ENT_QUOTES, 'UTF-8') ?></strong></p>
+    <?php endif; ?>
     <?php if (($post['title'] ?? null) !== null && $post['title'] !== ''): ?>
         <h2><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $externalAttrs ?>><?= htmlspecialchars((string) $post['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
     <?php endif; ?>
@@ -47,5 +57,5 @@ if ($isFederated) {
             <?php endif; ?>
         <?php endforeach; ?>
     </div><?php endif; ?>
-    <footer><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $externalAttrs ?>><?= $isFederated ? 'Lihat postingan asli ↗' : ($isProduct ? 'Lihat produk & beli →' : 'Permalink') ?></a></footer>
+    <footer><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"<?= $externalAttrs ?>><?php if ($remoteProduct !== null): ?>Beli di <?= htmlspecialchars((string) $remoteProduct['seller_domain'], ENT_QUOTES, 'UTF-8') ?> ↗<?php else: ?><?= $isFederated ? 'Lihat postingan asli ↗' : ($isProduct ? 'Lihat produk & beli →' : 'Permalink') ?><?php endif; ?></a></footer>
 </article>

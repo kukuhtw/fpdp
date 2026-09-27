@@ -164,6 +164,16 @@ final class ProductRepository
             $statement->execute($parameters);
         }
 
-        return $this->findByPublicId($publicId);
+        // Not findByPublicId(): an update that archives the product must
+        // still return it (the caller needs its final state, e.g. to
+        // withdraw it from the fediverse).
+        $statement = $this->connection->prepare(self::SELECT . ' WHERE p.public_id = :public_id');
+        $statement->execute(['public_id' => $publicId]);
+        $row = $statement->fetch();
+        if ($row === false) {
+            throw new \RuntimeException("Product {$publicId} disappeared during update.");
+        }
+
+        return self::decodeJsonColumns($row);
     }
 }

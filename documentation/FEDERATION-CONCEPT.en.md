@@ -327,6 +327,38 @@ Example capabilities:
 
 Unknown capabilities must be ignored safely. A version mismatch must not silently downgrade security.
 
+## 11a. Product extension (`fpdp:product`) — federated commerce
+
+FPDP federates a promoted product as an ordinary ActivityStreams `Note` (so Mastodon and every other client render it as a post with the title, price, description, photo, and a checkout link) plus one extension term that other FPDP nodes read. Implemented September 27, 2026.
+
+```json
+{
+  "@context": ["https://www.w3.org/ns/activitystreams", {"fpdp": "https://github.com/kukuhtw/fpdp/ns#"}],
+  "type": "Create",
+  "actor": "https://seller.example/@owner",
+  "object": {
+    "id": "https://seller.example/shop/{product-id}",
+    "type": "Note",
+    "attributedTo": "https://seller.example/@owner",
+    "name": "Kaos Edisi Terbatas",
+    "content": "<p><strong>Kaos Edisi Terbatas</strong> — IDR 150.000</p>…",
+    "url": "https://seller.example/shop/{product-id}",
+    "fpdp:product": {
+      "price": "150000.00",
+      "currency": "IDR",
+      "productType": "PHYSICAL",
+      "checkoutUrl": "https://seller.example/shop/{product-id}"
+    }
+  }
+}
+```
+
+- **Lifecycle:** `Create` when a product becomes promoted, `ACTIVE`, and not `PRIVATE`; `Update` while it stays so; `Delete` with a `Tombstone` when it is archived, made private, or no longer promoted. A later `Create` for the same id restores it.
+- **Buying is link checkout.** There is no cross-node order protocol: every buyer, including the owner of another FPDP node, checks out as a visitor on the seller's node, where payment and fulfilment happen. A receiving FPDP node shows the product card with a "Buy on {seller}" link.
+- **Receiving side validation:** `price` numeric and ≥ 0, `currency` three uppercase letters, `productType` one of `PHYSICAL`/`DIGITAL`/`SERVICE` (else `PHYSICAL`), `checkoutUrl` https **on the actor's own host**. A block that fails any check is dropped and the Note is kept as an ordinary post.
+- **Ownership:** an object is only accepted from its author (id on the actor's host, `attributedTo` equal to the actor), and `Update`/`Delete` only apply to objects the sending actor created; a late `Update` never revives a deleted object. All inbox activities must be HTTP-signed by the actor itself (§14).
+- **Not included:** stock/availability (products have no inventory yet), and native cross-node orders (explicitly deferred).
+
 ## 12. Suggested API and service boundaries
 
 Public federation endpoints depend on the selected protocol, but internal FPDP services should remain explicit:

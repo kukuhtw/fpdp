@@ -362,10 +362,17 @@ assert_that((float) $checkoutData['order']['total_amount'] === 50000.0, 'Order t
 assert_that($checkoutData['payment']['gateway'] === 'DUMMY', 'Checkout payment was not created via the active DUMMY gateway');
 assert_that($checkoutData['order']['buyer_email'] === 'buyer@example.com', "Order did not capture the visitor's email as buyer_email");
 
-// A store owner or anyone with the order id can still read it back publicly (unguessable UUID = access control, same as elsewhere).
+// The order holds the buyer's personal data: only the buyer (the payment
+// thank-you page) and the store owner may read it. An order id alone is not
+// enough — it travels in the thank-you URL, browser history, and logs.
 $orderId = $checkoutData['order']['public_id'];
-$readOrder = $router->dispatch(new Request('GET', "/api/v1/orders/{$orderId}"));
-assert_that($readOrder->status === 200 && json_decode($readOrder->body, true)['data']['status'] === 'COMPLETED', 'Order was not readable/COMPLETED after checkout');
+$readOrder = $router->dispatch(new Request('GET', "/api/v1/orders/{$orderId}", [], null, bearer($buyerToken)));
+assert_that($readOrder->status === 200 && json_decode($readOrder->body, true)['data']['status'] === 'COMPLETED', 'The buyer could not read their COMPLETED order');
+$ownerRead = $router->dispatch(new Request('GET', "/api/v1/orders/{$orderId}", [], null, bearer($ownerToken)));
+assert_that($ownerRead->status === 200, 'The store owner could not read the order');
+$anonymousRead = $router->dispatch(new Request('GET', "/api/v1/orders/{$orderId}"));
+assert_that($anonymousRead->status === 401, "An anonymous request must not read an order, got {$anonymousRead->status}");
+assert_that(!str_contains($anonymousRead->body, 'buyer@example.com'), 'An anonymous request must not see the buyer email');
 
 // 5. Checking out the digital product completes it too, unlocking the download for the actual buyer only.
 $digitalCheckout = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode([
@@ -382,6 +389,47 @@ assert_that($downloadWrongBuyer->status === 403, "A visitor who never bought thi
 $downloadOk = $router->dispatch(new Request('GET', "/api/v1/products/{$digitalId}/download", [], null, bearer($buyerToken)));
 assert_that($downloadOk->status === 200, "The actual buyer's digital download failed: {$downloadOk->body}");
 assert_that(json_decode($downloadOk->body, true)['data']['digital_asset_url'] === 'https://cdn.example.com/ebook.pdf', 'Download did not return the product\'s digital asset URL');
+
+// The paid download URL is only ever handed out by the purchase-gated
+// download endpoint above — never by the public product view.
+$publicDigital = $router->dispatch(new Request('GET', "/api/v1/products/{$digitalId}"));
+assert_that($publicDigital->status === 200 && !str_contains($publicDigital->body, 'cdn.example.com/ebook.pdf'), 'The public product view must not expose the paid download URL');
+$buyerDigital = $router->dispatch(new Request('GET', "/api/v1/products/{$digitalId}", [], null, bearer($otherToken)));
+assert_that(!str_contains($buyerDigital->body, 'cdn.example.com/ebook.pdf'), 'A visitor token must not unlock the download URL on the product view');
+$ownerDigital = $router->dispatch(new Request('GET', "/api/v1/products/{$digitalId}", [], null, bearer($ownerToken)));
+assert_that(json_decode($ownerDigital->body, true)['data']['digital_asset_url'] === 'https://cdn.example.com/ebook.pdf', 'The owner should still see the download URL of their own product');
+
+// The order is charged in the product's own currency, whatever the client sends.
+$usdAttempt = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode([
+    'items' => [['product_id' => $digitalId, 'quantity' => 1]], 'currency' => 'USD',
+]), bearer($buyerToken)));
+assert_that(json_decode($usdAttempt->body, true)['data']['order']['currency'] === 'IDR', 'A client-supplied currency must not override the product currency: ' . $usdAttempt->body);
+
+// One order cannot mix currencies.
+$connection->exec("UPDATE products SET currency = 'USD' WHERE public_id = '{$physicalId}'");
+$mixed = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode([
+    'items' => [['product_id' => $digitalId, 'quantity' => 1], ['product_id' => $physicalId, 'quantity' => 1]], 'shipping_address' => 'Jl. Contoh 1',
+]), bearer($buyerToken)));
+assert_that($mixed->status === 422 && str_contains($mixed->body, 'mixed_currencies'), "Mixing currencies in one order should be refused, got {$mixed->status}: {$mixed->body}");
+$connection->exec("UPDATE products SET currency = 'IDR' WHERE public_id = '{$physicalId}'");
+
+// A visitor cannot buy a PRIVATE product, even knowing its id.
+$connection->exec("UPDATE products SET visibility = 'PRIVATE' WHERE public_id = '{$digitalId}'");
+$privateBuy = $router->dispatch(new Request('POST', '/api/v1/profiles/shop/orders', [], json_encode([
+    'items' => [['product_id' => $digitalId, 'quantity' => 1]],
+]), bearer($buyerToken)));
+assert_that($privateBuy->status === 422, "Buying a PRIVATE product should be refused, got {$privateBuy->status}");
+$connection->exec("UPDATE products SET visibility = 'PUBLIC' WHERE public_id = '{$digitalId}'");
+
+// Another visitor cannot read someone else's order.
+$otherRead = $router->dispatch(new Request('GET', "/api/v1/orders/{$orderId}", [], null, bearer($otherToken)));
+assert_that($otherRead->status === 404, "Another visitor must not read someone else's order, got {$otherRead->status}");
+
+// A PRIVATE product is invisible to the public (404), but not to its owner.
+$connection->exec("UPDATE products SET visibility = 'PRIVATE' WHERE public_id = '{$digitalId}'");
+assert_that($router->dispatch(new Request('GET', "/api/v1/products/{$digitalId}"))->status === 404, 'A PRIVATE product must be 404 for the public');
+assert_that($router->dispatch(new Request('GET', "/api/v1/products/{$digitalId}", [], null, bearer($ownerToken)))->status === 200, 'The owner can still read their PRIVATE product');
+$connection->exec("UPDATE products SET visibility = 'PUBLIC' WHERE public_id = '{$digitalId}'");
 
 // 6. Fulfillment-webhook wiring for a REAL asynchronous gateway:
 // PaymentController::fulfill() must recognize a 'marketplace_order'
@@ -428,7 +476,7 @@ $webhook = $router->dispatch(new Request(
     ['x-webhook-secret' => $webhookSecret],
 ));
 assert_that($webhook->status === 200, "Webhook dispatch failed: {$webhook->body}");
-$afterWebhook = $router->dispatch(new Request('GET', "/api/v1/orders/{$pendingOrderId}"));
+$afterWebhook = $router->dispatch(new Request('GET', "/api/v1/orders/{$pendingOrderId}", [], null, bearer($buyerToken)));
 assert_that(json_decode($afterWebhook->body, true)['data']['status'] === 'COMPLETED', 'PaymentController::fulfill() did not complete the marketplace order via its webhook branch');
 
 unset($router, $marketplaceController, $paymentController, $marketplace, $paymentService, $profileService, $visitorAuth, $authService, $connection);

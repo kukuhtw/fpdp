@@ -105,12 +105,12 @@ function finbox_seed_remote_actor(PDO $db, string $handle, string $domain, strin
  *
  * @return array{headers: array<string, string>, body: string}
  */
-function finbox_sign_request(string $privateKeyPem, string $keyId, string $method, string $path, string $host, array $payload): array
+function finbox_sign_request(string $privateKeyPem, string $keyId, string $method, string $path, string $host, array $payload, ?string $date = null): array
 {
     $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     $headers = [
         'host' => $host,
-        'date' => HttpSignature::httpDate(),
+        'date' => $date ?? HttpSignature::httpDate(),
         'digest' => HttpSignature::digestHeader($body),
     ];
     $signingString = HttpSignature::buildSigningString($method, $path, $headers, HttpSignature::DEFAULT_SIGNED_HEADERS);
@@ -182,14 +182,27 @@ $forgedPayload = ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' =>
 // Signed with mallory's key but claiming to be alice's keyId — signature won't verify against alice's real public key.
 $forged = finbox_sign_request($otherRemote['privateKey'], $remote['keyId'], 'POST', $inboxPath, 'test.local', $forgedPayload);
 $forgedResult = $dispatch('POST', $inboxPath, $forged['body'], $forged['headers']);
-finbox_assert($forgedResult['status'] === 403, 'A signature made with the wrong private key should be rejected: ' . json_encode($forgedResult));
+finbox_assert($forgedResult['status'] === 401, 'A signature made with the wrong private key should be rejected: ' . json_encode($forgedResult));
 
-// ---- Test 6: an unsigned Follow from a known, non-blocked domain is still accepted, but unverified ----
+// ---- Test 5b: a VALID signature from another account cannot act as this actor ----
+// mallory signs correctly with her own key and keyId, but claims to be alice.
+$impersonationPayload = ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => 'https://attacker.example/activities/' . Uuid::v4(), 'type' => 'Follow', 'actor' => $remote['actorUri'], 'object' => 'https://test.local/@owner', 'published' => gmdate('c')];
+$impersonation = finbox_sign_request($otherRemote['privateKey'], $otherRemote['keyId'], 'POST', $inboxPath, 'test.local', $impersonationPayload);
+$impersonationResult = $dispatch('POST', $inboxPath, $impersonation['body'], $impersonation['headers']);
+finbox_assert($impersonationResult['status'] === 401 && str_contains($impersonationResult['body']['error']['message'], 'does not belong'), 'A key that belongs to a different actor must be refused: ' . json_encode($impersonationResult));
+
+// ---- Test 5c: a correctly signed request with a stale Date (a replay) is refused ----
+$replayPayload = ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => 'https://sender.example/activities/' . Uuid::v4(), 'type' => 'Follow', 'actor' => $remote['actorUri'], 'object' => 'https://test.local/@owner'];
+$replay = finbox_sign_request($remote['privateKey'], $remote['keyId'], 'POST', $inboxPath, 'test.local', $replayPayload, gmdate('D, d M Y H:i:s \G\M\T', time() - 3600));
+$replayResult = $dispatch('POST', $inboxPath, $replay['body'], $replay['headers']);
+finbox_assert($replayResult['status'] === 401 && str_contains($replayResult['body']['error']['message'], 'Date'), 'A signed request dated an hour ago should be refused: ' . json_encode($replayResult));
+
+// ---- Test 6: an unsigned Follow is refused and not recorded ----
 $unsignedId = 'https://sender.example/activities/' . Uuid::v4();
 $unsignedPayload = ['@context' => 'https://www.w3.org/ns/activitystreams', 'id' => $unsignedId, 'type' => 'Follow', 'actor' => $remote['actorUri'], 'object' => 'https://test.local/@owner', 'published' => gmdate('c')];
 $unsigned = $dispatch('POST', $inboxPath, json_encode($unsignedPayload), ['host' => 'test.local']);
-finbox_assert($unsigned['status'] === 202, 'Unsigned Follow should still be accepted: ' . json_encode($unsigned));
-finbox_assert($unsigned['body']['data']['verified'] === false, 'Unsigned Follow should be marked unverified');
+finbox_assert($unsigned['status'] === 401, 'An unsigned Follow must be refused: ' . json_encode($unsigned));
+finbox_assert((int) $db->query("SELECT COUNT(*) FROM federation_activities WHERE public_id = '{$unsignedId}'")->fetchColumn() === 0, 'A refused activity must not be recorded');
 
 // ---- Test 7: a Follow from a BLOCKED domain is rejected before signature verification ----
 finbox_seed_remote_actor($db, 'evil', 'blocked.example', 'BLOCKED');

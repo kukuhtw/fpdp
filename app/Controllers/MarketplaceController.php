@@ -45,9 +45,21 @@ final class MarketplaceController
         return JsonEnvelope::success($product, 201);
     }
 
+    /**
+     * Public product view; the owning node's owner additionally sees private
+     * and draft products and the external download URL.
+     */
     public function showProduct(Request $request, array $params): Response
     {
-        return JsonEnvelope::success($this->marketplace->getProduct($params['productId']));
+        $ownerNodeId = $this->optionalOwnerNodeId($request);
+        if ($ownerNodeId !== null) {
+            $product = $this->marketplace->getProduct($params['productId']);
+            if ((int) $product['node_id'] === $ownerNodeId) {
+                return JsonEnvelope::success($product);
+            }
+        }
+
+        return JsonEnvelope::success($this->marketplace->getPublicProduct($params['productId']));
     }
 
     /**
@@ -74,8 +86,20 @@ final class MarketplaceController
     public function updateProduct(Request $request, array $params): Response
     {
         $context = $this->auth->authenticate($request->bearerToken());
-        $product = $this->marketplace->updateProduct((int) $context['node']['id'], $params['productId'], $request->json() ?? []);
-        $this->federateProduct((int) $context['node']['id'], $product, 'Update');
+        $nodeId = (int) $context['node']['id'];
+        $before = $this->marketplace->getProduct($params['productId']);
+        $product = $this->marketplace->updateProduct($nodeId, $params['productId'], $request->json() ?? []);
+
+        // Followers see a product only while it's promoted, active, and not
+        // private: entering that state is a Create, staying in it an Update,
+        // leaving it a Delete that withdraws it from their timelines.
+        $wasFederated = FederationService::isFederatableProduct($before);
+        if (FederationService::isFederatableProduct($product)) {
+            $this->federateProduct($nodeId, $product, $wasFederated ? 'Update' : 'Create');
+        } elseif ($wasFederated) {
+            $this->federateProduct($nodeId, $before, 'Delete');
+        }
+
         return JsonEnvelope::success($product);
     }
 
@@ -120,9 +144,35 @@ final class MarketplaceController
         return JsonEnvelope::success($order, 201);
     }
 
+    /**
+     * The selling node's owner, or the visitor who placed the order (the
+     * payment thank-you page) — nobody else.
+     */
     public function showOrder(Request $request, array $params): Response
     {
-        return JsonEnvelope::success($this->marketplace->getOrder($params['orderId']));
+        $ownerNodeId = $this->optionalOwnerNodeId($request);
+        if ($ownerNodeId !== null) {
+            return JsonEnvelope::success($this->marketplace->getOrder($params['orderId'], $ownerNodeId));
+        }
+
+        return JsonEnvelope::success($this->marketplace->getOrder($params['orderId'], null, (int) $this->requireVisitor($request)['id']));
+    }
+
+    /**
+     * The owner's node id when the bearer token is an owner token, null for
+     * a visitor token or no token (those endpoints then fall back to their
+     * public/visitor behaviour).
+     */
+    private function optionalOwnerNodeId(Request $request): ?int
+    {
+        if ($request->bearerToken() === null || $request->bearerToken() === '') {
+            return null;
+        }
+        try {
+            return (int) $this->auth->authenticate($request->bearerToken())['node']['id'];
+        } catch (\App\Core\Exceptions\UnauthorizedException) {
+            return null;
+        }
     }
 
     /**

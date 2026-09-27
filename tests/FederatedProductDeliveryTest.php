@@ -123,6 +123,42 @@ fprod_assert($privatePromoted['status'] === 201, 'Private product creation shoul
 $afterCount = (int) $db->query('SELECT COUNT(*) FROM federation_activities')->fetchColumn();
 fprod_assert($afterCount === $beforeCount, 'A PRIVATE product must never be federated even if is_promoted is true');
 
+// ---- Test 5: the Note carries a structured fpdp:product block other FPDP nodes can read ----
+fprod_assert(in_array(['fpdp' => 'https://github.com/kukuhtw/fpdp/ns#'], (array) $payload['@context'], true), 'The activity @context should declare the fpdp namespace: ' . json_encode($payload['@context']));
+fprod_assert($payload['object']['fpdp:product'] === [
+    'price' => '150000.00', 'currency' => 'IDR', 'productType' => 'PHYSICAL', 'checkoutUrl' => "https://test.local/shop/{$productPublicId}",
+], 'fpdp:product should carry price, currency, type, and the checkout URL: ' . json_encode($payload['object']['fpdp:product'] ?? null));
+fprod_assert($updatePayload['object']['fpdp:product']['price'] === '175000.00', 'An Update should carry the new structured price');
+
+$latestActivity = static fn () => $db->query('SELECT * FROM federation_activities ORDER BY id DESC LIMIT 1')->fetch();
+$activityCount = static fn (): int => (int) $db->query('SELECT COUNT(*) FROM federation_activities')->fetchColumn();
+
+// ---- Test 6: un-promoting withdraws the product with a Delete + Tombstone ----
+$unpromote = $dispatch('PATCH', "/api/v1/products/{$productPublicId}", json_encode(['is_promoted' => false]), $authHeader);
+fprod_assert($unpromote['status'] === 200, 'Un-promoting should succeed: ' . json_encode($unpromote));
+$delete = $latestActivity();
+$deletePayload = json_decode($delete['payload'], true);
+fprod_assert($delete['activity_type'] === 'Delete' && $deletePayload['object'] === ['id' => "https://test.local/shop/{$productPublicId}", 'type' => 'Tombstone'], 'Un-promoting should queue a Delete of the product as a Tombstone: ' . json_encode($deletePayload));
+fprod_assert($delete['target_actor_uri'] === $followerActorUri, 'The Delete should reach the same follower');
+
+// ---- Test 7: editing a product that isn't federated sends nothing ----
+$countBefore = $activityCount();
+$dispatch('PATCH', "/api/v1/products/{$productPublicId}", json_encode(['price' => 180000]), $authHeader);
+fprod_assert($activityCount() === $countBefore, 'Editing an un-promoted product must not send anything');
+
+// ---- Test 8: promoting it again is a fresh Create ----
+$dispatch('PATCH', "/api/v1/products/{$productPublicId}", json_encode(['is_promoted' => true]), $authHeader);
+fprod_assert($latestActivity()['activity_type'] === 'Create', 'Re-promoting should send a Create, not an Update');
+
+// ---- Test 9: making it private, or archiving it, withdraws it too ----
+$dispatch('PATCH', "/api/v1/products/{$productPublicId}", json_encode(['visibility' => 'PRIVATE']), $authHeader);
+fprod_assert($latestActivity()['activity_type'] === 'Delete', 'Making a promoted product PRIVATE should send a Delete');
+$dispatch('PATCH', "/api/v1/products/{$productPublicId}", json_encode(['visibility' => 'PUBLIC']), $authHeader);
+fprod_assert($latestActivity()['activity_type'] === 'Create', 'Making it PUBLIC again should send a Create');
+$archive = $dispatch('PATCH', "/api/v1/products/{$productPublicId}", json_encode(['status' => 'ARCHIVED']), $authHeader);
+fprod_assert($archive['status'] === 200 && $archive['body']['data']['status'] === 'ARCHIVED', 'Archiving a product must succeed (it used to crash): ' . json_encode($archive));
+fprod_assert($latestActivity()['activity_type'] === 'Delete', 'Archiving a promoted product should send a Delete');
+
 Database::reset();
 unset($db, $router, $dispatch);
 @unlink($envPath);
