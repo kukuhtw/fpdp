@@ -406,8 +406,8 @@ $buildDashboardController = static function () use ($buildAuthService, $buildFed
     );
 };
 
-$buildAnalyticsController = static function () use ($buildAuthService, $buildProfileService, $buildAnalyticsService): AnalyticsController {
-    return new AnalyticsController($buildAuthService(), $buildProfileService(), $buildAnalyticsService());
+$buildAnalyticsController = static function () use ($buildAuthService, $buildProfileService, $buildAnalyticsService, $buildRateLimiter): AnalyticsController {
+    return new AnalyticsController($buildAuthService(), $buildProfileService(), $buildAnalyticsService(), $buildRateLimiter(), new NodeRepository(Database::connection()));
 };
 $buildMarketplaceController = static function () use ($buildAuthService, $buildAnalyticsService, $buildMarketplaceService, $buildVisitorAuthService, $productAssetStorageDirectory, $buildFederationService, $buildAuditService): MarketplaceController {
     $connection = Database::connection();
@@ -843,6 +843,14 @@ $router->post('/api/v1/profiles/{handle}/chatbot/messages', function (Request $r
 
 $router->get('/api/v1/me/dashboard/analytics', function (Request $request, array $params) use ($buildAnalyticsController): Response {
     return $buildAnalyticsController()->summary($request);
+});
+
+$router->get('/api/v1/me/analytics', function (Request $request, array $params) use ($buildAnalyticsController): Response {
+    return $buildAnalyticsController()->report($request);
+});
+
+$router->post('/api/v1/track/outbound-click', function (Request $request, array $params) use ($buildAnalyticsController): Response {
+    return $buildAnalyticsController()->trackOutboundClickForNode($request);
 });
 
 $router->post('/api/v1/profiles/{handle}/track/outbound-click', function (Request $request, array $params) use ($buildAnalyticsController): Response {

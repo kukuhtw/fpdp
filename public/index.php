@@ -8,7 +8,10 @@ use App\Core\Http\JsonEnvelope;
 use App\Core\I18n;
 use App\Core\Http\Request;
 use App\Core\Router;
+use App\Repositories\AnalyticsEventRepository;
 use App\Repositories\NodeRepository;
+use App\Services\Analytics\AnalyticsService;
+use App\Services\Analytics\PageViewTracker;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -73,3 +76,20 @@ if ($languageCookie !== null && !headers_sent()) {
 }
 
 $response->send();
+
+// Count the visit only after the page is on its way to the visitor, so
+// analytics can never slow a page down or break it.
+if (isset($request) && $response->status === 200 && $request->method === 'GET') {
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+    try {
+        $connection = Database::connection();
+        (new PageViewTracker(
+            new AnalyticsService(new AnalyticsEventRepository($connection)),
+            static fn (): ?int => ($node = (new NodeRepository($connection))->findFirst()) !== null ? (int) $node['id'] : null,
+        ))->track($request, $response);
+    } catch (\Throwable $e) {
+        error_log('[analytics] page view not recorded: ' . $e->getMessage());
+    }
+}

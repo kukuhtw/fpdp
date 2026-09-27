@@ -94,7 +94,7 @@ $t = static fn (string $key): string => \App\Core\View::t($key);
     <div class="fed-arrow">⇄</div>
     <div class="fed-node"><div class="domain">maya.id</div><div class="handle">@maya</div><div><?= $t('about.action.role_friend') ?></div></div>
     <div class="fed-arrow">⇄</div>
-    <div class="fed-node"><div class="domain">mastodon.social</div><div class="handle">@ari</div><div><?= $t('about.action.role_colleague') ?></div></div>
+    <div class="fed-node"><div class="domain">mastodon.social</div><div class="handle">@kukuhtw</div><div><?= $t('about.action.role_mastodon') ?></div></div>
   </div>
   <ol>
     <li><?= $t('about.action.find') ?></li>
