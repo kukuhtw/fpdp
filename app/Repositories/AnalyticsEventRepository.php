@@ -88,18 +88,12 @@ final class AnalyticsEventRepository
     public function topPages(int $nodeId, string $sinceDate, string $untilDate, int $limit): array
     {
         $statement = $this->connection->prepare(
-            "SELECT t.event_type, t.subject_type, t.subject_public_id, t.views, t.visits,
-                    p.id AS post_id, p.title AS post_title, pr.title AS product_title
-             FROM (
-                 SELECT event_type, subject_type, subject_public_id, COUNT(*) AS views, COUNT(DISTINCT visitor_hash) AS visits
-                 FROM analytics_events
-                 WHERE node_id = :node_id AND occurred_on >= :since_date AND occurred_on <= :until_date
-                   AND event_type IN ('PAGE_VIEW', 'PROFILE_VIEW', 'POST_VIEW')
-                 GROUP BY event_type, subject_type, subject_public_id
-             ) t
-             LEFT JOIN posts p ON t.subject_type = 'post' AND (p.public_id = t.subject_public_id OR CAST(p.id AS CHAR) = t.subject_public_id)
-             LEFT JOIN products pr ON t.subject_type = 'product' AND pr.public_id = t.subject_public_id
-             ORDER BY t.views DESC, t.visits DESC
+            "SELECT event_type, subject_type, subject_public_id, COUNT(*) AS views, COUNT(DISTINCT visitor_hash) AS visits
+             FROM analytics_events
+             WHERE node_id = :node_id AND occurred_on >= :since_date AND occurred_on <= :until_date
+               AND event_type IN ('PAGE_VIEW', 'PROFILE_VIEW', 'POST_VIEW')
+             GROUP BY event_type, subject_type, subject_public_id
+             ORDER BY views DESC, visits DESC
              LIMIT :limit",
         );
         $statement->bindValue('node_id', $nodeId, PDO::PARAM_INT);
@@ -107,8 +101,92 @@ final class AnalyticsEventRepository
         $statement->bindValue('until_date', $untilDate);
         $statement->bindValue('limit', $limit, PDO::PARAM_INT);
         $statement->execute();
+        $rows = $statement->fetchAll();
 
-        return $statement->fetchAll();
+        // Titles are looked up separately rather than JOINed: comparing
+        // analytics_events.subject_public_id with posts/products columns
+        // (and with CAST(p.id AS CHAR)) in SQL fails with "Illegal mix of
+        // collations" when the tables and the connection differ, e.g. a
+        // database moved from MariaDB to MySQL 8.
+        $postKeys = [];
+        $productKeys = [];
+        foreach ($rows as $row) {
+            if ($row['subject_public_id'] === null) {
+                continue;
+            }
+            if ($row['subject_type'] === 'post') {
+                $postKeys[] = (string) $row['subject_public_id'];
+            } elseif ($row['subject_type'] === 'product') {
+                $productKeys[] = (string) $row['subject_public_id'];
+            }
+        }
+        $posts = $this->postsByKey($postKeys);
+        $products = $this->productTitlesByPublicId($productKeys);
+
+        foreach ($rows as &$row) {
+            $key = $row['subject_public_id'] !== null ? (string) $row['subject_public_id'] : null;
+            $post = $row['subject_type'] === 'post' && $key !== null ? ($posts[$key] ?? null) : null;
+            $row['post_id'] = $post['id'] ?? null;
+            $row['post_title'] = $post['title'] ?? null;
+            $row['product_title'] = $row['subject_type'] === 'product' && $key !== null ? ($products[$key] ?? null) : null;
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    /**
+     * Posts recorded by public id or by numeric id, keyed by that same value.
+     *
+     * @param array<int, string> $keys
+     * @return array<string, array{id: int, title: string|null}>
+     */
+    private function postsByKey(array $keys): array
+    {
+        $keys = array_values(array_unique($keys));
+        if ($keys === []) {
+            return [];
+        }
+        $ids = array_values(array_map('intval', array_filter($keys, static fn (string $k): bool => ctype_digit($k))));
+        $placeholders = implode(', ', array_fill(0, count($keys), '?'));
+        $sql = "SELECT id, public_id, title FROM posts WHERE public_id IN ({$placeholders})";
+        if ($ids !== []) {
+            $sql .= ' OR id IN (' . implode(', ', array_fill(0, count($ids), '?')) . ')';
+        }
+        $statement = $this->connection->prepare($sql);
+        $statement->execute([...$keys, ...$ids]);
+
+        $byKey = [];
+        foreach ($statement->fetchAll() as $post) {
+            $entry = ['id' => (int) $post['id'], 'title' => $post['title'] !== null ? (string) $post['title'] : null];
+            $byKey[(string) $post['public_id']] = $entry;
+            $byKey[(string) $post['id']] = $entry;
+        }
+
+        return $byKey;
+    }
+
+    /**
+     * @param array<int, string> $publicIds
+     * @return array<string, string|null>
+     */
+    private function productTitlesByPublicId(array $publicIds): array
+    {
+        $publicIds = array_values(array_unique($publicIds));
+        if ($publicIds === []) {
+            return [];
+        }
+        $statement = $this->connection->prepare(
+            'SELECT public_id, title FROM products WHERE public_id IN (' . implode(', ', array_fill(0, count($publicIds), '?')) . ')',
+        );
+        $statement->execute($publicIds);
+
+        $titles = [];
+        foreach ($statement->fetchAll() as $product) {
+            $titles[(string) $product['public_id']] = $product['title'] !== null ? (string) $product['title'] : null;
+        }
+
+        return $titles;
     }
 
     /**

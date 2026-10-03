@@ -166,18 +166,37 @@ final class AnalyticsService
                 'visits' => $day['unique_visitors'],
                 'page_views' => $day['views'],
             ], $daily),
-            'top_pages' => array_map([self::class, 'presentPage'], $this->events->topPages($nodeId, $since, $until, self::REPORT_LIST_LIMIT)),
+            'top_pages' => array_map([self::class, 'presentPage'], self::section('top_pages', fn (): array => $this->events->topPages($nodeId, $since, $until, self::REPORT_LIST_LIMIT))),
             'referrers' => array_map(static fn (array $row): array => [
                 'host' => (string) $row['referrer_host'],
                 'page_views' => (int) $row['views'],
                 'visits' => (int) $row['visits'],
-            ], $this->events->topReferrers($nodeId, $since, $until, self::REPORT_LIST_LIMIT)),
+            ], self::section('referrers', fn (): array => $this->events->topReferrers($nodeId, $since, $until, self::REPORT_LIST_LIMIT))),
             'outbound' => array_map(static fn (array $row): array => [
                 'url' => (string) $row['url'],
                 'host' => (string) parse_url((string) $row['url'], PHP_URL_HOST),
                 'clicks' => (int) $row['clicks'],
-            ], $this->events->topOutbound($nodeId, $since, $until, self::REPORT_LIST_LIMIT)),
+            ], self::section('outbound', fn (): array => $this->events->topOutbound($nodeId, $since, $until, self::REPORT_LIST_LIMIT))),
         ];
+    }
+
+    /**
+     * One list on the Analytics page. A failing query (e.g. a migration not
+     * yet applied on the server) empties that list and is logged, instead of
+     * turning the whole page into a 500.
+     *
+     * @param callable(): array<int, array<string, mixed>> $query
+     * @return array<int, array<string, mixed>>
+     */
+    private static function section(string $name, callable $query): array
+    {
+        try {
+            return $query();
+        } catch (Throwable $e) {
+            error_log(sprintf('[analytics] report section "%s" failed: %s', $name, $e->getMessage()));
+
+            return [];
+        }
     }
 
     /**
